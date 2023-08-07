@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Version","VersionBuilder","VersionControl"],"type":["VersionControlRef","VersionRef"]};

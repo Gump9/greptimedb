@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_http_response_by_prefix","get_keys_by_prefix","to_http_response"],"struct":["CatalogsHandler","SchemasHandler","TableHandler","TablesHandler"]};
