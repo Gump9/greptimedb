@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["ScriptExecutor"]};
+window.SIDEBAR_ITEMS = {"struct":["ScriptExecutor"]};

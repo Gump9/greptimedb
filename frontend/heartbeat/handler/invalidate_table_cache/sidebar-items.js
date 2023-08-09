@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["InvalidateTableCacheHandler"]};
+window.SIDEBAR_ITEMS = {"struct":["InvalidateTableCacheHandler"]};

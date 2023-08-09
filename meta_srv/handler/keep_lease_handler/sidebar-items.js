@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["KeepLeaseHandler"]};
+window.SIDEBAR_ITEMS = {"struct":["KeepLeaseHandler"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["EngineInner","ImmutableFileTableEngine"]};
+window.SIDEBAR_ITEMS = {"struct":["EngineInner","ImmutableFileTableEngine"]};

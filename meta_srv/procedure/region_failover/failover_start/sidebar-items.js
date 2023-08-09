@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["RegionFailoverStart"]};
+window.SIDEBAR_ITEMS = {"struct":["RegionFailoverStart"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["RegionManifestCheckpointer"],"type":["RegionManifest"]};
+window.SIDEBAR_ITEMS = {"struct":["RegionManifestCheckpointer"],"type":["RegionManifest"]};

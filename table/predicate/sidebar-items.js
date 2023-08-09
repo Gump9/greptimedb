@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["stats"],"static":["CALLSITE"],"struct":["Predicate","TimeRangePredicateBuilder"]};
+window.SIDEBAR_ITEMS = {"mod":["stats"],"struct":["Predicate","TimeRangePredicateBuilder"]};

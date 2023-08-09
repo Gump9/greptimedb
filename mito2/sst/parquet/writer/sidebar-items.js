@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["ParquetWriter"]};
+window.SIDEBAR_ITEMS = {"struct":["ParquetWriter"]};

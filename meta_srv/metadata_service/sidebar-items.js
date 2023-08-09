@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["DefaultMetadataService"],"trait":["MetadataService"],"type":["MetadataServiceRef"]};
+window.SIDEBAR_ITEMS = {"struct":["DefaultMetadataService"],"trait":["MetadataService"],"type":["MetadataServiceRef"]};

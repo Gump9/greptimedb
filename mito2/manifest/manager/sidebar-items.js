@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["RegionManifestManager","RegionManifestManagerInner"]};
+window.SIDEBAR_ITEMS = {"struct":["RegionManifestManager","RegionManifestManagerInner"]};

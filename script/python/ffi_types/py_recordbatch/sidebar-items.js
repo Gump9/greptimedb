@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["AS_MAPPING","CELL"],"struct":["PyRecordBatch"]};
+window.SIDEBAR_ITEMS = {"struct":["PyRecordBatch"]};

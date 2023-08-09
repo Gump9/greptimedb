@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["DefaultPublish"],"trait":["Publish"],"type":["PublishRef"]};
+window.SIDEBAR_ITEMS = {"struct":["DefaultPublish"],"trait":["Publish"],"type":["PublishRef"]};

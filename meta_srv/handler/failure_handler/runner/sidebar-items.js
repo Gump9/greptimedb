@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["BRANCHES"],"enum":["FailureDetectControl"],"static":["CALLSITE"],"struct":["FailureDetectRunner","FailureDetectorContainer","FailureDetectorEntry"]};
+window.SIDEBAR_ITEMS = {"enum":["FailureDetectControl"],"struct":["FailureDetectRunner","FailureDetectorContainer","FailureDetectorEntry"]};

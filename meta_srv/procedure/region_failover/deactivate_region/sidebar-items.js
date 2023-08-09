@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["DeactivateRegion"]};
+window.SIDEBAR_ITEMS = {"struct":["DeactivateRegion"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["__with_ty__"],"struct":["Polyval","PolyvalAccumulatorCreator"]};
+window.SIDEBAR_ITEMS = {"struct":["Polyval","PolyvalAccumulatorCreator"]};

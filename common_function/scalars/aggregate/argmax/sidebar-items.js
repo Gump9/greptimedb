@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["__with_ty__"],"struct":["Argmax","ArgmaxAccumulatorCreator"]};
+window.SIDEBAR_ITEMS = {"struct":["Argmax","ArgmaxAccumulatorCreator"]};

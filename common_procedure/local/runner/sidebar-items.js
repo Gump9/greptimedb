@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ExecResult"],"static":["CALLSITE"],"struct":["ProcedureGuard","Runner"]};
+window.SIDEBAR_ITEMS = {"enum":["ExecResult"],"struct":["ProcedureGuard","Runner"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["CloseRegionHandler"]};
+window.SIDEBAR_ITEMS = {"struct":["CloseRegionHandler"]};

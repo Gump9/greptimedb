@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["__with_ty__"],"struct":["Mean","MeanAccumulatorCreator"]};
+window.SIDEBAR_ITEMS = {"struct":["Mean","MeanAccumulatorCreator"]};

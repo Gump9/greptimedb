@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["BRANCHES"],"fn":["resolve_addr"],"mod":["handler"],"static":["CALLSITE"],"struct":["HeartbeatTask"]};
+window.SIDEBAR_ITEMS = {"fn":["resolve_addr"],"mod":["handler"],"struct":["HeartbeatTask"]};

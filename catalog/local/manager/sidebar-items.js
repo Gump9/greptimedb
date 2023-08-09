@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["LocalCatalogManager"]};
+window.SIDEBAR_ITEMS = {"struct":["LocalCatalogManager"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["POSTGRES_SERVER"],"static":["CALLSITE"],"struct":["PostgresServer"]};
+window.SIDEBAR_ITEMS = {"constant":["POSTGRES_SERVER"],"struct":["PostgresServer"]};

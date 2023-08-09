@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["FrontendCatalogManager"]};
+window.SIDEBAR_ITEMS = {"struct":["FrontendCatalogManager"]};

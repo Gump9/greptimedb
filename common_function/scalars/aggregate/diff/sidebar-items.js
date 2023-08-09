@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["__with_ty__"],"struct":["Diff","DiffAccumulatorCreator"]};
+window.SIDEBAR_ITEMS = {"struct":["Diff","DiffAccumulatorCreator"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE"],"struct":["FlightRecordBatchStream"]};
+window.SIDEBAR_ITEMS = {"struct":["FlightRecordBatchStream"]};

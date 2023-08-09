@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["scalar_pow"],"macro":["__with_ty__"],"struct":["PowFunction"]};
+window.SIDEBAR_ITEMS = {"fn":["scalar_pow"],"struct":["PowFunction"]};

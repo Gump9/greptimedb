@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_query_context"],"static":["CALLSITE"],"struct":["GreptimeRequestHandler","RequestTimer"]};
+window.SIDEBAR_ITEMS = {"fn":["create_query_context"],"struct":["GreptimeRequestHandler","RequestTimer"]};

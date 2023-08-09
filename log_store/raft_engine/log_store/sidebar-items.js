@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["NAMESPACE_PREFIX","SYSTEM_NAMESPACE"],"static":["CALLSITE"],"struct":["MessageType","PurgeExpiredFilesFunction","RaftEngineLogStore"]};
+window.SIDEBAR_ITEMS = {"constant":["NAMESPACE_PREFIX","SYSTEM_NAMESPACE"],"struct":["MessageType","PurgeExpiredFilesFunction","RaftEngineLogStore"]};

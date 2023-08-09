@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["__with_ty__"],"struct":["ScipyStatsNormCdf","ScipyStatsNormCdfAccumulatorCreator"]};
+window.SIDEBAR_ITEMS = {"struct":["ScipyStatsNormCdf","ScipyStatsNormCdfAccumulatorCreator"]};
