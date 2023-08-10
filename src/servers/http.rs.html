@@ -1010,8 +1010,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{AlreadyStartedSnafu, <span class="prelude-ty">Result</span>, StartHttpSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::http::admin::{compact, flush};
 <span class="kw">use </span><span class="kw">crate</span>::metrics::{
-    METRIC_HTTP_REQUESTS_ELAPSED, METRIC_HTTP_REQUESTS_TOTAL, METRIC_METHOD_LABEL,
-    METRIC_PATH_LABEL, METRIC_STATUS_LABEL,
+    METRIC_CODE_LABEL, METRIC_HTTP_REQUESTS_ELAPSED, METRIC_HTTP_REQUESTS_TOTAL,
+    METRIC_METHOD_LABEL, METRIC_PATH_LABEL,
 };
 <span class="kw">use </span><span class="kw">crate</span>::metrics_handler::MetricsHandler;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::grpc::ServerGrpcQueryHandlerRef;
@@ -1650,7 +1650,7 @@
     <span class="kw">let </span>labels = [
         (METRIC_METHOD_LABEL, method.to_string()),
         (METRIC_PATH_LABEL, path),
-        (METRIC_STATUS_LABEL, status),
+        (METRIC_CODE_LABEL, status),
     ];
 
     <span class="macro">metrics::increment_counter!</span>(METRIC_HTTP_REQUESTS_TOTAL, <span class="kw-2">&amp;</span>labels);

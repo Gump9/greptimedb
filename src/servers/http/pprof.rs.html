@@ -96,6 +96,9 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -111,6 +114,9 @@
 // limitations under the License.
 
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;pprof&quot;</span>)]
+</span><span class="kw">mod </span>nix;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;pprof&quot;</span>)]
 </span><span class="kw">pub mod </span>handler {
     <span class="kw">use </span>std::num::NonZeroI32;
     <span class="kw">use </span>std::time::Duration;
@@ -118,13 +124,13 @@
     <span class="kw">use </span>axum::extract::Query;
     <span class="kw">use </span>axum::http::StatusCode;
     <span class="kw">use </span>axum::response::IntoResponse;
-    <span class="kw">use </span>common_pprof::Profiling;
     <span class="kw">use </span>common_telemetry::logging;
     <span class="kw">use </span>schemars::JsonSchema;
     <span class="kw">use </span>serde::{Deserialize, Serialize};
     <span class="kw">use </span>snafu::ResultExt;
 
     <span class="kw">use </span><span class="kw">crate</span>::error::{DumpPprofSnafu, <span class="prelude-ty">Result</span>};
+    <span class="kw">use </span><span class="kw">crate</span>::http::pprof::nix::Profiling;
 
     <span class="doccomment">/// Output format.
     </span><span class="attr">#[derive(Debug, Serialize, Deserialize, JsonSchema)]

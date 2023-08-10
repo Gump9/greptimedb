@@ -237,6 +237,7 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -287,6 +288,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::optimizer::string_normalization::StringNormalizationRule;
 <span class="kw">use </span><span class="kw">crate</span>::optimizer::type_conversion::TypeConversionRule;
 <span class="kw">use </span><span class="kw">crate</span>::query_engine::options::QueryOptions;
+<span class="kw">use </span><span class="kw">crate</span>::range_select::planner::RangeSelectPlanner;
 
 <span class="doccomment">/// Query engine global state
 </span><span class="comment">// TODO(yingwen): This QueryEngineState still relies on datafusion, maybe we can define a trait for it,
@@ -466,7 +468,7 @@
         catalog_manager: CatalogManagerRef,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>planners: Vec&lt;Arc&lt;<span class="kw">dyn </span>ExtensionPlanner + Send + Sync&gt;&gt; =
-            <span class="macro">vec!</span>[Arc::new(PromExtensionPlanner)];
+            <span class="macro">vec!</span>[Arc::new(PromExtensionPlanner), Arc::new(RangeSelectPlanner)];
         <span class="kw">if let </span><span class="prelude-val">Some</span>(partition_manager) = partition_manager
          &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(datanode_clients) = datanode_clients {
             planners.push(Arc::new(DistExtensionPlanner::new(partition_manager, datanode_clients, catalog_manager)));

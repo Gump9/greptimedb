@@ -304,6 +304,13 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -466,6 +473,13 @@
     <span class="kw">use </span><span class="kw">crate</span>::kv_backend::memory::MemoryKvBackend;
     <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackend;
     <span class="kw">use </span><span class="kw">crate</span>::rpc::store::PutRequest;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_deserialization_compatibility() {
+        <span class="kw">let </span>s = <span class="string">r#&quot;{&quot;version&quot;:1,&quot;table_info&quot;:{&quot;ident&quot;:{&quot;table_id&quot;:8714,&quot;version&quot;:0},&quot;name&quot;:&quot;go_gc_duration_seconds&quot;,&quot;desc&quot;:&quot;Created on insertion&quot;,&quot;catalog_name&quot;:&quot;e87lehzy63d4cloud_docs_test&quot;,&quot;schema_name&quot;:&quot;public&quot;,&quot;meta&quot;:{&quot;schema&quot;:{&quot;column_schemas&quot;:[{&quot;name&quot;:&quot;instance&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;job&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;quantile&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;greptime_timestamp&quot;,&quot;data_type&quot;:{&quot;Timestamp&quot;:{&quot;Millisecond&quot;:null}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:true,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{&quot;greptime:time_index&quot;:&quot;true&quot;}},{&quot;name&quot;:&quot;greptime_value&quot;,&quot;data_type&quot;:{&quot;Float64&quot;:{}},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}}],&quot;timestamp_index&quot;:3,&quot;version&quot;:0},&quot;primary_key_indices&quot;:[0,1,2],&quot;value_indices&quot;:[],&quot;engine&quot;:&quot;mito&quot;,&quot;next_column_id&quot;:5,&quot;region_numbers&quot;:[],&quot;engine_options&quot;:{},&quot;options&quot;:{&quot;write_buffer_size&quot;:null,&quot;ttl&quot;:null,&quot;extra_options&quot;:{}},&quot;created_on&quot;:&quot;1970-01-01T00:00:00Z&quot;},&quot;table_type&quot;:&quot;Base&quot;}}&quot;#</span>;
+        <span class="kw">let </span>v = TableInfoValue::try_from_raw_value(s.as_bytes().to_vec()).unwrap();
+        <span class="macro">assert!</span>(v.table_info.meta.partition_key_indices.is_empty());
+    }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_table_info_manager() {

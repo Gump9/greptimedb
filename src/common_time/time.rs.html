@@ -407,9 +407,6 @@
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -427,12 +424,12 @@
 </span><span class="kw">use </span>std::cmp::Ordering;
 <span class="kw">use </span>std::hash::{Hash, Hasher};
 
-<span class="kw">use </span>chrono::offset::Local;
 <span class="kw">use </span>chrono::{NaiveDateTime, NaiveTime, TimeZone <span class="kw">as </span>ChronoTimeZone, Utc};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">crate</span>::timestamp::TimeUnit;
 <span class="kw">use </span><span class="kw">crate</span>::timezone::TimeZone;
+<span class="kw">use </span><span class="kw">crate</span>::util::format_utc_datetime;
 
 <span class="doccomment">/// Time value, represents the elapsed time since midnight in the unit of `TimeUnit`.
 </span><span class="attr">#[derive(Debug, Clone, Default, Copy, Serialize, Deserialize)]
@@ -531,10 +528,7 @@
                 <span class="prelude-val">Some</span>(TimeZone::Named(tz)) =&gt; {
                     <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, tz.from_utc_datetime(<span class="kw-2">&amp;</span>datetime).format(pattern))
                 }
-                <span class="prelude-val">None </span>=&gt; {
-                    <span class="kw">let </span>local = Local {};
-                    <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, local.from_utc_datetime(<span class="kw-2">&amp;</span>datetime).format(pattern))
-                }
+                <span class="prelude-val">None </span>=&gt; format_utc_datetime(<span class="kw-2">&amp;</span>datetime, pattern),
             }
         } <span class="kw">else </span>{
             <span class="macro">format!</span>(<span class="string">&quot;[Time{}: {}]&quot;</span>, <span class="self">self</span>.unit, <span class="self">self</span>.value)

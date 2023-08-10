@@ -156,6 +156,11 @@
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -173,13 +178,14 @@
 </span><span class="kw">use </span>std::fmt::Display;
 <span class="kw">use </span>std::str::FromStr;
 
-<span class="kw">use </span>chrono::{FixedOffset, Local};
+<span class="kw">use </span>chrono::{FixedOffset, Local, Offset};
 <span class="kw">use </span>chrono_tz::Tz;
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     InvalidTimeZoneOffsetSnafu, ParseOffsetStrSnafu, ParseTimeZoneNameSnafu, <span class="prelude-ty">Result</span>,
 };
+<span class="kw">use </span><span class="kw">crate</span>::util::find_tz_from_env;
 
 <span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>TimeZone {
@@ -245,7 +251,11 @@
 
 <span class="attr">#[inline]
 </span><span class="kw">pub fn </span>system_time_zone_name() -&gt; String {
-    Local::now().offset().to_string()
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(tz) = find_tz_from_env() {
+        Local::now().with_timezone(<span class="kw-2">&amp;</span>tz).offset().fix().to_string()
+    } <span class="kw">else </span>{
+        Local::now().offset().to_string()
+    }
 }
 
 <span class="attr">#[cfg(test)]

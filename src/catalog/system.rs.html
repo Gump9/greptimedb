@@ -610,6 +610,10 @@
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -642,7 +646,7 @@
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
 <span class="kw">use </span>store_api::storage::ScanRequest;
 <span class="kw">use </span>table::engine::{EngineContext, TableEngineRef};
-<span class="kw">use </span>table::metadata::{TableId, TableInfoRef};
+<span class="kw">use </span>table::metadata::{TableId, TableInfoRef, TableType};
 <span class="kw">use </span>table::requests::{
     CreateTableRequest, DeleteRequest, InsertRequest, OpenTableRequest, TableOptions,
 };
@@ -681,6 +685,10 @@
 
     <span class="kw">fn </span>table_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableInfoRef {
         <span class="self">self</span>.<span class="number">0</span>.table_info()
+    }
+
+    <span class="kw">fn </span>table_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableType {
+        <span class="self">self</span>.<span class="number">0</span>.table_type()
     }
 
     <span class="kw">async fn </span>delete(<span class="kw-2">&amp;</span><span class="self">self</span>, request: DeleteRequest) -&gt; TableResult&lt;usize&gt; {

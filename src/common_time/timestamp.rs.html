@@ -1050,17 +1050,6 @@
 <a href="#1050" id="1050">1050</a>
 <a href="#1051" id="1051">1051</a>
 <a href="#1052" id="1052">1052</a>
-<a href="#1053" id="1053">1053</a>
-<a href="#1054" id="1054">1054</a>
-<a href="#1055" id="1055">1055</a>
-<a href="#1056" id="1056">1056</a>
-<a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
-<a href="#1059" id="1059">1059</a>
-<a href="#1060" id="1060">1060</a>
-<a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1083,7 +1072,6 @@
 <span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>arrow::datatypes::TimeUnit <span class="kw">as </span>ArrowTimeUnit;
-<span class="kw">use </span>chrono::offset::Local;
 <span class="kw">use </span>chrono::{DateTime, LocalResult, NaiveDateTime, TimeZone <span class="kw">as </span>ChronoTimeZone, Utc};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
@@ -1091,7 +1079,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::error;
 <span class="kw">use </span><span class="kw">crate</span>::error::{ArithmeticOverflowSnafu, Error, ParseTimestampSnafu, TimestampOverflowSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::timezone::TimeZone;
-<span class="kw">use </span><span class="kw">crate</span>::util::div_ceil;
+<span class="kw">use </span><span class="kw">crate</span>::util::{div_ceil, format_utc_datetime, local_datetime_to_utc};
 
 <span class="attr">#[derive(Debug, Clone, Default, Copy, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>Timestamp {
@@ -1258,10 +1246,7 @@
                 <span class="prelude-val">Some</span>(TimeZone::Named(tz)) =&gt; {
                     <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, tz.from_utc_datetime(<span class="kw-2">&amp;</span>v).format(pattern))
                 }
-                <span class="prelude-val">None </span>=&gt; {
-                    <span class="kw">let </span>local = Local {};
-                    <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, local.from_utc_datetime(<span class="kw-2">&amp;</span>v).format(pattern))
-                }
+                <span class="prelude-val">None </span>=&gt; format_utc_datetime(<span class="kw-2">&amp;</span>v, pattern),
             }
         } <span class="kw">else </span>{
             <span class="macro">format!</span>(<span class="string">&quot;[Timestamp{}: {}]&quot;</span>, <span class="self">self</span>.unit, <span class="self">self</span>.value)
@@ -1328,18 +1313,11 @@
     s: <span class="kw-2">&amp;</span>str,
     datetime: NaiveDateTime,
 ) -&gt; <span class="kw">crate</span>::error::Result&lt;Timestamp&gt; {
-    <span class="kw">let </span>l = Local {};
-
-    <span class="kw">match </span>l.from_local_datetime(<span class="kw-2">&amp;</span>datetime) {
+    <span class="kw">match </span>local_datetime_to_utc(<span class="kw-2">&amp;</span>datetime) {
         LocalResult::None =&gt; ParseTimestampSnafu { raw: s }.fail(),
-        LocalResult::Single(local_datetime) =&gt; <span class="prelude-val">Ok</span>(Timestamp::new(
-            local_datetime.with_timezone(<span class="kw-2">&amp;</span>Utc).timestamp_nanos(),
-            TimeUnit::Nanosecond,
-        )),
-        LocalResult::Ambiguous(local_datetime, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(Timestamp::new(
-            local_datetime.with_timezone(<span class="kw-2">&amp;</span>Utc).timestamp_nanos(),
-            TimeUnit::Nanosecond,
-        )),
+        LocalResult::Single(utc) | LocalResult::Ambiguous(utc, <span class="kw">_</span>) =&gt; {
+            <span class="prelude-val">Ok</span>(Timestamp::new(utc.timestamp_nanos(), TimeUnit::Nanosecond))
+        }
     }
 }
 
@@ -1484,7 +1462,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::collections::hash_map::DefaultHasher;
 
-    <span class="kw">use </span>chrono::Offset;
+    <span class="kw">use </span>chrono::{Local, Offset};
     <span class="kw">use </span>rand::Rng;
     <span class="kw">use </span>serde_json::Value;
 

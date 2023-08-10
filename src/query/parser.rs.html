@@ -350,6 +350,19 @@
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -376,14 +389,14 @@
 <span class="kw">use </span>promql_parser::parser::ast::{Extension <span class="kw">as </span>NodeExtension, ExtensionExpr};
 <span class="kw">use </span>promql_parser::parser::Expr::Extension;
 <span class="kw">use </span>promql_parser::parser::{EvalStmt, Expr, ValueType};
-<span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>snafu::{OptionExt, ResultExt};
 <span class="kw">use </span>sql::dialect::GreptimeDbDialect;
 <span class="kw">use </span>sql::parser::ParserContext;
 <span class="kw">use </span>sql::statements::statement::Statement;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
-    MultipleStatementsSnafu, ParseFloatSnafu, ParseTimestampSnafu, QueryParseSnafu, <span class="prelude-ty">Result</span>,
-    UnimplementedSnafu,
+    AddSystemTimeOverflowSnafu, MultipleStatementsSnafu, ParseFloatSnafu, ParseTimestampSnafu,
+    QueryParseSnafu, <span class="prelude-ty">Result</span>, UnimplementedSnafu,
 };
 <span class="kw">use </span><span class="kw">crate</span>::metrics::{METRIC_PARSE_PROMQL_ELAPSED, METRIC_PARSE_SQL_ELAPSED};
 
@@ -529,24 +542,17 @@
         }
 
         <span class="comment">// try float format
-        </span>timestamp
+        </span><span class="kw">let </span>secs = timestamp
             .parse::&lt;f64&gt;()
             .context(ParseFloatSnafu { raw: timestamp })
-            .map(|float| {
-                <span class="kw">let </span>duration = Duration::from_secs_f64(float);
-                SystemTime::UNIX_EPOCH
-                    .checked_add(duration)
-                    .unwrap_or(max_system_timestamp())
-            })
             <span class="comment">// also report rfc3339 error if float parsing fails
-            </span>.map_err(|<span class="kw">_</span>| rfc3339_result.unwrap_err())
-    }
-}
+            </span>.map_err(|<span class="kw">_</span>| rfc3339_result.unwrap_err())<span class="question-mark">?</span>;
 
-<span class="kw">fn </span>max_system_timestamp() -&gt; SystemTime {
-    SystemTime::UNIX_EPOCH
-        .checked_add(Duration::from_secs(std::i64::MAX <span class="kw">as </span>u64))
-        .unwrap()
+        <span class="kw">let </span>duration = Duration::from_secs_f64(secs);
+        SystemTime::UNIX_EPOCH
+            .checked_add(duration)
+            .context(AddSystemTimeOverflowSnafu { duration })
+    }
 }
 
 <span class="macro">macro_rules! </span>define_node_ast_extension {
@@ -644,11 +650,6 @@
             (<span class="string">&quot;0.000&quot;</span>, SystemTime::UNIX_EPOCH),
             (<span class="string">&quot;00&quot;</span>, SystemTime::UNIX_EPOCH),
             (
-                <span class="comment">// i64::MAX + 1
-                </span><span class="string">&quot;9223372036854775808.000&quot;</span>,
-                max_system_timestamp(),
-            ),
-            (
                 <span class="string">&quot;2015-07-01T20:10:51.781Z&quot;</span>,
                 SystemTime::UNIX_EPOCH
                     .checked_add(Duration::from_secs_f64(<span class="number">1435781451.781</span>))
@@ -672,6 +673,14 @@
             <span class="comment">// assert difference &lt; 0.1 second
             </span><span class="macro">assert!</span>(result.abs_diff(expected) &lt; <span class="number">100</span>);
         }
+
+        <span class="comment">// i64::MAX + 1
+        </span><span class="kw">let </span>timestamp = <span class="string">&quot;9223372036854775808.000&quot;</span>;
+        <span class="kw">let </span>result = QueryLanguageParser::parse_promql_timestamp(timestamp);
+        <span class="macro">assert_eq!</span>(
+            result.unwrap_err().to_string(),
+            <span class="string">&quot;Failed to add duration &#39;9223372036854775808s&#39; to SystemTime, overflowed&quot;
+        </span>);
     }
 
     <span class="attr">#[test]
@@ -683,7 +692,8 @@
             step: <span class="string">&quot;1d&quot;</span>.to_string(),
         };
 
-        <span class="kw">let </span>expected = String::from(
+        <span class="attr">#[cfg(not(windows))]
+        </span><span class="kw">let </span>expected = String::from(
             <span class="string">&quot;\
             Promql(EvalStmt { \
                 expr: VectorSelector(VectorSelector { \
@@ -693,6 +703,22 @@
                     offset: None, at: None }), \
                 start: SystemTime { tv_sec: 1644772440, tv_nsec: 0 }, \
                 end: SystemTime { tv_sec: 1676308440, tv_nsec: 0 }, \
+                interval: 86400s, \
+                lookback_delta: 300s \
+            })&quot;</span>,
+        );
+
+        <span class="comment">// Windows has different debug output for SystemTime.
+        </span><span class="attr">#[cfg(windows)]
+        </span><span class="kw">let </span>expected = String::from(
+            <span class="string">&quot;\
+            Promql(EvalStmt { \
+                expr: VectorSelector(VectorSelector { \
+                    name: Some(\&quot;http_request\&quot;), \
+                    matchers: Matchers { matchers: [] }, \
+                    offset: None, at: None }), \
+                start: SystemTime { intervals: 132892460400000000 }, \
+                end: SystemTime { intervals: 133207820400000000 }, \
                 interval: 86400s, \
                 lookback_delta: 300s \
             })&quot;</span>,

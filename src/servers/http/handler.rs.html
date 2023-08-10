@@ -217,14 +217,13 @@
 <span class="kw">use </span>axum::response::{IntoResponse, Response};
 <span class="kw">use </span>axum::{Extension, Form};
 <span class="kw">use </span>common_error::status_code::StatusCode;
-<span class="kw">use </span>common_telemetry::{error, timer};
+<span class="kw">use </span>common_telemetry::timer;
 <span class="kw">use </span>query::parser::PromQuery;
 <span class="kw">use </span>schemars::JsonSchema;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>session::context::UserInfo;
 
 <span class="kw">use </span><span class="kw">crate</span>::http::{ApiState, GreptimeOptionsConfigState, JsonResponse};
-<span class="kw">use </span><span class="kw">crate</span>::metrics::JEMALLOC_COLLECTOR;
 <span class="kw">use </span><span class="kw">crate</span>::metrics_handler::MetricsHandler;
 
 <span class="attr">#[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
@@ -337,9 +336,10 @@
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;metrics-process&quot;</span>)]
     </span><span class="kw">crate</span>::metrics::PROCESS_COLLECTOR.collect();
 
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = JEMALLOC_COLLECTOR.as_ref() {
+    <span class="attr">#[cfg(not(windows))]
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(c) = <span class="kw">crate</span>::metrics::jemalloc::JEMALLOC_COLLECTOR.as_ref() {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = c.update() {
-            <span class="macro">error!</span>(e; <span class="string">&quot;Failed to update jemalloc metrics&quot;</span>);
+            <span class="macro">common_telemetry::error!</span>(e; <span class="string">&quot;Failed to update jemalloc metrics&quot;</span>);
         }
     }
     state.render()

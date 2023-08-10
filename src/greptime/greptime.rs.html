@@ -235,6 +235,7 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -424,7 +425,8 @@
     }
 }
 
-<span class="attr">#[global_allocator]
+<span class="attr">#[cfg(not(windows))]
+#[global_allocator]
 </span><span class="kw">static </span>ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 <span class="attr">#[tokio::main]

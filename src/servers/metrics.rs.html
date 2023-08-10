@@ -141,58 +141,6 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -207,21 +155,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::task::{Context, Poll};
+</span><span class="attr">#[cfg(not(windows))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>jemalloc;
+
+<span class="kw">use </span>std::task::{Context, Poll};
 <span class="kw">use </span>std::time::Instant;
 
-<span class="kw">use </span>common_telemetry::error;
 <span class="kw">use </span>hyper::Body;
-<span class="kw">use </span>metrics::gauge;
-<span class="kw">use </span>once_cell::sync::Lazy;
-<span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>tikv_jemalloc_ctl::stats::{allocated_mib, resident_mib};
-<span class="kw">use </span>tikv_jemalloc_ctl::{epoch, epoch_mib, stats};
 <span class="kw">use </span>tonic::body::BoxBody;
 <span class="kw">use </span>tower::{Layer, Service};
-
-<span class="kw">use </span><span class="kw">crate</span>::error;
-<span class="kw">use </span><span class="kw">crate</span>::error::UpdateJemallocMetricsSnafu;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_DB_LABEL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;db&quot;</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_CODE_LABEL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;code&quot;</span>;
@@ -275,61 +217,15 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_GRPC_REQUESTS_ELAPSED: <span class="kw-2">&amp;</span>str = <span class="string">&quot;servers.grpc_requests_elapsed&quot;</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_METHOD_LABEL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;method&quot;</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_PATH_LABEL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;path&quot;</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_STATUS_LABEL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;status&quot;</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_JEMALLOC_RESIDENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sys.jemalloc.resident&quot;</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_JEMALLOC_ALLOCATED: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sys.jemalloc.allocated&quot;</span>;
 
 <span class="doccomment">/// Prometheus style process metrics collector.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;metrics-process&quot;</span>)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>PROCESS_COLLECTOR: Lazy&lt;metrics_process::Collector&gt; = Lazy::new(|| {
-    <span class="kw">let </span>collector = metrics_process::Collector::default();
-    <span class="comment">// Describe collector.
-    </span>collector.describe();
-    collector
-});
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>JEMALLOC_COLLECTOR: Lazy&lt;<span class="prelude-ty">Option</span>&lt;JemallocCollector&gt;&gt; = Lazy::new(|| {
-    <span class="kw">let </span>collector = JemallocCollector::try_new()
-        .map_err(|e| {
-            <span class="macro">error!</span>(e; <span class="string">&quot;Failed to retrieve jemalloc metrics&quot;</span>);
-            e
-        })
-        .ok();
-    collector.map(|c| {
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = c.update() {
-            <span class="macro">error!</span>(e; <span class="string">&quot;Failed to update jemalloc metrics&quot;</span>);
-        };
-        c
-    })
-});
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>JemallocCollector {
-    epoch: epoch_mib,
-    allocated: allocated_mib,
-    resident: resident_mib,
-}
-
-<span class="kw">impl </span>JemallocCollector {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_new() -&gt; error::Result&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>e = epoch::mib().context(UpdateJemallocMetricsSnafu)<span class="question-mark">?</span>;
-        <span class="kw">let </span>allocated = stats::allocated::mib().context(UpdateJemallocMetricsSnafu)<span class="question-mark">?</span>;
-        <span class="kw">let </span>resident = stats::resident::mib().context(UpdateJemallocMetricsSnafu)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            epoch: e,
-            allocated,
-            resident,
-        })
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; error::Result&lt;()&gt; {
-        <span class="kw">let _ </span>= <span class="self">self</span>.epoch.advance().context(UpdateJemallocMetricsSnafu)<span class="question-mark">?</span>;
-        <span class="kw">let </span>allocated = <span class="self">self</span>.allocated.read().context(UpdateJemallocMetricsSnafu)<span class="question-mark">?</span>;
-        <span class="kw">let </span>resident = <span class="self">self</span>.resident.read().context(UpdateJemallocMetricsSnafu)<span class="question-mark">?</span>;
-        <span class="macro">gauge!</span>(METRIC_JEMALLOC_ALLOCATED, allocated <span class="kw">as </span>f64);
-        <span class="macro">gauge!</span>(METRIC_JEMALLOC_RESIDENT, resident <span class="kw">as </span>f64);
-        <span class="prelude-val">Ok</span>(())
-    }
-}
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>PROCESS_COLLECTOR: once_cell::sync::Lazy&lt;metrics_process::Collector&gt; =
+    once_cell::sync::Lazy::new(|| {
+        <span class="kw">let </span>collector = metrics_process::Collector::default();
+        collector.describe();
+        collector
+    });
 
 <span class="comment">// Based on https://github.com/hyperium/tonic/blob/master/examples/src/tower/server.rs
 // See https://github.com/hyperium/tonic/issues/242
@@ -380,7 +276,7 @@
             <span class="kw">let </span>latency = start.elapsed().as_secs_f64();
             <span class="kw">let </span>status = response.status().as_u16().to_string();
 
-            <span class="kw">let </span>labels = [(METRIC_PATH_LABEL, path), (METRIC_STATUS_LABEL, status)];
+            <span class="kw">let </span>labels = [(METRIC_PATH_LABEL, path), (METRIC_CODE_LABEL, status)];
             <span class="macro">metrics::increment_counter!</span>(METRIC_GRPC_REQUESTS_TOTAL, <span class="kw-2">&amp;</span>labels);
             <span class="macro">metrics::histogram!</span>(METRIC_GRPC_REQUESTS_ELAPSED, latency, <span class="kw-2">&amp;</span>labels);
 

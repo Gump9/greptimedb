@@ -293,8 +293,8 @@
         <span class="macro">unreachable!</span>(<span class="string">&quot;Should not call table_info() of InformationTable directly&quot;</span>)
     }
 
-    <span class="kw">fn </span>table_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; table::metadata::TableType {
-        TableType::View
+    <span class="kw">fn </span>table_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableType {
+        TableType::Temporary
     }
 
     <span class="kw">async fn </span>scan_to_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, request: ScanRequest) -&gt; TableResult&lt;SendableRecordBatchStream&gt; {

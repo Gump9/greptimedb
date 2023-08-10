@@ -318,6 +318,10 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -529,15 +533,19 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 
+    <span class="kw">use </span>common_test_util::find_workspace_path;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::file_format::{
         FileFormat, FORMAT_COMPRESSION_TYPE, FORMAT_DELIMITER, FORMAT_HAS_HEADER,
         FORMAT_SCHEMA_INFER_MAX_RECORD,
     };
-    <span class="kw">use </span><span class="kw">crate</span>::test_util::{<span class="self">self</span>, format_schema, test_store};
+    <span class="kw">use </span><span class="kw">crate</span>::test_util::{format_schema, test_store};
 
     <span class="kw">fn </span>test_data_root() -&gt; String {
-        test_util::get_data_dir(<span class="string">&quot;tests/csv&quot;</span>).display().to_string()
+        find_workspace_path(<span class="string">&quot;/src/common/datasource/tests/csv&quot;</span>)
+            .display()
+            .to_string()
     }
 
     <span class="attr">#[tokio::test]

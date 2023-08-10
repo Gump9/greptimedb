@@ -237,6 +237,10 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -406,12 +410,16 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>common_test_util::find_workspace_path;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::file_format::{FileFormat, FORMAT_COMPRESSION_TYPE, FORMAT_SCHEMA_INFER_MAX_RECORD};
-    <span class="kw">use </span><span class="kw">crate</span>::test_util::{<span class="self">self</span>, format_schema, test_store};
+    <span class="kw">use </span><span class="kw">crate</span>::test_util::{format_schema, test_store};
 
     <span class="kw">fn </span>test_data_root() -&gt; String {
-        test_util::get_data_dir(<span class="string">&quot;tests/json&quot;</span>).display().to_string()
+        find_workspace_path(<span class="string">&quot;/src/common/datasource/tests/json&quot;</span>)
+            .display()
+            .to_string()
     }
 
     <span class="attr">#[tokio::test]

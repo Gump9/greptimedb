@@ -322,6 +322,7 @@
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -344,7 +345,7 @@
 <span class="kw">use </span>client::client_manager::DatanodeClients;
 <span class="kw">use </span>client::Client;
 <span class="kw">use </span>common_base::Plugins;
-<span class="kw">use </span>common_grpc::channel_manager::ChannelManager;
+<span class="kw">use </span>common_grpc::channel_manager::{ChannelConfig, ChannelManager};
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::DatanodeId;
 <span class="kw">use </span>common_runtime::Builder <span class="kw">as </span>RuntimeBuilder;
@@ -412,7 +413,8 @@
     <span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; GreptimeDbCluster {
         <span class="kw">let </span>datanodes = <span class="self">self</span>.datanodes.unwrap_or(<span class="number">4</span>);
 
-        <span class="kw">let </span>datanode_clients = Arc::new(DatanodeClients::default());
+        <span class="kw">let </span>channel_config = ChannelConfig::new().timeout(Duration::from_secs(<span class="number">20</span>));
+        <span class="kw">let </span>datanode_clients = Arc::new(DatanodeClients::new(channel_config));
 
         <span class="kw">let </span>meta_srv = <span class="self">self</span>.build_metasrv(datanode_clients.clone()).<span class="kw">await</span>;
 

@@ -104,6 +104,15 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -135,6 +144,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::parser::QueryStatement;
 <span class="kw">use </span><span class="kw">crate</span>::plan::LogicalPlan;
 <span class="kw">use </span><span class="kw">crate</span>::query_engine::QueryEngineState;
+<span class="kw">use </span><span class="kw">crate</span>::range_select::plan_rewrite::RangePlanRewriter;
 <span class="kw">use </span><span class="kw">crate</span>::DfContextProviderAdapter;
 
 <span class="attr">#[async_trait]
@@ -158,6 +168,12 @@
 
     <span class="kw">async fn </span>plan_sql(<span class="kw-2">&amp;</span><span class="self">self</span>, stmt: Statement, query_ctx: QueryContextRef) -&gt; <span class="prelude-ty">Result</span>&lt;LogicalPlan&gt; {
         <span class="kw">let </span>df_stmt = (<span class="kw-2">&amp;</span>stmt).try_into().context(SqlSnafu)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>table_provider = DfTableSourceProvider::new(
+            <span class="self">self</span>.engine_state.catalog_manager().clone(),
+            <span class="self">self</span>.engine_state.disallow_cross_schema_query(),
+            query_ctx.as_ref(),
+        );
 
         <span class="kw">let </span>context_provider = DfContextProviderAdapter::try_new(
             <span class="self">self</span>.engine_state.clone(),
@@ -183,8 +199,10 @@
             };
             PlanSqlSnafu { sql }
         })<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(LogicalPlan::DfPlan(result))
+        <span class="kw">let </span>plan = RangePlanRewriter::new(table_provider, context_provider)
+            .rewrite(result)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(LogicalPlan::DfPlan(plan))
     }
 
     <span class="kw">async fn </span>plan_pql(<span class="kw-2">&amp;</span><span class="self">self</span>, stmt: EvalStmt, query_ctx: QueryContextRef) -&gt; <span class="prelude-ty">Result</span>&lt;LogicalPlan&gt; {

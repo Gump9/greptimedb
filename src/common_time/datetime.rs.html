@@ -138,8 +138,6 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -157,10 +155,11 @@
 </span><span class="kw">use </span>std::fmt::{Display, Formatter};
 <span class="kw">use </span>std::str::FromStr;
 
-<span class="kw">use </span>chrono::{Local, LocalResult, NaiveDateTime, TimeZone};
+<span class="kw">use </span>chrono::{LocalResult, NaiveDateTime};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{Error, InvalidDateStrSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::util::{format_utc_datetime, local_datetime_to_utc};
 
 <span class="kw">const </span>DATETIME_FORMAT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;%F %T&quot;</span>;
 <span class="kw">const </span>DATETIME_FORMAT_WITH_TZ: <span class="kw-2">&amp;</span>str = <span class="string">&quot;%F %T%z&quot;</span>;
@@ -177,9 +176,7 @@
             <span class="macro">write!</span>(
                 f,
                 <span class="string">&quot;{}&quot;</span>,
-                Local {}
-                    .from_utc_datetime(<span class="kw-2">&amp;</span>abs_time)
-                    .format(DATETIME_FORMAT_WITH_TZ)
+                format_utc_datetime(<span class="kw-2">&amp;</span>abs_time, DATETIME_FORMAT_WITH_TZ)
             )
         } <span class="kw">else </span>{
             <span class="macro">write!</span>(f, <span class="string">&quot;DateTime({})&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
@@ -198,13 +195,12 @@
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>s = s.trim();
-        <span class="kw">let </span>local = Local {};
         <span class="kw">let </span>timestamp = <span class="kw">if let </span><span class="prelude-val">Ok</span>(d) = NaiveDateTime::parse_from_str(s, DATETIME_FORMAT) {
-            <span class="kw">match </span>local.from_local_datetime(<span class="kw-2">&amp;</span>d) {
+            <span class="kw">match </span>local_datetime_to_utc(<span class="kw-2">&amp;</span>d) {
                 LocalResult::None =&gt; {
                     <span class="kw">return </span>InvalidDateStrSnafu { raw: s }.fail();
                 }
-                LocalResult::Single(d) | LocalResult::Ambiguous(d, <span class="kw">_</span>) =&gt; d.naive_utc().timestamp(),
+                LocalResult::Single(d) | LocalResult::Ambiguous(d, <span class="kw">_</span>) =&gt; d.timestamp(),
             }
         } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(v) = chrono::DateTime::parse_from_str(s, DATETIME_FORMAT_WITH_TZ) {
             v.timestamp()

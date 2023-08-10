@@ -24,6 +24,8 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -38,14 +40,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::raft_engine::log_store::RaftEngineLogStore;
+</span><span class="kw">use </span>std::path::Path;
+
+<span class="kw">use </span><span class="kw">crate</span>::raft_engine::log_store::RaftEngineLogStore;
 <span class="kw">use </span><span class="kw">crate</span>::LogConfig;
 
 <span class="doccomment">/// Create a write log for the provided path, used for test.
-</span><span class="kw">pub async fn </span>create_tmp_local_file_log_store(path: <span class="kw-2">&amp;</span>str) -&gt; RaftEngineLogStore {
+</span><span class="kw">pub async fn </span>create_tmp_local_file_log_store&lt;P: AsRef&lt;Path&gt;&gt;(path: P) -&gt; RaftEngineLogStore {
     <span class="kw">let </span>cfg = LogConfig {
         file_size: <span class="number">128 </span>* <span class="number">1024</span>,
-        log_file_dir: path.to_string(),
+        log_file_dir: path.as_ref().display().to_string(),
         ..Default::default()
     };
     RaftEngineLogStore::try_new(cfg).<span class="kw">await</span>.unwrap()

@@ -1056,7 +1056,7 @@
         <span class="macro">assert_eq!</span>(expected, actions);
     }
 
-    <span class="attr">#[tokio::test]
+    <span class="attr">#[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
     </span><span class="kw">async fn </span>test_fs_region_manifest_checkpoint_compress() {
         <span class="kw">let </span>duration = Duration::from_millis(<span class="number">50</span>);
         <span class="kw">let </span>manifest = new_fs_manifest(<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(duration)).<span class="kw">await</span>;

@@ -928,7 +928,6 @@
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_telemetry::logging::{debug, info};
 <span class="kw">use </span>common_telemetry::timer;
-<span class="kw">use </span>datafusion::sql::sqlparser::ast::ObjectName;
 <span class="kw">use </span>datanode::instance::sql::table_idents_to_full_name;
 <span class="kw">use </span>datanode::instance::InstanceRef <span class="kw">as </span>DnInstanceRef;
 <span class="kw">use </span>datatypes::schema::Schema;
@@ -959,6 +958,7 @@
 <span class="kw">use </span>sql::parser::ParserContext;
 <span class="kw">use </span>sql::statements::copy::CopyTable;
 <span class="kw">use </span>sql::statements::statement::Statement;
+<span class="kw">use </span>sqlparser::ast::ObjectName;
 
 <span class="kw">use </span><span class="kw">crate</span>::catalog::FrontendCatalogManager;
 <span class="kw">use </span><span class="kw">crate</span>::error::{

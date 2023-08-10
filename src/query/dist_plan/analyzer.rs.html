@@ -675,14 +675,15 @@
 
         <span class="kw">let </span>config = ConfigOptions::default();
         <span class="kw">let </span>result = DistPlannerAnalyzer {}.analyze(plan, <span class="kw-2">&amp;</span>config).unwrap();
-        <span class="kw">let </span>expected = String::from(
-            <span class="string">&quot;Distinct:\
-            \n  MergeScan [is_placeholder=false]\
-            \n    Distinct:\
-            \n      Projection: t.number\
-            \n        Filter: t.number &lt; Int32(10)\
-            \n          TableScan: t&quot;</span>,
-        );
+        <span class="kw">let </span>expected = [
+            <span class="string">&quot;Distinct:&quot;</span>,
+            <span class="string">&quot;  MergeScan [is_placeholder=false]&quot;</span>,
+            <span class="string">&quot;    Distinct:&quot;</span>,
+            <span class="string">&quot;      Projection: t.number&quot;</span>,
+            <span class="string">&quot;        Filter: t.number &lt; Int32(10)&quot;</span>,
+            <span class="string">&quot;          TableScan: t&quot;</span>,
+        ]
+        .join(<span class="string">&quot;\n&quot;</span>);
         <span class="macro">assert_eq!</span>(expected, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, result));
     }
 
@@ -702,10 +703,11 @@
 
         <span class="kw">let </span>config = ConfigOptions::default();
         <span class="kw">let </span>result = DistPlannerAnalyzer {}.analyze(plan, <span class="kw-2">&amp;</span>config).unwrap();
-        <span class="kw">let </span>expected = String::from(
-            <span class="string">&quot;Aggregate: groupBy=[[]], aggr=[[AVG(t.number)]]\
-            \n  MergeScan [is_placeholder=false]&quot;</span>,
-        );
+        <span class="kw">let </span>expected = [
+            <span class="string">&quot;Aggregate: groupBy=[[]], aggr=[[AVG(t.number)]]&quot;</span>,
+            <span class="string">&quot;  TableScan: t&quot;</span>,
+        ]
+        .join(<span class="string">&quot;\n&quot;</span>);
         <span class="macro">assert_eq!</span>(expected, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, result));
     }
 
@@ -727,11 +729,12 @@
 
         <span class="kw">let </span>config = ConfigOptions::default();
         <span class="kw">let </span>result = DistPlannerAnalyzer {}.analyze(plan, <span class="kw-2">&amp;</span>config).unwrap();
-        <span class="kw">let </span>expected = String::from(
-            <span class="string">&quot;Sort: t.number ASC NULLS LAST\
-            \n  Distinct:\
-            \n    MergeScan [is_placeholder=false]&quot;</span>,
-        );
+        <span class="kw">let </span>expected = [
+            <span class="string">&quot;Sort: t.number ASC NULLS LAST&quot;</span>,
+            <span class="string">&quot;  Distinct:&quot;</span>,
+            <span class="string">&quot;    TableScan: t&quot;</span>,
+        ]
+        .join(<span class="string">&quot;\n&quot;</span>);
         <span class="macro">assert_eq!</span>(expected, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, result));
     }
 
@@ -751,10 +754,7 @@
 
         <span class="kw">let </span>config = ConfigOptions::default();
         <span class="kw">let </span>result = DistPlannerAnalyzer {}.analyze(plan, <span class="kw-2">&amp;</span>config).unwrap();
-        <span class="kw">let </span>expected = String::from(
-            <span class="string">&quot;Limit: skip=0, fetch=1\
-            \n  MergeScan [is_placeholder=false]&quot;</span>,
-        );
+        <span class="kw">let </span>expected = [<span class="string">&quot;Limit: skip=0, fetch=1&quot;</span>, <span class="string">&quot;  TableScan: t&quot;</span>].join(<span class="string">&quot;\n&quot;</span>);
         <span class="macro">assert_eq!</span>(expected, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, result));
     }
 }

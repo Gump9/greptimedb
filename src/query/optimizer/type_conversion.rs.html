@@ -415,6 +415,37 @@
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -451,14 +482,11 @@
 </span><span class="kw">pub struct </span>TypeConversionRule;
 
 <span class="kw">impl </span>AnalyzerRule <span class="kw">for </span>TypeConversionRule {
-    <span class="comment">// TODO(ruihang): fix this warning
-    </span><span class="attr">#[allow(deprecated)]
-    </span><span class="kw">fn </span>analyze(<span class="kw-2">&amp;</span><span class="self">self</span>, plan: LogicalPlan, _config: <span class="kw-2">&amp;</span>ConfigOptions) -&gt; <span class="prelude-ty">Result</span>&lt;LogicalPlan&gt; {
-        <span class="kw">let </span>schemas = plan.all_schemas().into_iter().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+    <span class="kw">fn </span>analyze(<span class="kw-2">&amp;</span><span class="self">self</span>, plan: LogicalPlan, _config: <span class="kw-2">&amp;</span>ConfigOptions) -&gt; <span class="prelude-ty">Result</span>&lt;LogicalPlan&gt; {
         plan.transform(<span class="kw-2">&amp;</span>|plan| <span class="kw">match </span>plan {
             LogicalPlan::Filter(filter) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter {
-                    schemas: schemas.clone(),
+                    schema: filter.input.schema().clone(),
                 };
                 <span class="kw">let </span>rewritten = filter.predicate.clone().rewrite(<span class="kw-2">&amp;mut </span>converter)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(Transformed::Yes(LogicalPlan::Filter(Filter::try_new(
@@ -475,7 +503,7 @@
                 fetch,
             }) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter {
-                    schemas: schemas.clone(),
+                    schema: projected_schema.clone(),
                 };
                 <span class="kw">let </span>rewrite_filters = filters
                     .into_iter()
@@ -505,7 +533,7 @@
             | LogicalPlan::Values { .. }
             | LogicalPlan::Analyze { .. } =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter {
-                    schemas: plan.all_schemas().into_iter().cloned().collect(),
+                    schema: plan.schema().clone(),
                 };
                 <span class="kw">let </span>inputs = plan.inputs().into_iter().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
                 <span class="kw">let </span>expr = plan
@@ -535,16 +563,14 @@
 }
 
 <span class="kw">struct </span>TypeConverter {
-    schemas: Vec&lt;DFSchemaRef&gt;,
+    schema: DFSchemaRef,
 }
 
 <span class="kw">impl </span>TypeConverter {
     <span class="kw">fn </span>column_type(<span class="kw-2">&amp;</span><span class="self">self</span>, expr: <span class="kw-2">&amp;</span>Expr) -&gt; <span class="prelude-ty">Option</span>&lt;DataType&gt; {
         <span class="kw">if let </span>Expr::Column(<span class="kw">_</span>) = expr {
-            <span class="kw">for </span>schema <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.schemas {
-                <span class="kw">if let </span><span class="prelude-val">Ok</span>(v) = expr.get_type(schema) {
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(v);
-                }
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(v) = expr.get_type(<span class="kw-2">&amp;</span><span class="self">self</span>.schema) {
+                <span class="kw">return </span><span class="prelude-val">Some</span>(v);
             }
         }
         <span class="prelude-val">None
@@ -713,65 +739,67 @@
     <span class="kw">use </span>std::collections::HashMap;
     <span class="kw">use </span>std::sync::Arc;
 
+    <span class="kw">use </span>datafusion::logical_expr::expr::AggregateFunction <span class="kw">as </span>AggrExpr;
     <span class="kw">use </span>datafusion_common::{Column, DFField, DFSchema};
+    <span class="kw">use </span>datafusion_expr::{AggregateFunction, LogicalPlanBuilder};
     <span class="kw">use </span>datafusion_sql::TableReference;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_string_to_timestamp_ms() {
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        <span class="macro">assert_eq!</span>(
             string_to_timestamp_ms(<span class="string">&quot;2022-02-02 19:00:00+08:00&quot;</span>).unwrap(),
             ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">1643799600000</span>), <span class="prelude-val">None</span>)
-        ));
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        );
+        <span class="macro">assert_eq!</span>(
             string_to_timestamp_ms(<span class="string">&quot;2009-02-13 23:31:30Z&quot;</span>).unwrap(),
             ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">1234567890000</span>), <span class="prelude-val">None</span>)
-        ));
+        );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_timestamp_to_timestamp_ms_expr() {
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        <span class="macro">assert_eq!</span>(
             timestamp_to_timestamp_ms_expr(<span class="number">123</span>, TimeUnit::Second),
             Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">123000</span>), <span class="prelude-val">None</span>))
-        ));
+        );
 
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        <span class="macro">assert_eq!</span>(
             timestamp_to_timestamp_ms_expr(<span class="number">123</span>, TimeUnit::Millisecond),
             Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">123</span>), <span class="prelude-val">None</span>))
-        ));
+        );
 
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        <span class="macro">assert_eq!</span>(
             timestamp_to_timestamp_ms_expr(<span class="number">123</span>, TimeUnit::Microsecond),
             Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="prelude-val">None</span>))
-        ));
+        );
 
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        <span class="macro">assert_eq!</span>(
             timestamp_to_timestamp_ms_expr(<span class="number">1230</span>, TimeUnit::Microsecond),
             Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">1</span>), <span class="prelude-val">None</span>))
-        ));
+        );
 
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        <span class="macro">assert_eq!</span>(
             timestamp_to_timestamp_ms_expr(<span class="number">123000</span>, TimeUnit::Microsecond),
             Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">123</span>), <span class="prelude-val">None</span>))
-        ));
+        );
 
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        <span class="macro">assert_eq!</span>(
             timestamp_to_timestamp_ms_expr(<span class="number">1230</span>, TimeUnit::Nanosecond),
             Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="prelude-val">None</span>))
-        ));
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+        );
+        <span class="macro">assert_eq!</span>(
             timestamp_to_timestamp_ms_expr(<span class="number">123_000_000</span>, TimeUnit::Nanosecond),
             Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">123</span>), <span class="prelude-val">None</span>))
-        ));
+        );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_convert_timestamp_str() {
         <span class="kw">use </span>datatypes::arrow::datatypes::TimeUnit <span class="kw">as </span>ArrowTimeUnit;
 
-        <span class="kw">let </span>schema_ref = Arc::new(
+        <span class="kw">let </span>schema = Arc::new(
             DFSchema::new_with_metadata(
                 <span class="macro">vec!</span>[DFField::new(
                     <span class="prelude-val">None</span>::&lt;TableReference&gt;,
@@ -783,9 +811,7 @@
             )
             .unwrap(),
         );
-        <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter {
-            schemas: <span class="macro">vec!</span>[schema_ref],
-        };
+        <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter { schema };
 
         <span class="macro">assert_eq!</span>(
             Expr::Column(Column::from_name(<span class="string">&quot;ts&quot;</span>)).gt(Expr::Literal(
@@ -804,7 +830,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_convert_bool() {
         <span class="kw">let </span>col_name = <span class="string">&quot;is_valid&quot;</span>;
-        <span class="kw">let </span>schema_ref = Arc::new(
+        <span class="kw">let </span>schema = Arc::new(
             DFSchema::new_with_metadata(
                 <span class="macro">vec!</span>[DFField::new(
                     <span class="prelude-val">None</span>::&lt;TableReference&gt;,
@@ -816,9 +842,7 @@
             )
             .unwrap(),
         );
-        <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter {
-            schemas: <span class="macro">vec!</span>[schema_ref],
-        };
+        <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter { schema };
 
         <span class="macro">assert_eq!</span>(
             Expr::Column(Column::from_name(col_name))
@@ -830,6 +854,44 @@
                 )
                 .unwrap()
         );
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_retrieve_type_from_aggr_plan() {
+        <span class="kw">let </span>plan =
+            LogicalPlanBuilder::values(<span class="macro">vec!</span>[<span class="macro">vec!</span>[
+                Expr::Literal(ScalarValue::Int64(<span class="prelude-val">Some</span>(<span class="number">1</span>))),
+                Expr::Literal(ScalarValue::Float64(<span class="prelude-val">Some</span>(<span class="number">1.0</span>))),
+                Expr::Literal(ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">1</span>), <span class="prelude-val">None</span>)),
+            ]])
+            .unwrap()
+            .filter(Expr::Column(Column::from_name(<span class="string">&quot;column3&quot;</span>)).gt(Expr::Literal(
+                ScalarValue::Utf8(<span class="prelude-val">Some</span>(<span class="string">&quot;1970-01-01 00:00:00+08:00&quot;</span>.to_string())),
+            )))
+            .unwrap()
+            .aggregate(
+                Vec::&lt;Expr&gt;::new(),
+                <span class="macro">vec!</span>[Expr::AggregateFunction(AggrExpr {
+                    fun: AggregateFunction::Count,
+                    args: <span class="macro">vec!</span>[Expr::Column(Column::from_name(<span class="string">&quot;column1&quot;</span>))],
+                    distinct: <span class="bool-val">false</span>,
+                    filter: <span class="prelude-val">None</span>,
+                    order_by: <span class="prelude-val">None</span>,
+                })],
+            )
+            .unwrap()
+            .build()
+            .unwrap();
+
+        <span class="kw">let </span>transformed_plan = TypeConversionRule
+            .analyze(plan, <span class="kw-2">&amp;</span>ConfigOptions::default())
+            .unwrap();
+        <span class="kw">let </span>expected = String::from(
+            <span class="string">&quot;Aggregate: groupBy=[[]], aggr=[[COUNT(column1)]]\
+            \n  Filter: column3 &gt; TimestampMillisecond(-28800000, None)\
+            \n    Values: (Int64(1), Float64(1), TimestampMillisecond(1, None))&quot;</span>,
+        );
+        <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, transformed_plan.display_indent()), expected);
     }
 }
 </code></pre></div></section></main></body></html>
