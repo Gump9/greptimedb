@@ -1059,7 +1059,7 @@
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>DistInstance {
     meta_client: Arc&lt;MetaClient&gt;,
-    catalog_manager: Arc&lt;FrontendCatalogManager&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) catalog_manager: Arc&lt;FrontendCatalogManager&gt;,
     datanode_clients: Arc&lt;DatanodeClients&gt;,
 }
 

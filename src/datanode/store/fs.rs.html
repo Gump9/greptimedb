@@ -41,6 +41,8 @@
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
 <a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -59,24 +61,26 @@
 
 <span class="kw">use </span>common_telemetry::logging::info;
 <span class="kw">use </span>object_store::services::Fs <span class="kw">as </span>FsBuilder;
-<span class="kw">use </span>object_store::{util, ObjectStore};
+<span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>snafu::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::datanode::FileConfig;
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::store;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new_fs_object_store(file_config: <span class="kw-2">&amp;</span>FileConfig) -&gt; <span class="prelude-ty">Result</span>&lt;ObjectStore&gt; {
-    <span class="kw">let </span>data_home = util::normalize_dir(<span class="kw-2">&amp;</span>file_config.data_home);
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new_fs_object_store(
+    data_home: <span class="kw-2">&amp;</span>str,
+    _file_config: <span class="kw-2">&amp;</span>FileConfig,
+) -&gt; <span class="prelude-ty">Result</span>&lt;ObjectStore&gt; {
     fs::create_dir_all(path::Path::new(<span class="kw-2">&amp;</span>data_home))
-        .context(error::CreateDirSnafu { dir: <span class="kw-2">&amp;</span>data_home })<span class="question-mark">?</span>;
-    <span class="macro">info!</span>(<span class="string">&quot;The file storage home is: {}&quot;</span>, <span class="kw-2">&amp;</span>data_home);
+        .context(error::CreateDirSnafu { dir: data_home })<span class="question-mark">?</span>;
+    <span class="macro">info!</span>(<span class="string">&quot;The file storage home is: {}&quot;</span>, data_home);
 
     <span class="kw">let </span>atomic_write_dir = <span class="macro">format!</span>(<span class="string">&quot;{data_home}.tmp/&quot;</span>);
     store::clean_temp_dir(<span class="kw-2">&amp;</span>atomic_write_dir)<span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>builder = FsBuilder::default();
-    <span class="kw">let _ </span>= builder.root(<span class="kw-2">&amp;</span>data_home).atomic_write_dir(<span class="kw-2">&amp;</span>atomic_write_dir);
+    <span class="kw">let _ </span>= builder.root(data_home).atomic_write_dir(<span class="kw-2">&amp;</span>atomic_write_dir);
 
     <span class="kw">let </span>object_store = ObjectStore::new(builder)
         .context(error::InitBackendSnafu)<span class="question-mark">?

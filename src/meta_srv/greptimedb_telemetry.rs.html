@@ -76,16 +76,6 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -100,78 +90,68 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;greptimedb-telemetry&quot;</span>)]
-</span><span class="kw">pub mod </span>telemetry {
-    <span class="kw">use </span>std::sync::Arc;
+</span><span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">use </span>async_trait::async_trait;
-    <span class="kw">use </span>common_greptimedb_telemetry::{
-        default_get_uuid, Collector, GreptimeDBTelemetry, GreptimeDBTelemetryTask,
-        Mode <span class="kw">as </span>VersionReporterMode, TELEMETRY_INTERVAL,
-    };
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>common_greptimedb_telemetry::{
+    default_get_uuid, Collector, GreptimeDBTelemetry, GreptimeDBTelemetryTask,
+    Mode <span class="kw">as </span>VersionReporterMode, TELEMETRY_INTERVAL,
+};
 
-    <span class="kw">use </span><span class="kw">crate</span>::cluster::MetaPeerClientRef;
+<span class="kw">use </span><span class="kw">crate</span>::cluster::MetaPeerClientRef;
 
-    <span class="kw">struct </span>DistributedGreptimeDBTelemetryCollector {
-        meta_peer_client: MetaPeerClientRef,
-        uuid: <span class="prelude-ty">Option</span>&lt;String&gt;,
-        retry: i32,
+<span class="kw">struct </span>DistributedGreptimeDBTelemetryCollector {
+    meta_peer_client: MetaPeerClientRef,
+    uuid: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    retry: i32,
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>Collector <span class="kw">for </span>DistributedGreptimeDBTelemetryCollector {
+    <span class="kw">fn </span>get_mode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VersionReporterMode {
+        VersionReporterMode::Distributed
     }
 
-    <span class="attr">#[async_trait]
-    </span><span class="kw">impl </span>Collector <span class="kw">for </span>DistributedGreptimeDBTelemetryCollector {
-        <span class="kw">fn </span>get_mode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VersionReporterMode {
-            VersionReporterMode::Distributed
-        }
-
-        <span class="kw">async fn </span>get_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;i32&gt; {
-            <span class="self">self</span>.meta_peer_client.get_node_cnt().<span class="kw">await</span>.ok()
-        }
-
-        <span class="kw">fn </span>get_retry(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i32 {
-            <span class="self">self</span>.retry
-        }
-
-        <span class="kw">fn </span>inc_retry(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-            <span class="self">self</span>.retry += <span class="number">1</span>;
-        }
-
-        <span class="kw">fn </span>set_uuid_cache(<span class="kw-2">&amp;mut </span><span class="self">self</span>, uuid: String) {
-            <span class="self">self</span>.uuid = <span class="prelude-val">Some</span>(uuid);
-        }
-
-        <span class="kw">fn </span>get_uuid_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-            <span class="self">self</span>.uuid.clone()
-        }
+    <span class="kw">async fn </span>get_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;i32&gt; {
+        <span class="self">self</span>.meta_peer_client.get_node_cnt().<span class="kw">await</span>.ok()
     }
 
-    <span class="kw">pub async fn </span>get_greptimedb_telemetry_task(
-        meta_peer_client: MetaPeerClientRef,
-    ) -&gt; Arc&lt;GreptimeDBTelemetryTask&gt; {
-        Arc::new(GreptimeDBTelemetryTask::enable(
-            TELEMETRY_INTERVAL,
-            Box::new(GreptimeDBTelemetry::new(Box::new(
-                DistributedGreptimeDBTelemetryCollector {
-                    meta_peer_client,
-                    uuid: default_get_uuid(),
-                    retry: <span class="number">0</span>,
-                },
-            ))),
-        ))
+    <span class="kw">fn </span>get_retry(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i32 {
+        <span class="self">self</span>.retry
+    }
+
+    <span class="kw">fn </span>inc_retry(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.retry += <span class="number">1</span>;
+    }
+
+    <span class="kw">fn </span>set_uuid_cache(<span class="kw-2">&amp;mut </span><span class="self">self</span>, uuid: String) {
+        <span class="self">self</span>.uuid = <span class="prelude-val">Some</span>(uuid);
+    }
+
+    <span class="kw">fn </span>get_uuid_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+        <span class="self">self</span>.uuid.clone()
     }
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;greptimedb-telemetry&quot;</span>))]
-</span><span class="kw">pub mod </span>telemetry {
-    <span class="kw">use </span>std::sync::Arc;
-
-    <span class="kw">use </span>common_greptimedb_telemetry::GreptimeDBTelemetryTask;
-
-    <span class="kw">use </span><span class="kw">crate</span>::cluster::MetaPeerClientRef;
-    <span class="kw">pub async fn </span>get_greptimedb_telemetry_task(
-        <span class="kw">_</span>: MetaPeerClientRef,
-    ) -&gt; Arc&lt;GreptimeDBTelemetryTask&gt; {
-        Arc::new(GreptimeDBTelemetryTask::disable())
+<span class="kw">pub async fn </span>get_greptimedb_telemetry_task(
+    working_home: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    meta_peer_client: MetaPeerClientRef,
+    enable: bool,
+) -&gt; Arc&lt;GreptimeDBTelemetryTask&gt; {
+    <span class="kw">if </span>!enable || <span class="macro">cfg!</span>(test) {
+        <span class="kw">return </span>Arc::new(GreptimeDBTelemetryTask::disable());
     }
+
+    Arc::new(GreptimeDBTelemetryTask::enable(
+        TELEMETRY_INTERVAL,
+        Box::new(GreptimeDBTelemetry::new(
+            working_home.clone(),
+            Box::new(DistributedGreptimeDBTelemetryCollector {
+                meta_peer_client,
+                uuid: default_get_uuid(<span class="kw-2">&amp;</span>working_home),
+                retry: <span class="number">0</span>,
+            }),
+        )),
+    ))
 }
 </code></pre></div></section></main></body></html>

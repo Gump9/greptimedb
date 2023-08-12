@@ -323,6 +323,11 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -369,12 +374,12 @@
 <span class="kw">use </span>tower::service_fn;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_util::{
-    create_datanode_opts, create_tmp_dir_and_datanode_opts, StorageGuard, StorageType, WalGuard,
+    create_datanode_opts, create_tmp_dir_and_datanode_opts, FileDirGuard, StorageGuard, StorageType,
 };
 
 <span class="kw">pub struct </span>GreptimeDbCluster {
     <span class="kw">pub </span>storage_guards: Vec&lt;StorageGuard&gt;,
-    _wal_guards: Vec&lt;WalGuard&gt;,
+    <span class="kw">pub </span>_dir_guards: Vec&lt;FileDirGuard&gt;,
 
     <span class="kw">pub </span>datanode_instances: HashMap&lt;DatanodeId, Arc&lt;DatanodeInstance&gt;&gt;,
     <span class="kw">pub </span>datanode_heartbeat_tasks: HashMap&lt;DatanodeId, <span class="prelude-ty">Option</span>&lt;HeartbeatTask&gt;&gt;,
@@ -418,7 +423,7 @@
 
         <span class="kw">let </span>meta_srv = <span class="self">self</span>.build_metasrv(datanode_clients.clone()).<span class="kw">await</span>;
 
-        <span class="kw">let </span>(datanode_instances, heartbeat_tasks, storage_guards, wal_guards) =
+        <span class="kw">let </span>(datanode_instances, heartbeat_tasks, storage_guards, dir_guards) =
             <span class="self">self</span>.build_datanodes(meta_srv.clone(), datanodes).<span class="kw">await</span>;
 
         build_datanode_clients(datanode_clients.clone(), <span class="kw-2">&amp;</span>datanode_instances, datanodes).<span class="kw">await</span>;
@@ -434,7 +439,7 @@
 
         GreptimeDbCluster {
             storage_guards,
-            _wal_guards: wal_guards,
+            _dir_guards: dir_guards,
             datanode_instances,
             datanode_heartbeat_tasks: heartbeat_tasks,
             kv_store: <span class="self">self</span>.kv_store.clone(),
@@ -474,22 +479,26 @@
         HashMap&lt;DatanodeId, Arc&lt;DatanodeInstance&gt;&gt;,
         HashMap&lt;DatanodeId, <span class="prelude-ty">Option</span>&lt;HeartbeatTask&gt;&gt;,
         Vec&lt;StorageGuard&gt;,
-        Vec&lt;WalGuard&gt;,
+        Vec&lt;FileDirGuard&gt;,
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>instances = HashMap::with_capacity(datanodes <span class="kw">as </span>usize);
         <span class="kw">let </span><span class="kw-2">mut </span>heartbeat_tasks = HashMap::with_capacity(datanodes <span class="kw">as </span>usize);
         <span class="kw">let </span><span class="kw-2">mut </span>storage_guards = Vec::with_capacity(datanodes <span class="kw">as </span>usize);
-        <span class="kw">let </span><span class="kw-2">mut </span>wal_guards = Vec::with_capacity(datanodes <span class="kw">as </span>usize);
+        <span class="kw">let </span><span class="kw-2">mut </span>dir_guards = Vec::with_capacity(datanodes <span class="kw">as </span>usize);
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..datanodes {
             <span class="kw">let </span>datanode_id = i <span class="kw">as </span>u64 + <span class="number">1</span>;
 
             <span class="kw">let </span><span class="kw-2">mut </span>opts = <span class="kw">if let </span><span class="prelude-val">Some</span>(store_config) = <span class="kw-2">&amp;</span><span class="self">self</span>.store_config {
+                <span class="kw">let </span>home_tmp_dir = create_temp_dir(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;gt_home_{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.cluster_name));
+                <span class="kw">let </span>home_dir = home_tmp_dir.path().to_str().unwrap().to_string();
+
                 <span class="kw">let </span>wal_tmp_dir = create_temp_dir(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;gt_wal_{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.cluster_name));
                 <span class="kw">let </span>wal_dir = wal_tmp_dir.path().to_str().unwrap().to_string();
-                wal_guards.push(WalGuard(wal_tmp_dir));
+                dir_guards.push(FileDirGuard::new(home_tmp_dir, <span class="bool-val">false</span>));
+                dir_guards.push(FileDirGuard::new(wal_tmp_dir, <span class="bool-val">true</span>));
 
-                create_datanode_opts(store_config.clone(), wal_dir)
+                create_datanode_opts(store_config.clone(), home_dir, wal_dir)
             } <span class="kw">else </span>{
                 <span class="kw">let </span>(opts, guard) = create_tmp_dir_and_datanode_opts(
                     StorageType::File,
@@ -497,7 +506,8 @@
                 );
 
                 storage_guards.push(guard.storage_guard);
-                wal_guards.push(guard.wal_guard);
+                dir_guards.push(guard.home_guard);
+                dir_guards.push(guard.wal_guard);
 
                 opts
             };
@@ -509,7 +519,7 @@
             <span class="kw">let _ </span>= instances.insert(datanode_id, dn_instance.<span class="number">0</span>.clone());
             <span class="kw">let _ </span>= heartbeat_tasks.insert(datanode_id, dn_instance.<span class="number">1</span>);
         }
-        (instances, heartbeat_tasks, storage_guards, wal_guards)
+        (instances, heartbeat_tasks, storage_guards, dir_guards)
     }
 
     <span class="kw">async fn </span>wait_datanodes_alive(

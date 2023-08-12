@@ -585,6 +585,25 @@
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -603,9 +622,11 @@
 <span class="kw">use </span>std::collections::hash_map::Entry;
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::sync::atomic::{AtomicU32, Ordering};
-<span class="kw">use </span>std::sync::{Arc, RwLock};
+<span class="kw">use </span>std::sync::{Arc, RwLock, Weak};
 
-<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, MIN_USER_TABLE_ID};
+<span class="kw">use </span>common_catalog::consts::{
+    DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, INFORMATION_SCHEMA_NAME, MIN_USER_TABLE_ID,
+};
 <span class="kw">use </span>metrics::{decrement_gauge, increment_gauge};
 <span class="kw">use </span>snafu::OptionExt;
 <span class="kw">use </span>table::metadata::TableId;
@@ -615,6 +636,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     CatalogNotFoundSnafu, <span class="prelude-ty">Result</span>, SchemaNotFoundSnafu, TableExistsSnafu, TableNotFoundSnafu,
 };
+<span class="kw">use </span><span class="kw">crate</span>::information_schema::InformationSchemaProvider;
 <span class="kw">use crate</span>::{
     CatalogManager, DeregisterSchemaRequest, DeregisterTableRequest, RegisterSchemaRequest,
     RegisterSystemTableRequest, RegisterTableRequest, RenameTableRequest,
@@ -627,24 +649,6 @@
     <span class="doccomment">/// Collection of catalogs containing schemas and ultimately Tables
     </span><span class="kw">pub </span>catalogs: RwLock&lt;HashMap&lt;String, SchemaEntries&gt;&gt;,
     <span class="kw">pub </span>table_id: AtomicU32,
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>MemoryCatalogManager {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>manager = <span class="self">Self </span>{
-            table_id: AtomicU32::new(MIN_USER_TABLE_ID),
-            catalogs: Default::default(),
-        };
-
-        <span class="kw">let </span>catalog = HashMap::from([(DEFAULT_SCHEMA_NAME.to_string(), HashMap::new())]);
-        <span class="kw">let _ </span>= manager
-            .catalogs
-            .write()
-            .unwrap()
-            .insert(DEFAULT_CATALOG_NAME.to_string(), catalog);
-
-        manager
-    }
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -837,7 +841,7 @@
             .collect())
     }
 
-    <span class="kw">async fn </span>register_catalog(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+    <span class="kw">async fn </span>register_catalog(<span class="self">self</span>: Arc&lt;<span class="self">Self</span>&gt;, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
         <span class="self">self</span>.register_catalog_sync(name)
     }
 
@@ -847,6 +851,28 @@
 }
 
 <span class="kw">impl </span>MemoryCatalogManager {
+    <span class="doccomment">/// Create a manager with some default setups
+    /// (e.g. default catalog/schema and information schema)
+    </span><span class="kw">pub fn </span>with_default_setup() -&gt; Arc&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>manager = Arc::new(<span class="self">Self </span>{
+            table_id: AtomicU32::new(MIN_USER_TABLE_ID),
+            catalogs: Default::default(),
+        });
+
+        <span class="comment">// Safety: default catalog/schema is registered in order so no CatalogNotFound error will occur
+        </span>manager
+            .register_catalog_sync(DEFAULT_CATALOG_NAME.to_string())
+            .unwrap();
+        manager
+            .register_schema_sync(RegisterSchemaRequest {
+                catalog: DEFAULT_CATALOG_NAME.to_string(),
+                schema: DEFAULT_SCHEMA_NAME.to_string(),
+            })
+            .unwrap();
+
+        manager
+    }
+
     <span class="doccomment">/// Registers a catalog and return the catalog already exist
     </span><span class="kw">pub fn </span>register_catalog_if_absent(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; bool {
         <span class="kw">let </span><span class="kw-2">mut </span>catalogs = <span class="self">self</span>.catalogs.write().unwrap();
@@ -860,12 +886,13 @@
         }
     }
 
-    <span class="kw">pub fn </span>register_catalog_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+    <span class="kw">pub fn </span>register_catalog_sync(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>catalogs = <span class="self">self</span>.catalogs.write().unwrap();
 
-        <span class="kw">match </span>catalogs.entry(name) {
+        <span class="kw">match </span>catalogs.entry(name.clone()) {
             Entry::Vacant(e) =&gt; {
-                e.insert(HashMap::new());
+                <span class="kw">let </span>catalog = <span class="self">self</span>.create_catalog_entry(name);
+                e.insert(catalog);
                 <span class="macro">increment_gauge!</span>(<span class="kw">crate</span>::metrics::METRIC_CATALOG_MANAGER_CATALOG_COUNT, <span class="number">1.0</span>);
                 <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
             }
@@ -919,9 +946,19 @@
         <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
     }
 
+    <span class="kw">fn </span>create_catalog_entry(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;, catalog: String) -&gt; SchemaEntries {
+        <span class="kw">let </span>information_schema = InformationSchemaProvider::build(
+            catalog,
+            Arc::downgrade(<span class="self">self</span>) <span class="kw">as </span>Weak&lt;<span class="kw">dyn </span>CatalogManager&gt;,
+        );
+        <span class="kw">let </span><span class="kw-2">mut </span>catalog = HashMap::new();
+        catalog.insert(INFORMATION_SCHEMA_NAME.to_string(), information_schema);
+        catalog
+    }
+
     <span class="attr">#[cfg(any(test, feature = <span class="string">&quot;testing&quot;</span>))]
-    </span><span class="kw">pub fn </span>new_with_table(table: TableRef) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>manager = <span class="self">Self</span>::default();
+    </span><span class="kw">pub fn </span>new_with_table(table: TableRef) -&gt; Arc&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>manager = <span class="self">Self</span>::with_default_setup();
         <span class="kw">let </span>request = RegisterTableRequest {
             catalog: DEFAULT_CATALOG_NAME.to_string(),
             schema: DEFAULT_SCHEMA_NAME.to_string(),
@@ -936,7 +973,7 @@
 
 <span class="doccomment">/// Create a memory catalog list contains a numbers table for test
 </span><span class="kw">pub fn </span>new_memory_catalog_manager() -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;MemoryCatalogManager&gt;&gt; {
-    <span class="prelude-val">Ok</span>(Arc::new(MemoryCatalogManager::default()))
+    <span class="prelude-val">Ok</span>(MemoryCatalogManager::with_default_setup())
 }
 
 <span class="attr">#[cfg(test)]
@@ -979,7 +1016,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_mem_manager_rename_table() {
-        <span class="kw">let </span>catalog = MemoryCatalogManager::default();
+        <span class="kw">let </span>catalog = MemoryCatalogManager::with_default_setup();
         <span class="kw">let </span>table_name = <span class="string">&quot;test_table&quot;</span>;
         <span class="macro">assert!</span>(!catalog
             .table_exist(DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, table_name)
@@ -1043,7 +1080,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_catalog_rename_table() {
-        <span class="kw">let </span>catalog = MemoryCatalogManager::default();
+        <span class="kw">let </span>catalog = MemoryCatalogManager::with_default_setup();
         <span class="kw">let </span>table_name = <span class="string">&quot;num&quot;</span>;
         <span class="kw">let </span>table_id = <span class="number">2333</span>;
         <span class="kw">let </span>table: TableRef = Arc::new(NumbersTable::new(table_id));
@@ -1094,14 +1131,14 @@
 
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>test_register_if_absent() {
-        <span class="kw">let </span>list = MemoryCatalogManager::default();
+        <span class="kw">let </span>list = MemoryCatalogManager::with_default_setup();
         <span class="macro">assert!</span>(!list.register_catalog_if_absent(<span class="string">&quot;test_catalog&quot;</span>.to_string(),));
         <span class="macro">assert!</span>(list.register_catalog_if_absent(<span class="string">&quot;test_catalog&quot;</span>.to_string()));
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">pub async fn </span>test_catalog_deregister_table() {
-        <span class="kw">let </span>catalog = MemoryCatalogManager::default();
+        <span class="kw">let </span>catalog = MemoryCatalogManager::with_default_setup();
         <span class="kw">let </span>table_name = <span class="string">&quot;foo_table&quot;</span>;
 
         <span class="kw">let </span>register_table_req = RegisterTableRequest {
@@ -1136,7 +1173,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_catalog_deregister_schema() {
-        <span class="kw">let </span>catalog = MemoryCatalogManager::default();
+        <span class="kw">let </span>catalog = MemoryCatalogManager::with_default_setup();
 
         <span class="comment">// Registers a catalog, a schema, and a table.
         </span><span class="kw">let </span>catalog_name = <span class="string">&quot;foo_catalog&quot;</span>.to_string();
@@ -1154,6 +1191,7 @@
             table: Arc::new(NumbersTable::default()),
         };
         catalog
+            .clone()
             .register_catalog(catalog_name.clone())
             .<span class="kw">await
             </span>.unwrap();

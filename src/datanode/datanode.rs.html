@@ -506,6 +506,19 @@
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -566,7 +579,7 @@
 }
 
 <span class="doccomment">/// Storage engine config
-</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 </span><span class="kw">pub struct </span>StorageConfig {
     <span class="doccomment">/// Retention period for all tables.
@@ -576,6 +589,8 @@
     /// The precedence order is: ttl in table options &gt; global ttl.
     </span><span class="attr">#[serde(with = <span class="string">&quot;humantime_serde&quot;</span>)]
     </span><span class="kw">pub </span>global_ttl: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="doccomment">/// The working directory of database
+    </span><span class="kw">pub </span>data_home: String,
     <span class="attr">#[serde(flatten)]
     </span><span class="kw">pub </span>store: ObjectStoreConfig,
     <span class="kw">pub </span>compaction: CompactionConfig,
@@ -583,11 +598,22 @@
     <span class="kw">pub </span>flush: FlushConfig,
 }
 
+<span class="kw">impl </span>Default <span class="kw">for </span>StorageConfig {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            global_ttl: <span class="prelude-val">None</span>,
+            data_home: DEFAULT_DATA_HOME.to_string(),
+            store: ObjectStoreConfig::default(),
+            compaction: CompactionConfig::default(),
+            manifest: RegionManifestConfig::default(),
+            flush: FlushConfig::default(),
+        }
+    }
+}
+
 <span class="attr">#[derive(Debug, Clone, Serialize, Default, Deserialize)]
 #[serde(default)]
-</span><span class="kw">pub struct </span>FileConfig {
-    <span class="kw">pub </span>data_home: String,
-}
+</span><span class="kw">pub struct </span>FileConfig {}
 
 <span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -706,9 +732,7 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>ObjectStoreConfig {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        ObjectStoreConfig::File(FileConfig {
-            data_home: DEFAULT_DATA_HOME.to_string(),
-        })
+        ObjectStoreConfig::File(FileConfig {})
     }
 }
 
@@ -870,6 +894,7 @@
     <span class="kw">pub </span>storage: StorageConfig,
     <span class="kw">pub </span>procedure: ProcedureConfig,
     <span class="kw">pub </span>logging: LoggingOptions,
+    <span class="kw">pub </span>enable_telemetry: bool,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>DatanodeOptions {
@@ -888,6 +913,7 @@
             procedure: ProcedureConfig::default(),
             logging: LoggingOptions::default(),
             heartbeat: HeartbeatOptions::default(),
+            enable_telemetry: <span class="bool-val">true</span>,
         }
     }
 }

@@ -107,6 +107,8 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -134,7 +136,8 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::manifest::manager::RegionManifestManager;
-<span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionControlRef, VersionRef};
+<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataRef;
+<span class="kw">use </span><span class="kw">crate</span>::region::version::VersionControlRef;
 
 <span class="doccomment">/// Type to store region version.
 </span><span class="kw">pub type </span>VersionNumber = u32;
@@ -149,7 +152,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) region_id: RegionId,
 
     <span class="doccomment">/// Version controller for this region.
-    </span>version_control: VersionControlRef,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) version_control: VersionControlRef,
     <span class="doccomment">/// Manager to maintain manifest for this region.
     </span>manifest_manager: RegionManifestManager,
 }
@@ -166,9 +169,10 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Returns current version of the region.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VersionRef {
-        <span class="self">self</span>.version_control.current()
+    <span class="doccomment">/// Returns current metadata of the region.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RegionMetadataRef {
+        <span class="kw">let </span>version_data = <span class="self">self</span>.version_control.current();
+        version_data.version.metadata.clone()
     }
 }
 

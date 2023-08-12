@@ -303,6 +303,14 @@
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -318,6 +326,7 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>std::any::Any;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>common_datasource::compression::CompressionType;
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
@@ -490,15 +499,10 @@
 
     <span class="doccomment">/// An error type to indicate that schema is changed and we need
     /// to fill default values again.
-    </span><span class="attr">#[snafu(display(
-        <span class="string">&quot;Need to fill default value to column {} of region {}&quot;</span>,
-        column,
-        region_id
-    ))]
+    </span><span class="attr">#[snafu(display(<span class="string">&quot;Need to fill default value for region {}&quot;</span>, region_id))]
     </span>FillDefault {
         region_id: RegionId,
-        column: String,
-        <span class="comment">// The error is for retry purpose so we don&#39;t need a location.
+        <span class="comment">// The error is for internal use so we don&#39;t need a location.
     </span>},
 
     <span class="attr">#[snafu(display(
@@ -565,9 +569,20 @@
         location: Location,
         source: BoxedError,
     },
+
+    <span class="comment">// Shared error for each writer in the write group.
+    </span><span class="attr">#[snafu(display(<span class="string">&quot;Failed to write region, source: {}&quot;</span>, source))]
+    </span>WriteGroup { source: Arc&lt;Error&gt; },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
+
+<span class="kw">impl </span>Error {
+    <span class="doccomment">/// Returns true if we need to fill default value for a region.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_fill_default(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, Error::FillDefault { .. })
+    }
+}
 
 <span class="kw">impl </span>ErrorExt <span class="kw">for </span>Error {
     <span class="kw">fn </span>status_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StatusCode {
@@ -601,6 +616,7 @@
             | EncodeWal { .. }
             | DecodeWal { .. } =&gt; StatusCode::Internal,
             WriteBuffer { source, .. } =&gt; source.status_code(),
+            WriteGroup { source, .. } =&gt; source.status_code(),
         }
     }
 

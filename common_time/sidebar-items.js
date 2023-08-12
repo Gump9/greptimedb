@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["date","datetime","error","interval","range","time","timestamp","timestamp_millis","timezone","util"]};
+window.SIDEBAR_ITEMS = {"mod":["date","datetime","duration","error","interval","range","time","timestamp","timestamp_millis","timezone","util"]};

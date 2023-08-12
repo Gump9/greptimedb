@@ -586,6 +586,9 @@
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -671,6 +674,7 @@
 </span><span class="kw">pub struct </span>StandaloneOptions {
     <span class="kw">pub </span>mode: Mode,
     <span class="kw">pub </span>enable_memory_catalog: bool,
+    <span class="kw">pub </span>enable_telemetry: bool,
     <span class="kw">pub </span>http_options: <span class="prelude-ty">Option</span>&lt;HttpOptions&gt;,
     <span class="kw">pub </span>grpc_options: <span class="prelude-ty">Option</span>&lt;GrpcOptions&gt;,
     <span class="kw">pub </span>mysql_options: <span class="prelude-ty">Option</span>&lt;MysqlOptions&gt;,
@@ -690,6 +694,7 @@
         <span class="self">Self </span>{
             mode: Mode::Standalone,
             enable_memory_catalog: <span class="bool-val">false</span>,
+            enable_telemetry: <span class="bool-val">true</span>,
             http_options: <span class="prelude-val">Some</span>(HttpOptions::default()),
             grpc_options: <span class="prelude-val">Some</span>(GrpcOptions::default()),
             mysql_options: <span class="prelude-val">Some</span>(MysqlOptions::default()),
@@ -727,6 +732,7 @@
     <span class="kw">fn </span>datanode_options(<span class="self">self</span>) -&gt; DatanodeOptions {
         DatanodeOptions {
             enable_memory_catalog: <span class="self">self</span>.enable_memory_catalog,
+            enable_telemetry: <span class="self">self</span>.enable_telemetry,
             wal: <span class="self">self</span>.wal,
             storage: <span class="self">self</span>.storage,
             procedure: <span class="self">self</span>.procedure,

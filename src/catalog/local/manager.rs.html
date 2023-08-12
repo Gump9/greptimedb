@@ -632,19 +632,6 @@
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -690,7 +677,6 @@
     SystemCatalogTypeMismatchSnafu, TableEngineNotFoundSnafu, TableExistsSnafu, TableNotExistSnafu,
     TableNotFoundSnafu, UnimplementedSnafu,
 };
-<span class="kw">use </span><span class="kw">crate</span>::information_schema::InformationSchemaProvider;
 <span class="kw">use </span><span class="kw">crate</span>::local::memory::MemoryCatalogManager;
 <span class="kw">use </span><span class="kw">crate</span>::system::{
     decode_system_catalog, Entry, SystemCatalogTable, TableEntry, ENTRY_TYPE_INDEX, KEY_INDEX,
@@ -698,9 +684,8 @@
 };
 <span class="kw">use </span><span class="kw">crate</span>::tables::SystemCatalog;
 <span class="kw">use crate</span>::{
-    handle_system_table_request, CatalogManager, CatalogManagerRef, DeregisterSchemaRequest,
-    DeregisterTableRequest, RegisterSchemaRequest, RegisterSystemTableRequest,
-    RegisterTableRequest, RenameTableRequest,
+    handle_system_table_request, CatalogManager, DeregisterSchemaRequest, DeregisterTableRequest,
+    RegisterSchemaRequest, RegisterSystemTableRequest, RegisterTableRequest, RenameTableRequest,
 };
 
 <span class="doccomment">/// A `CatalogManager` consists of a system catalog and a bunch of user catalogs.
@@ -765,11 +750,18 @@
     }
 
     <span class="kw">async fn </span>init_system_catalog(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="comment">// register default catalog and default schema
+        </span><span class="self">self</span>.catalogs
+            .register_catalog_sync(DEFAULT_CATALOG_NAME.to_string())<span class="question-mark">?</span>;
+        <span class="self">self</span>.catalogs.register_schema_sync(RegisterSchemaRequest {
+            catalog: DEFAULT_CATALOG_NAME.to_string(),
+            schema: DEFAULT_SCHEMA_NAME.to_string(),
+        })<span class="question-mark">?</span>;
+
         <span class="comment">// register SystemCatalogTable
-        </span><span class="kw">let _ </span>= <span class="self">self
-            </span>.catalogs
+        </span><span class="self">self</span>.catalogs
             .register_catalog_sync(SYSTEM_CATALOG_NAME.to_string())<span class="question-mark">?</span>;
-        <span class="kw">let _ </span>= <span class="self">self</span>.catalogs.register_schema_sync(RegisterSchemaRequest {
+        <span class="self">self</span>.catalogs.register_schema_sync(RegisterSchemaRequest {
             catalog: SYSTEM_CATALOG_NAME.to_string(),
             schema: INFORMATION_SCHEMA_NAME.to_string(),
         })<span class="question-mark">?</span>;
@@ -780,16 +772,7 @@
             table_id: SYSTEM_CATALOG_TABLE_ID,
             table: <span class="self">self</span>.system.information_schema.system.clone(),
         };
-        <span class="kw">let _ </span>= <span class="self">self</span>.catalogs.register_table(register_table_req).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="comment">// register default catalog and default schema
-        </span><span class="kw">let _ </span>= <span class="self">self
-            </span>.catalogs
-            .register_catalog_sync(DEFAULT_CATALOG_NAME.to_string())<span class="question-mark">?</span>;
-        <span class="kw">let _ </span>= <span class="self">self</span>.catalogs.register_schema_sync(RegisterSchemaRequest {
-            catalog: DEFAULT_CATALOG_NAME.to_string(),
-            schema: DEFAULT_SCHEMA_NAME.to_string(),
-        })<span class="question-mark">?</span>;
+        <span class="self">self</span>.catalogs.register_table(register_table_req).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// Add numbers table for test
         </span><span class="kw">let </span>numbers_table = Arc::new(NumbersTable::default());
@@ -801,8 +784,7 @@
             table: numbers_table,
         };
 
-        <span class="kw">let _ </span>= <span class="self">self
-            </span>.catalogs
+        <span class="self">self</span>.catalogs
             .register_table(register_number_table_req)
             .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -877,9 +859,8 @@
         <span class="kw">for </span>entry <span class="kw">in </span>entries {
             <span class="kw">match </span>entry {
                 Entry::Catalog(c) =&gt; {
-                    <span class="kw">let _ </span>= <span class="self">self
-                        </span>.catalogs
-                        .register_catalog_if_absent(c.catalog_name.clone());
+                    <span class="self">self</span>.catalogs
+                        .register_catalog_sync(c.catalog_name.clone())<span class="question-mark">?</span>;
                     <span class="macro">info!</span>(<span class="string">&quot;Register catalog: {}&quot;</span>, c.catalog_name);
                 }
                 Entry::Schema(s) =&gt; {
@@ -1195,13 +1176,6 @@
         schema_name: <span class="kw-2">&amp;</span>str,
         table_name: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableRef&gt;&gt; {
-        <span class="kw">if </span>schema_name == INFORMATION_SCHEMA_NAME {
-            <span class="kw">let </span>manager: CatalogManagerRef = <span class="self">self</span>.catalogs.clone() <span class="kw">as _</span>;
-            <span class="kw">let </span>provider =
-                InformationSchemaProvider::new(catalog_name.to_string(), Arc::downgrade(<span class="kw-2">&amp;</span>manager));
-            <span class="kw">return </span>provider.table(table_name);
-        }
-
         <span class="self">self</span>.catalogs
             .table(catalog_name, schema_name, table_name)
             .<span class="kw">await
@@ -1231,8 +1205,8 @@
         <span class="self">self</span>.catalogs.table_names(catalog_name, schema_name).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>register_catalog(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-        <span class="self">self</span>.catalogs.register_catalog(name).<span class="kw">await
+    <span class="kw">async fn </span>register_catalog(<span class="self">self</span>: Arc&lt;<span class="self">Self</span>&gt;, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="self">self</span>.catalogs.clone().register_catalog(name).<span class="kw">await
     </span>}
 
     <span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Any {

@@ -258,13 +258,6 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -287,7 +280,7 @@
 <span class="kw">use </span>catalog::CatalogManagerRef;
 <span class="kw">use </span>client::client_manager::DatanodeClients;
 <span class="kw">use </span>common_base::bytes::Bytes;
-<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, INFORMATION_SCHEMA_NAME};
+<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>datafusion::common::Result;
@@ -359,13 +352,6 @@
                     <span class="comment">// no relation found in input plan, going to execute them locally
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(input_physical_plan));
                 };
-
-                <span class="kw">if </span>table_name.schema_name == INFORMATION_SCHEMA_NAME {
-                    <span class="kw">return </span>planner
-                        .create_physical_plan(input_plan, session_state)
-                        .<span class="kw">await
-                        </span>.map(<span class="prelude-val">Some</span>);
-                }
 
                 <span class="kw">let </span>input_schema = input_physical_plan.schema().clone();
                 <span class="kw">let </span>input_plan = <span class="self">self</span>.set_table_name(<span class="kw-2">&amp;</span>table_name, input_plan.clone())<span class="question-mark">?</span>;

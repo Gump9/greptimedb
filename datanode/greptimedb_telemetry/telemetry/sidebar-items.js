@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_greptimedb_telemetry_task"]};

@@ -194,9 +194,6 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -275,15 +272,12 @@
     <span class="kw">pub async fn </span>start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.meta_srv.try_start().<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = mpsc::channel::&lt;()&gt;(<span class="number">1</span>);
+        <span class="kw">let </span>(tx, rx) = mpsc::channel::&lt;()&gt;(<span class="number">1</span>);
 
         <span class="self">self</span>.signal_sender = <span class="prelude-val">Some</span>(tx);
 
-        <span class="kw">let </span>meta_srv = bootstrap_meta_srv_with_router(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.opts.bind_addr,
-            router(<span class="self">self</span>.meta_srv.clone()),
-            <span class="kw-2">&amp;mut </span>rx,
-        );
+        <span class="kw">let </span>meta_srv =
+            bootstrap_meta_srv_with_router(<span class="kw-2">&amp;</span><span class="self">self</span>.opts.bind_addr, router(<span class="self">self</span>.meta_srv.clone()), rx);
         <span class="kw">let </span>addr = <span class="self">self
             </span>.opts
             .http_opts
@@ -323,7 +317,7 @@
 <span class="kw">pub async fn </span>bootstrap_meta_srv_with_router(
     bind_addr: <span class="kw-2">&amp;</span>str,
     router: Router,
-    signal: <span class="kw-2">&amp;mut </span>Receiver&lt;()&gt;,
+    <span class="kw-2">mut </span>signal: Receiver&lt;()&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>listener = TcpListener::bind(bind_addr)
         .<span class="kw">await

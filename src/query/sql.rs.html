@@ -459,7 +459,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">mod </span>show;
+</span><span class="kw">mod </span>show_create_table;
 
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::sync::Arc;
@@ -632,7 +632,7 @@
 <span class="kw">pub fn </span>show_create_table(table: TableRef, partitions: <span class="prelude-ty">Option</span>&lt;Partitions&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
     <span class="kw">let </span>table_info = table.table_info();
     <span class="kw">let </span>table_name = <span class="kw-2">&amp;</span>table_info.name;
-    <span class="kw">let </span><span class="kw-2">mut </span>stmt = show::create_table_stmt(<span class="kw-2">&amp;</span>table_info)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>stmt = show_create_table::create_table_stmt(<span class="kw-2">&amp;</span>table_info)<span class="question-mark">?</span>;
     stmt.partitions = partitions;
     <span class="kw">let </span>sql = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, stmt);
     <span class="kw">let </span>columns = <span class="macro">vec!</span>[

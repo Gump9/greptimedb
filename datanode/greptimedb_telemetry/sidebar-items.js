@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["telemetry"]};
+window.SIDEBAR_ITEMS = {"fn":["get_greptimedb_telemetry_task"],"struct":["StandaloneGreptimeDBTelemetryCollector"]};

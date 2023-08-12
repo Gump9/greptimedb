@@ -730,6 +730,12 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -867,10 +873,7 @@
     }
 }
 
-<span class="kw">pub fn </span>get_test_store_config(
-    store_type: <span class="kw-2">&amp;</span>StorageType,
-    name: <span class="kw-2">&amp;</span>str,
-) -&gt; (ObjectStoreConfig, TempDirGuard) {
+<span class="kw">pub fn </span>get_test_store_config(store_type: <span class="kw-2">&amp;</span>StorageType) -&gt; (ObjectStoreConfig, TempDirGuard) {
     <span class="kw">let _ </span>= dotenv::dotenv();
 
     <span class="kw">match </span>store_type {
@@ -975,21 +978,12 @@
 
             (config, TempDirGuard::S3(TempFolder::new(<span class="kw-2">&amp;</span>store, <span class="string">&quot;/&quot;</span>)))
         }
-        StorageType::File =&gt; {
-            <span class="kw">let </span>data_tmp_dir = create_temp_dir(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;gt_data_{name}&quot;</span>));
-
-            (
-                ObjectStoreConfig::File(FileConfig {
-                    data_home: data_tmp_dir.path().to_str().unwrap().to_string(),
-                }),
-                TempDirGuard::File(data_tmp_dir),
-            )
-        }
+        StorageType::File =&gt; (ObjectStoreConfig::File(FileConfig {}), TempDirGuard::None),
     }
 }
 
 <span class="kw">pub enum </span>TempDirGuard {
-    File(TempDir),
+    <span class="prelude-val">None</span>,
     S3(TempFolder),
     Oss(TempFolder),
     Azblob(TempFolder),
@@ -997,11 +991,21 @@
 }
 
 <span class="kw">pub struct </span>TestGuard {
-    <span class="kw">pub </span>wal_guard: WalGuard,
+    <span class="kw">pub </span>home_guard: FileDirGuard,
+    <span class="kw">pub </span>wal_guard: FileDirGuard,
     <span class="kw">pub </span>storage_guard: StorageGuard,
 }
 
-<span class="kw">pub struct </span>WalGuard(<span class="kw">pub </span>TempDir);
+<span class="kw">pub struct </span>FileDirGuard {
+    <span class="kw">pub </span>temp_dir: TempDir,
+    <span class="kw">pub </span>is_wal: bool,
+}
+
+<span class="kw">impl </span>FileDirGuard {
+    <span class="kw">pub fn </span>new(temp_dir: TempDir, is_wal: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ temp_dir, is_wal }
+    }
+}
 
 <span class="kw">pub struct </span>StorageGuard(<span class="kw">pub </span>TempDirGuard);
 
@@ -1021,28 +1025,36 @@
     store_type: StorageType,
     name: <span class="kw-2">&amp;</span>str,
 ) -&gt; (DatanodeOptions, TestGuard) {
+    <span class="kw">let </span>home_tmp_dir = create_temp_dir(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;gt_data_{name}&quot;</span>));
     <span class="kw">let </span>wal_tmp_dir = create_temp_dir(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;gt_wal_{name}&quot;</span>));
+    <span class="kw">let </span>home_dir = home_tmp_dir.path().to_str().unwrap().to_string();
     <span class="kw">let </span>wal_dir = wal_tmp_dir.path().to_str().unwrap().to_string();
 
-    <span class="kw">let </span>(store, data_tmp_dir) = get_test_store_config(<span class="kw-2">&amp;</span>store_type, name);
-    <span class="kw">let </span>opts = create_datanode_opts(store, wal_dir);
+    <span class="kw">let </span>(store, data_tmp_dir) = get_test_store_config(<span class="kw-2">&amp;</span>store_type);
+    <span class="kw">let </span>opts = create_datanode_opts(store, home_dir, wal_dir);
 
     (
         opts,
         TestGuard {
-            wal_guard: WalGuard(wal_tmp_dir),
+            home_guard: FileDirGuard::new(home_tmp_dir, <span class="bool-val">false</span>),
+            wal_guard: FileDirGuard::new(wal_tmp_dir, <span class="bool-val">true</span>),
             storage_guard: StorageGuard(data_tmp_dir),
         },
     )
 }
 
-<span class="kw">pub fn </span>create_datanode_opts(store: ObjectStoreConfig, wal_dir: String) -&gt; DatanodeOptions {
+<span class="kw">pub fn </span>create_datanode_opts(
+    store: ObjectStoreConfig,
+    home_dir: String,
+    wal_dir: String,
+) -&gt; DatanodeOptions {
     DatanodeOptions {
         wal: WalConfig {
             dir: <span class="prelude-val">Some</span>(wal_dir),
             ..Default::default()
         },
         storage: StorageConfig {
+            data_home: home_dir,
             store,
             ..Default::default()
         },

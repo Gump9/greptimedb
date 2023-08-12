@@ -503,6 +503,15 @@
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -569,12 +578,12 @@
     MissingNodeIdSnafu, NewCatalogSnafu, OpenLogStoreSnafu, RecoverProcedureSnafu, <span class="prelude-ty">Result</span>,
     ShutdownInstanceSnafu, StartProcedureManagerSnafu, StopProcedureManagerSnafu,
 };
+<span class="kw">use </span><span class="kw">crate</span>::greptimedb_telemetry::get_greptimedb_telemetry_task;
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::handler::close_region::CloseRegionHandler;
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::handler::open_region::OpenRegionHandler;
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::HeartbeatTask;
 <span class="kw">use </span><span class="kw">crate</span>::sql::{SqlHandler, SqlRequest};
 <span class="kw">use </span><span class="kw">crate</span>::store;
-<span class="kw">use </span><span class="kw">crate</span>::telemetry::get_greptimedb_telemetry_task;
 
 <span class="kw">mod </span>grpc;
 <span class="kw">pub mod </span>sql;
@@ -669,8 +678,11 @@
         compaction_scheduler: CompactionSchedulerRef&lt;RaftEngineLogStore&gt;,
         plugins: Arc&lt;Plugins&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(InstanceRef, <span class="prelude-ty">Option</span>&lt;HeartbeatTask&gt;)&gt; {
-        <span class="kw">let </span>object_store = store::new_object_store(<span class="kw-2">&amp;</span>opts.storage.store).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>log_store = Arc::new(create_log_store(<span class="kw-2">&amp;</span>opts.storage.store, <span class="kw-2">&amp;</span>opts.wal).<span class="kw">await</span><span class="question-mark">?</span>);
+        <span class="kw">let </span>data_home = util::normalize_dir(<span class="kw-2">&amp;</span>opts.storage.data_home);
+        <span class="macro">info!</span>(<span class="string">&quot;The working home directory is: {}&quot;</span>, data_home);
+        <span class="kw">let </span>object_store = store::new_object_store(<span class="kw-2">&amp;</span>data_home, <span class="kw-2">&amp;</span>opts.storage.store).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>log_store =
+            Arc::new(create_log_store(<span class="kw-2">&amp;</span>data_home, <span class="kw-2">&amp;</span>opts.storage.store, <span class="kw-2">&amp;</span>opts.wal).<span class="kw">await</span><span class="question-mark">?</span>);
 
         <span class="kw">let </span>mito_engine = Arc::new(DefaultEngine::new(
             TableEngineConfig {
@@ -713,7 +725,7 @@
         </span><span class="kw">let </span>(catalog_manager, table_id_provider, region_alive_keepers) = <span class="kw">match </span>opts.mode {
             Mode::Standalone =&gt; {
                 <span class="kw">if </span>opts.enable_memory_catalog {
-                    <span class="kw">let </span>catalog = Arc::new(catalog::local::MemoryCatalogManager::default());
+                    <span class="kw">let </span>catalog = catalog::local::MemoryCatalogManager::with_default_setup();
                     <span class="kw">let </span>table = NumbersTable::new(MIN_USER_TABLE_ID);
 
                     <span class="kw">let _ </span>= catalog
@@ -810,7 +822,12 @@
             catalog_manager: catalog_manager.clone(),
             table_id_provider,
             procedure_manager,
-            greptimedb_telemetry_task: get_greptimedb_telemetry_task(<span class="kw-2">&amp;</span>opts.mode).<span class="kw">await</span>,
+            greptimedb_telemetry_task: get_greptimedb_telemetry_task(
+                <span class="prelude-val">Some</span>(opts.storage.data_home.clone()),
+                <span class="kw-2">&amp;</span>opts.mode,
+                opts.enable_telemetry,
+            )
+            .<span class="kw">await</span>,
         });
 
         <span class="kw">let </span>heartbeat_task = Instance::build_heartbeat_task(
@@ -949,13 +966,14 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>create_log_store(
+    data_home: <span class="kw-2">&amp;</span>str,
     store_config: <span class="kw-2">&amp;</span>ObjectStoreConfig,
     wal_config: <span class="kw-2">&amp;</span>WalConfig,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RaftEngineLogStore&gt; {
     <span class="kw">let </span>wal_dir = <span class="kw">match </span>(<span class="kw-2">&amp;</span>wal_config.dir, store_config) {
         (<span class="prelude-val">Some</span>(dir), <span class="kw">_</span>) =&gt; dir.to_string(),
-        (<span class="prelude-val">None</span>, ObjectStoreConfig::File(file_config)) =&gt; {
-            <span class="macro">format!</span>(<span class="string">&quot;{}{WAL_DIR}&quot;</span>, util::normalize_dir(<span class="kw-2">&amp;</span>file_config.data_home))
+        (<span class="prelude-val">None</span>, ObjectStoreConfig::File(_file_config)) =&gt; {
+            <span class="macro">format!</span>(<span class="string">&quot;{}{WAL_DIR}&quot;</span>, data_home)
         }
         <span class="kw">_ </span>=&gt; <span class="kw">return </span>error::MissingWalDirConfigSnafu {}.fail(),
     };

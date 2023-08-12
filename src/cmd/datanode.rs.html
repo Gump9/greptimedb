@@ -474,11 +474,6 @@
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -497,7 +492,7 @@
 
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>common_telemetry::logging;
-<span class="kw">use </span>datanode::datanode::{Datanode, DatanodeOptions, FileConfig, ObjectStoreConfig};
+<span class="kw">use </span>datanode::datanode::{Datanode, DatanodeOptions};
 <span class="kw">use </span>meta_client::MetaClientOptions;
 <span class="kw">use </span>servers::Mode;
 <span class="kw">use </span>snafu::ResultExt;
@@ -624,9 +619,7 @@
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(data_home) = <span class="kw-2">&amp;</span><span class="self">self</span>.data_home {
-            opts.storage.store = ObjectStoreConfig::File(FileConfig {
-                data_home: data_home.clone(),
-            });
+            opts.storage.data_home = data_home.clone();
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(wal_dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.wal_dir {
@@ -666,7 +659,9 @@
 
     <span class="kw">use </span>common_base::readable_size::ReadableSize;
     <span class="kw">use </span>common_test_util::temp_dir::create_named_temp_file;
-    <span class="kw">use </span>datanode::datanode::{CompactionConfig, ObjectStoreConfig, RegionManifestConfig};
+    <span class="kw">use </span>datanode::datanode::{
+        CompactionConfig, FileConfig, ObjectStoreConfig, RegionManifestConfig,
+    };
     <span class="kw">use </span>servers::Mode;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -751,16 +746,11 @@
         <span class="macro">assert_eq!</span>(<span class="number">10000</span>, ddl_timeout_millis);
         <span class="macro">assert_eq!</span>(<span class="number">3000</span>, timeout_millis);
         <span class="macro">assert!</span>(tcp_nodelay);
-
-        <span class="kw">match </span><span class="kw-2">&amp;</span>options.storage.store {
-            ObjectStoreConfig::File(FileConfig { data_home, .. }) =&gt; {
-                <span class="macro">assert_eq!</span>(<span class="string">&quot;/tmp/greptimedb/&quot;</span>, data_home)
-            }
-            ObjectStoreConfig::S3 { .. } =&gt; <span class="macro">unreachable!</span>(),
-            ObjectStoreConfig::Oss { .. } =&gt; <span class="macro">unreachable!</span>(),
-            ObjectStoreConfig::Azblob { .. } =&gt; <span class="macro">unreachable!</span>(),
-            ObjectStoreConfig::Gcs { .. } =&gt; <span class="macro">unreachable!</span>(),
-        };
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;/tmp/greptimedb/&quot;</span>, options.storage.data_home);
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+            <span class="kw-2">&amp;</span>options.storage.store,
+            ObjectStoreConfig::File(FileConfig { .. })
+        ));
 
         <span class="macro">assert_eq!</span>(
             CompactionConfig {

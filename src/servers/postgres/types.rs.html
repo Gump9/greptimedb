@@ -756,6 +756,50 @@
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -770,10 +814,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::collections::HashMap;
+</span><span class="kw">mod </span>interval;
+
+<span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::ops::Deref;
 
 <span class="kw">use </span>chrono::{NaiveDate, NaiveDateTime};
+<span class="kw">use </span>common_time::Interval;
 <span class="kw">use </span>datafusion_common::ScalarValue;
 <span class="kw">use </span>datatypes::prelude::{ConcreteDataType, Value};
 <span class="kw">use </span>datatypes::schema::Schema;
@@ -784,6 +831,7 @@
 <span class="kw">use </span>pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
 <span class="kw">use </span>query::plan::LogicalPlan;
 
+<span class="kw">use </span><span class="self">self</span>::interval::PgInterval;
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::SqlPlan;
 
@@ -856,14 +904,13 @@
                 })))
             }
         }
-        Value::Interval(<span class="kw">_</span>) | Value::List(<span class="kw">_</span>) =&gt; {
-            <span class="prelude-val">Err</span>(PgWireError::ApiError(Box::new(Error::Internal {
-                err_msg: <span class="macro">format!</span>(
-                    <span class="string">&quot;cannot write value {:?} in postgres protocol: unimplemented&quot;</span>,
-                    <span class="kw-2">&amp;</span>value
-                ),
-            })))
-        }
+        Value::Interval(v) =&gt; builder.encode_field(<span class="kw-2">&amp;</span>PgInterval::from(<span class="kw-2">*</span>v)),
+        Value::List(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(PgWireError::ApiError(Box::new(Error::Internal {
+            err_msg: <span class="macro">format!</span>(
+                <span class="string">&quot;cannot write value {:?} in postgres protocol: unimplemented&quot;</span>,
+                <span class="kw-2">&amp;</span>value
+            ),
+        }))),
     }
 }
 
@@ -952,6 +999,10 @@
         <span class="kw-2">&amp;</span>Type::TIMESTAMP =&gt; <span class="prelude-val">Ok</span>(portal
             .parameter::&lt;NaiveDateTime&gt;(idx, param_type)<span class="question-mark">?
             </span>.map(|v| v.format(<span class="string">&quot;%Y-%m-%d %H:%M:%S%.6f&quot;</span>).to_string())
+            .unwrap_or_else(|| <span class="string">&quot;&quot;</span>.to_owned())),
+        <span class="kw-2">&amp;</span>Type::INTERVAL =&gt; <span class="prelude-val">Ok</span>(portal
+            .parameter::&lt;PgInterval&gt;(idx, param_type)<span class="question-mark">?
+            </span>.map(|v| v.to_string())
             .unwrap_or_else(|| <span class="string">&quot;&quot;</span>.to_owned())),
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(invalid_parameter_error(
             <span class="string">&quot;unsupported_parameter_type&quot;</span>,
@@ -1236,6 +1287,23 @@
                     }
                 }
             }
+            <span class="kw-2">&amp;</span>Type::INTERVAL =&gt; {
+                <span class="kw">let </span>data = portal.parameter::&lt;PgInterval&gt;(idx, <span class="kw-2">&amp;</span>client_type)<span class="question-mark">?</span>;
+                <span class="kw">match </span>server_type {
+                    ConcreteDataType::Interval(<span class="kw">_</span>) =&gt; {
+                        ScalarValue::IntervalMonthDayNano(data.map(|i| Interval::from(i).to_i128()))
+                    }
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(invalid_parameter_error(
+                            <span class="string">&quot;invalid_parameter_type&quot;</span>,
+                            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                                <span class="string">&quot;Expected: {}, found: {}&quot;</span>,
+                                server_type, client_type
+                            )),
+                        ));
+                    }
+                }
+            }
             <span class="kw-2">&amp;</span>Type::BYTEA =&gt; {
                 <span class="kw">let </span>data = portal.parameter::&lt;Vec&lt;u8&gt;&gt;(idx, <span class="kw-2">&amp;</span>client_type)<span class="question-mark">?</span>;
                 <span class="kw">match </span>server_type {
@@ -1317,6 +1385,11 @@
             ),
             ColumnSchema::new(<span class="string">&quot;dates&quot;</span>, ConcreteDataType::date_datatype(), <span class="bool-val">true</span>),
             ColumnSchema::new(<span class="string">&quot;times&quot;</span>, ConcreteDataType::time_second_datatype(), <span class="bool-val">true</span>),
+            ColumnSchema::new(
+                <span class="string">&quot;intervals&quot;</span>,
+                ConcreteDataType::interval_month_day_nano_datatype(),
+                <span class="bool-val">true</span>,
+            ),
         ];
         <span class="kw">let </span>pg_field_info = <span class="macro">vec!</span>[
             FieldInfo::new(<span class="string">&quot;nulls&quot;</span>.into(), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, Type::UNKNOWN, FieldFormat::Text),
@@ -1366,6 +1439,13 @@
             ),
             FieldInfo::new(<span class="string">&quot;dates&quot;</span>.into(), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, Type::DATE, FieldFormat::Text),
             FieldInfo::new(<span class="string">&quot;times&quot;</span>.into(), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, Type::TIME, FieldFormat::Text),
+            FieldInfo::new(
+                <span class="string">&quot;intervals&quot;</span>.into(),
+                <span class="prelude-val">None</span>,
+                <span class="prelude-val">None</span>,
+                Type::INTERVAL,
+                FieldFormat::Text,
+            ),
         ];
         <span class="kw">let </span>schema = Schema::new(column_schemas);
         <span class="kw">let </span>fs = schema_to_pg(<span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>Format::UnifiedText).unwrap();
@@ -1461,6 +1541,13 @@
                 Type::TIMESTAMP,
                 FieldFormat::Text,
             ),
+            FieldInfo::new(
+                <span class="string">&quot;intervals&quot;</span>.into(),
+                <span class="prelude-val">None</span>,
+                <span class="prelude-val">None</span>,
+                Type::INTERVAL,
+                FieldFormat::Text,
+            ),
         ];
 
         <span class="kw">let </span>values = <span class="macro">vec!</span>[
@@ -1490,6 +1577,7 @@
             Value::Time(<span class="number">1001i64</span>.into()),
             Value::DateTime(<span class="number">1000001i64</span>.into()),
             Value::Timestamp(<span class="number">1000001i64</span>.into()),
+            Value::Interval(<span class="number">1000001i128</span>.into()),
         ];
         <span class="kw">let </span><span class="kw-2">mut </span>builder = DataRowEncoder::new(Arc::new(schema));
         <span class="kw">for </span>i <span class="kw">in </span>values.iter() {

@@ -372,11 +372,6 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -569,11 +564,12 @@
     <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
     <span class="kw">use </span>datatypes::schema::ColumnSchema;
     <span class="kw">use </span>greptime_proto::v1;
-    <span class="kw">use </span>greptime_proto::v1::{value, ColumnDataType, Value};
+    <span class="kw">use </span>greptime_proto::v1::ColumnDataType;
     <span class="kw">use </span>store_api::storage::RegionId;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::metadata::{ColumnMetadata, RegionMetadataBuilder};
+    <span class="kw">use </span><span class="kw">crate</span>::proto_util::i64_value;
 
     <span class="kw">const </span>TS_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;ts&quot;</span>;
     <span class="kw">const </span>START_SEQ: SequenceNumber = <span class="number">100</span>;
@@ -666,12 +662,6 @@
             op_type: OpType::Put <span class="kw">as </span>i32,
             sequence: START_SEQ,
             rows: <span class="prelude-val">Some</span>(rows),
-        }
-    }
-
-    <span class="kw">fn </span>i64_value(data: i64) -&gt; Value {
-        Value {
-            value: <span class="prelude-val">Some</span>(value::Value::I64Value(data)),
         }
     }
 

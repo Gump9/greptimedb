@@ -100,6 +100,23 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -125,38 +142,55 @@
 //! Reason: data may be flushed/compacted and some data with old sequence may be removed
 //! and became invisible between step 1 and 2, so need to acquire version at first.
 
-</span><span class="kw">use </span>std::sync::Arc;
+</span><span class="kw">use </span>std::sync::{Arc, RwLock};
 
-<span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>store_api::storage::SequenceNumber;
 
 <span class="kw">use </span><span class="kw">crate</span>::memtable::version::{MemtableVersion, MemtableVersionRef};
 <span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableRef;
 <span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataRef;
 <span class="kw">use </span><span class="kw">crate</span>::sst::version::{SstVersion, SstVersionRef};
+<span class="kw">use </span><span class="kw">crate</span>::wal::EntryId;
 
-<span class="doccomment">/// Controls version of in memory metadata for a region.
+<span class="doccomment">/// Controls metadata and sequence numbers for a region.
+///
+/// It manages metadata in a copy-on-write fashion. Any modification to a region&#39;s metadata
+/// will generate a new [Version].
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>VersionControl {
-    <span class="doccomment">/// Latest version.
-    </span>version: ArcSwap&lt;Version&gt;,
+    data: RwLock&lt;VersionControlData&gt;,
 }
 
 <span class="kw">impl </span>VersionControl {
     <span class="doccomment">/// Returns a new [VersionControl] with specific `version`.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(version: Version) -&gt; VersionControl {
         VersionControl {
-            version: ArcSwap::new(Arc::new(version)),
+            data: RwLock::new(VersionControlData {
+                version: Arc::new(version),
+                committed_sequence: <span class="number">0</span>,
+                last_entry_id: <span class="number">0</span>,
+            }),
         }
     }
 
-    <span class="doccomment">/// Returns current [Version].
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>current(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VersionRef {
-        <span class="self">self</span>.version.load_full()
+    <span class="doccomment">/// Returns current copy of data.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>current(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VersionControlData {
+        <span class="self">self</span>.data.read().unwrap().clone()
     }
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>VersionControlRef = Arc&lt;VersionControl&gt;;
+
+<span class="doccomment">/// Data of [VersionControl].
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>VersionControlData {
+    <span class="doccomment">/// Latest version.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) version: VersionRef,
+    <span class="doccomment">/// Sequence number of last committed data.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) committed_sequence: SequenceNumber,
+    <span class="doccomment">/// Last WAL entry Id.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) last_entry_id: EntryId,
+}
 
 <span class="doccomment">/// Static metadata of a region.
 </span><span class="attr">#[derive(Clone, Debug)]

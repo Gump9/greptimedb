@@ -371,6 +371,14 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -417,6 +425,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::service::mailbox::MailboxRef;
 <span class="kw">use </span><span class="kw">crate</span>::service::store::kv::{KvStoreRef, ResettableKvStoreRef};
 <span class="kw">pub const </span>TABLE_ID_SEQ: <span class="kw-2">&amp;</span>str = <span class="string">&quot;table_id&quot;</span>;
+<span class="kw">const </span>METASRV_HOME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/tmp/metasrv&quot;</span>;
 
 <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -432,6 +441,8 @@
     <span class="kw">pub </span>logging: LoggingOptions,
     <span class="kw">pub </span>procedure: ProcedureConfig,
     <span class="kw">pub </span>datanode: DatanodeOptions,
+    <span class="kw">pub </span>enable_telemetry: bool,
+    <span class="kw">pub </span>data_home: String,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>MetaSrvOptions {
@@ -445,9 +456,14 @@
             use_memory_store: <span class="bool-val">false</span>,
             disable_region_failover: <span class="bool-val">false</span>,
             http_opts: HttpOptions::default(),
-            logging: LoggingOptions::default(),
+            logging: LoggingOptions {
+                dir: <span class="macro">format!</span>(<span class="string">&quot;{METASRV_HOME}/logs&quot;</span>),
+                ..Default::default()
+            },
             procedure: ProcedureConfig::default(),
             datanode: DatanodeOptions::default(),
+            enable_telemetry: <span class="bool-val">true</span>,
+            data_home: METASRV_HOME.to_string(),
         }
     }
 }

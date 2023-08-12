@@ -327,7 +327,7 @@
     </span><span class="kw">async fn </span>start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
     <span class="doccomment">/// Registers a catalog to catalog manager, returns whether the catalog exist before.
-    </span><span class="kw">async fn </span>register_catalog(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
+    </span><span class="kw">async fn </span>register_catalog(<span class="self">self</span>: Arc&lt;<span class="self">Self</span>&gt;, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 
     <span class="doccomment">/// Register a schema with catalog name and schema name. Retuens whether the
     /// schema registered.

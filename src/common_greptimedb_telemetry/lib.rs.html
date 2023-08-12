@@ -369,6 +369,52 @@
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -385,30 +431,26 @@
 
 </span><span class="kw">use </span>std::env;
 <span class="kw">use </span>std::io::ErrorKind;
-<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>common_runtime::error::{Error, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>common_runtime::{BoxedTaskFunction, RepeatedTask, Runtime, TaskFunction};
 <span class="kw">use </span>common_telemetry::{debug, info};
-<span class="kw">use </span>once_cell::sync::Lazy;
 <span class="kw">use </span>reqwest::{Client, Response};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">pub const </span>TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://api.greptime.cloud/db/otel/statistics&quot;</span>;
+<span class="doccomment">/// The URL to report telemetry data.
+</span><span class="kw">pub const </span>TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://api.greptime.cloud/db/otel/statistics&quot;</span>;
+<span class="doccomment">/// The local installation uuid cache file
+</span><span class="kw">const </span>UUID_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;.greptimedb-telemetry-uuid&quot;</span>;
 
-<span class="comment">// Getting the right path when running on windows
-</span><span class="kw">static </span>TELEMETRY_UUID_FILE_NAME: Lazy&lt;PathBuf&gt; = Lazy::new(|| {
-    <span class="kw">let </span><span class="kw-2">mut </span>path = PathBuf::new();
-    path.push(env::temp_dir());
-    path.push(<span class="string">&quot;.greptimedb-telemetry-uuid&quot;</span>);
-    path
-});
-
-<span class="kw">pub static </span>TELEMETRY_INTERVAL: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">30</span>);
-
-<span class="kw">const </span>GREPTIMEDB_TELEMETRY_CLIENT_CONNECT_TIMEOUT: Duration = Duration::from_secs(<span class="number">10</span>);
-<span class="kw">const </span>GREPTIMEDB_TELEMETRY_CLIENT_TIMEOUT: Duration = Duration::from_secs(<span class="number">10</span>);
+<span class="doccomment">/// The default interval of reporting telemetry data to greptime cloud
+</span><span class="kw">pub static </span>TELEMETRY_INTERVAL: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">30</span>);
+<span class="doccomment">/// The default connect timeout to greptime cloud.
+</span><span class="kw">const </span>GREPTIMEDB_TELEMETRY_CLIENT_CONNECT_TIMEOUT: Duration = Duration::from_secs(<span class="number">10</span>);
+<span class="doccomment">/// The default request timeout to greptime cloud.
+</span><span class="kw">const </span>GREPTIMEDB_TELEMETRY_CLIENT_REQUEST_TIMEOUT: Duration = Duration::from_secs(<span class="number">10</span>);
 
 <span class="kw">pub enum </span>GreptimeDBTelemetryTask {
     Enable(RepeatedTask&lt;Error&gt;),
@@ -425,6 +467,8 @@
     }
 
     <span class="kw">pub fn </span>start(<span class="kw-2">&amp;</span><span class="self">self</span>, runtime: Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        print_anonymous_usage_data_disclaimer();
+
         <span class="kw">match </span><span class="self">self </span>{
             GreptimeDBTelemetryTask::Enable(task) =&gt; task.start(runtime),
             GreptimeDBTelemetryTask::Disable =&gt; <span class="prelude-val">Ok</span>(()),
@@ -439,15 +483,23 @@
     }
 }
 
-<span class="attr">#[derive(Serialize, Deserialize, Debug)]
+<span class="doccomment">/// Telemetry data to report
+</span><span class="attr">#[derive(Serialize, Deserialize, Debug)]
 </span><span class="kw">struct </span>StatisticData {
-    <span class="kw">pub </span>os: String,
-    <span class="kw">pub </span>version: String,
-    <span class="kw">pub </span>arch: String,
-    <span class="kw">pub </span>mode: Mode,
-    <span class="kw">pub </span>git_commit: String,
-    <span class="kw">pub </span>nodes: <span class="prelude-ty">Option</span>&lt;i32&gt;,
-    <span class="kw">pub </span>uuid: String,
+    <span class="doccomment">/// Operating system name, such as `linux`, `windows` etc.
+    </span><span class="kw">pub </span>os: String,
+    <span class="doccomment">/// The greptimedb version
+    </span><span class="kw">pub </span>version: String,
+    <span class="doccomment">/// The architecture of the CPU, such as `x86`, `x86_64` etc.
+    </span><span class="kw">pub </span>arch: String,
+    <span class="doccomment">/// The running mode, `standalone` or `distributed`.
+    </span><span class="kw">pub </span>mode: Mode,
+    <span class="doccomment">/// The git commit revision of greptimedb
+    </span><span class="kw">pub </span>git_commit: String,
+    <span class="doccomment">/// The node number
+    </span><span class="kw">pub </span>nodes: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+    <span class="doccomment">/// The local installation uuid
+    </span><span class="kw">pub </span>uuid: String,
 }
 
 <span class="attr">#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -487,14 +539,14 @@
 
     <span class="kw">async fn </span>get_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;i32&gt;;
 
-    <span class="kw">fn </span>get_uuid(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    <span class="kw">fn </span>get_uuid(<span class="kw-2">&amp;mut </span><span class="self">self</span>, working_home: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_uuid_cache() {
             <span class="prelude-val">Some</span>(uuid) =&gt; <span class="prelude-val">Some</span>(uuid),
             <span class="prelude-val">None </span>=&gt; {
                 <span class="kw">if </span><span class="self">self</span>.get_retry() &gt; <span class="number">3 </span>{
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-                <span class="kw">match </span>default_get_uuid() {
+                <span class="kw">match </span>default_get_uuid(working_home) {
                     <span class="prelude-val">Some</span>(uuid) =&gt; {
                         <span class="self">self</span>.set_uuid_cache(uuid.clone());
                         <span class="prelude-val">Some</span>(uuid)
@@ -509,8 +561,26 @@
     }
 }
 
-<span class="kw">pub fn </span>default_get_uuid() -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-    <span class="kw">let </span>path = (<span class="kw-2">*</span>TELEMETRY_UUID_FILE_NAME).as_path();
+<span class="kw">fn </span>print_anonymous_usage_data_disclaimer() {
+    <span class="macro">info!</span>(<span class="string">&quot;Attention: GreptimeDB now collects anonymous usage data to help improve its roadmap and prioritize features.&quot;</span>);
+    <span class="macro">info!</span>(
+        <span class="string">&quot;To learn more about this anonymous program and how to deactivate it if you don&#39;t want to participate, please visit the following URL: &quot;</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;https://docs.greptime.com/reference/telemetry&quot;</span>);
+}
+
+<span class="kw">pub fn </span>default_get_uuid(working_home: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    <span class="kw">let </span>temp_dir = env::temp_dir();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>path = PathBuf::new();
+    path.push(
+        working_home
+            .as_ref()
+            .map(Path::new)
+            .unwrap_or_else(|| temp_dir.as_path()),
+    );
+    path.push(UUID_FILE_NAME);
+
+    <span class="kw">let </span>path = path.as_path();
     <span class="kw">match </span>std::fs::read(path) {
         <span class="prelude-val">Ok</span>(bytes) =&gt; <span class="prelude-val">Some</span>(String::from_utf8_lossy(<span class="kw-2">&amp;</span>bytes).to_string()),
         <span class="prelude-val">Err</span>(e) =&gt; {
@@ -535,6 +605,7 @@
 </span><span class="kw">pub struct </span>GreptimeDBTelemetry {
     statistics: Box&lt;<span class="kw">dyn </span>Collector + Send + Sync&gt;,
     client: <span class="prelude-ty">Option</span>&lt;Client&gt;,
+    working_home: <span class="prelude-ty">Option</span>&lt;String&gt;,
     telemetry_url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 }
 
@@ -551,12 +622,13 @@
 }
 
 <span class="kw">impl </span>GreptimeDBTelemetry {
-    <span class="kw">pub fn </span>new(statistics: Box&lt;<span class="kw">dyn </span>Collector + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(working_home: <span class="prelude-ty">Option</span>&lt;String&gt;, statistics: Box&lt;<span class="kw">dyn </span>Collector + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>client = Client::builder()
             .connect_timeout(GREPTIMEDB_TELEMETRY_CLIENT_CONNECT_TIMEOUT)
-            .timeout(GREPTIMEDB_TELEMETRY_CLIENT_TIMEOUT)
+            .timeout(GREPTIMEDB_TELEMETRY_CLIENT_REQUEST_TIMEOUT)
             .build();
         <span class="self">Self </span>{
+            working_home,
             statistics,
             client: client.ok(),
             telemetry_url: TELEMETRY_URL,
@@ -564,7 +636,7 @@
     }
 
     <span class="kw">pub async fn </span>report_telemetry_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Response&gt; {
-        <span class="kw">match </span><span class="self">self</span>.statistics.get_uuid() {
+        <span class="kw">match </span><span class="self">self</span>.statistics.get_uuid(<span class="kw-2">&amp;</span><span class="self">self</span>.working_home) {
             <span class="prelude-val">Some</span>(uuid) =&gt; {
                 <span class="kw">let </span>data = StatisticData {
                     os: <span class="self">self</span>.statistics.get_os(),
@@ -603,7 +675,7 @@
     <span class="kw">use </span>reqwest::Client;
     <span class="kw">use </span>tokio::spawn;
 
-    <span class="kw">use crate</span>::{Collector, GreptimeDBTelemetry, Mode, StatisticData};
+    <span class="kw">use crate</span>::{default_get_uuid, Collector, GreptimeDBTelemetry, Mode, StatisticData};
 
     <span class="kw">static </span>COUNT: AtomicUsize = std::sync::atomic::AtomicUsize::new(<span class="number">0</span>);
 
@@ -671,7 +743,7 @@
                 <span class="macro">unimplemented!</span>()
             }
 
-            <span class="kw">fn </span>get_uuid(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+            <span class="kw">fn </span>get_uuid(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _working_home: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
                 <span class="prelude-val">Some</span>(<span class="string">&quot;test&quot;</span>.to_string())
             }
         }
@@ -702,13 +774,19 @@
                 <span class="macro">unimplemented!</span>()
             }
 
-            <span class="kw">fn </span>get_uuid(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+            <span class="kw">fn </span>get_uuid(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _working_home: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
                 <span class="prelude-val">None
             </span>}
         }
 
+        <span class="kw">let </span>working_home_temp = tempfile::Builder::new()
+            .prefix(<span class="string">&quot;greptimedb_telemetry&quot;</span>)
+            .tempdir()
+            .unwrap();
+        <span class="kw">let </span>working_home = working_home_temp.path().to_str().unwrap().to_string();
+
         <span class="kw">let </span>test_statistic = Box::new(TestStatistic);
-        <span class="kw">let </span><span class="kw-2">mut </span>test_report = GreptimeDBTelemetry::new(test_statistic);
+        <span class="kw">let </span><span class="kw-2">mut </span>test_report = GreptimeDBTelemetry::new(<span class="prelude-val">Some</span>(working_home.clone()), test_statistic);
         <span class="kw">let </span>url = Box::leak(<span class="macro">format!</span>(<span class="string">&quot;{}:{}&quot;</span>, <span class="string">&quot;http://localhost&quot;</span>, port).into_boxed_str());
         test_report.telemetry_url = url;
         <span class="kw">let </span>response = test_report.report_telemetry_info().<span class="kw">await</span>.unwrap();
@@ -722,7 +800,7 @@
         <span class="macro">assert_eq!</span>(<span class="number">1</span>, body.nodes.unwrap());
 
         <span class="kw">let </span>failed_statistic = Box::new(FailedStatistic);
-        <span class="kw">let </span><span class="kw-2">mut </span>failed_report = GreptimeDBTelemetry::new(failed_statistic);
+        <span class="kw">let </span><span class="kw-2">mut </span>failed_report = GreptimeDBTelemetry::new(<span class="prelude-val">Some</span>(working_home), failed_statistic);
         failed_report.telemetry_url = url;
         <span class="kw">let </span>response = failed_report.report_telemetry_info().<span class="kw">await</span>;
         <span class="macro">assert!</span>(response.is_none());
@@ -738,6 +816,20 @@
         <span class="kw">let </span>body = response.text().<span class="kw">await</span>.unwrap();
         <span class="macro">assert_eq!</span>(<span class="string">&quot;1&quot;</span>, body);
         tx.send(()).unwrap();
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_get_uuid() {
+        <span class="kw">let </span>working_home_temp = tempfile::Builder::new()
+            .prefix(<span class="string">&quot;greptimedb_telemetry&quot;</span>)
+            .tempdir()
+            .unwrap();
+        <span class="kw">let </span>working_home = working_home_temp.path().to_str().unwrap().to_string();
+
+        <span class="kw">let </span>uuid = default_get_uuid(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(working_home.clone()));
+        <span class="macro">assert!</span>(uuid.is_some());
+        <span class="macro">assert_eq!</span>(uuid, default_get_uuid(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(working_home.clone())));
+        <span class="macro">assert_eq!</span>(uuid, default_get_uuid(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(working_home.clone())));
     }
 }
 </code></pre></div></section></main></body></html>

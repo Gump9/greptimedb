@@ -2,13 +2,13 @@
     // Required method
     fn <a href="#tymethod.wrap" class="fn">wrap</a>(
         &amp;self,
-        origin: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../common_query/physical_plan/trait.PhysicalPlan.html" title="trait common_query::physical_plan::PhysicalPlan">PhysicalPlan</a>&gt;,
-        ctx: <a class="type" href="../../session/context/type.QueryContextRef.html" title="type session::context::QueryContextRef">QueryContextRef</a>
-    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../common_query/physical_plan/trait.PhysicalPlan.html" title="trait common_query::physical_plan::PhysicalPlan">PhysicalPlan</a>&gt;;
+        origin: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn PhysicalPlan&gt;,
+        ctx: QueryContextRef
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn PhysicalPlan&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>wrap physical plan with additional layer
 e.g: metrics retrieving layer upon physical plan</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.wrap" class="method"><a class="src rightside" href="../../src/query/physical_wrapper.rs.html#23">source</a><h4 class="code-header">fn <a href="#tymethod.wrap" class="fn">wrap</a>(
     &amp;self,
-    origin: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../common_query/physical_plan/trait.PhysicalPlan.html" title="trait common_query::physical_plan::PhysicalPlan">PhysicalPlan</a>&gt;,
-    ctx: <a class="type" href="../../session/context/type.QueryContextRef.html" title="type session::context::QueryContextRef">QueryContextRef</a>
-) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../common_query/physical_plan/trait.PhysicalPlan.html" title="trait common_query::physical_plan::PhysicalPlan">PhysicalPlan</a>&gt;</h4></section></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../implementors/query/physical_wrapper/trait.PhysicalPlanWrapper.js" async></script></section></div></main></body></html>
+    origin: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn PhysicalPlan&gt;,
+    ctx: QueryContextRef
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn PhysicalPlan&gt;</h4></section></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../implementors/query/physical_wrapper/trait.PhysicalPlanWrapper.js" async></script></section></div></main></body></html>

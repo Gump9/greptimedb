@@ -186,6 +186,58 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -308,6 +360,56 @@
     <span class="prelude-val">Some</span>(proto_value)
 }
 
+<span class="doccomment">/// Returns the [ColumnDataType] of the value.
+///
+/// If value is null, returns `None`.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>proto_value_type(value: <span class="kw-2">&amp;</span>v1::Value) -&gt; <span class="prelude-ty">Option</span>&lt;ColumnDataType&gt; {
+    <span class="kw">let </span>value_data = value.value.as_ref()<span class="question-mark">?</span>;
+    <span class="kw">let </span>value_type = <span class="kw">match </span>value_data {
+        v1::value::Value::I8Value(<span class="kw">_</span>) =&gt; ColumnDataType::Int8,
+        v1::value::Value::I16Value(<span class="kw">_</span>) =&gt; ColumnDataType::Int16,
+        v1::value::Value::I32Value(<span class="kw">_</span>) =&gt; ColumnDataType::Int32,
+        v1::value::Value::I64Value(<span class="kw">_</span>) =&gt; ColumnDataType::Int64,
+        v1::value::Value::U8Value(<span class="kw">_</span>) =&gt; ColumnDataType::Uint8,
+        v1::value::Value::U16Value(<span class="kw">_</span>) =&gt; ColumnDataType::Uint16,
+        v1::value::Value::U32Value(<span class="kw">_</span>) =&gt; ColumnDataType::Uint32,
+        v1::value::Value::U64Value(<span class="kw">_</span>) =&gt; ColumnDataType::Uint64,
+        v1::value::Value::F32Value(<span class="kw">_</span>) =&gt; ColumnDataType::Float32,
+        v1::value::Value::F64Value(<span class="kw">_</span>) =&gt; ColumnDataType::Float64,
+        v1::value::Value::BoolValue(<span class="kw">_</span>) =&gt; ColumnDataType::Boolean,
+        v1::value::Value::BinaryValue(<span class="kw">_</span>) =&gt; ColumnDataType::Binary,
+        v1::value::Value::StringValue(<span class="kw">_</span>) =&gt; ColumnDataType::String,
+        v1::value::Value::DateValue(<span class="kw">_</span>) =&gt; ColumnDataType::Date,
+        v1::value::Value::DatetimeValue(<span class="kw">_</span>) =&gt; ColumnDataType::Datetime,
+        v1::value::Value::TsSecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimestampSecond,
+        v1::value::Value::TsMillisecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimestampMillisecond,
+        v1::value::Value::TsMicrosecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimestampMicrosecond,
+        v1::value::Value::TsNanosecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimestampNanosecond,
+        v1::value::Value::TimeSecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimeSecond,
+        v1::value::Value::TimeMillisecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimeMillisecond,
+        v1::value::Value::TimeMicrosecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimeMicrosecond,
+        v1::value::Value::TimeNanosecondValue(<span class="kw">_</span>) =&gt; ColumnDataType::TimeNanosecond,
+    };
+    <span class="prelude-val">Some</span>(value_type)
+}
+
+<span class="comment">// TODO(yingwen): Support conversion in greptime-proto.
+</span><span class="doccomment">/// Creates value for i64.
+</span><span class="attr">#[cfg(test)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>i64_value(data: i64) -&gt; v1::Value {
+    v1::Value {
+        value: <span class="prelude-val">Some</span>(v1::value::Value::I64Value(data)),
+    }
+}
+
+<span class="doccomment">/// Creates value for timestamp millis.
+</span><span class="attr">#[cfg(test)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ts_ms_value(data: i64) -&gt; v1::Value {
+    v1::Value {
+        value: <span class="prelude-val">Some</span>(v1::value::Value::TsMillisecondValue(data)),
+    }
+}
+
 <span class="doccomment">/// Convert [ConcreteDataType] to [ColumnDataType].
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_column_data_type(data_type: <span class="kw-2">&amp;</span>ConcreteDataType) -&gt; <span class="prelude-ty">Option</span>&lt;ColumnDataType&gt; {
     <span class="kw">let </span>column_data_type = <span class="kw">match </span>data_type {
@@ -374,4 +476,6 @@
         <span class="bool-val">false
     </span>}
 }
-</code></pre></div></section></main></body></html>
+
+<span class="comment">// TODO(yingwen): Tests.
+</span></code></pre></div></section></main></body></html>

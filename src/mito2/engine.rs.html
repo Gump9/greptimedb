@@ -134,6 +134,11 @@
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -156,12 +161,12 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>object_store::ObjectStore;
-<span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>snafu::{OptionExt, ResultExt};
 <span class="kw">use </span>store_api::logstore::LogStore;
 <span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::MitoConfig;
-<span class="kw">use </span><span class="kw">crate</span>::error::{RecvSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{RecvSnafu, RegionNotFoundSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::request::{
     CloseRequest, CreateRequest, OpenRequest, RegionRequest, RequestBody, WriteRequest,
 };
@@ -226,14 +231,19 @@
     }
 
     <span class="doccomment">/// Write to a region.
-    </span><span class="kw">pub async fn </span>write_region(<span class="kw-2">&amp;</span><span class="self">self</span>, write_request: WriteRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        write_request.validate()<span class="question-mark">?</span>;
+    </span><span class="kw">pub async fn </span>write_region(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>write_request: WriteRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>region = <span class="self">self
+            </span>.inner
+            .workers
+            .get_region(write_request.region_id)
+            .context(RegionNotFoundSnafu {
+                region_id: write_request.region_id,
+            })<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata = region.metadata();
 
-        <span class="comment">// TODO(yingwen): Fill default values.
-        // We need to fill default values before writing it to WAL so we can get
-        // the same default value after reopening the region.
+        write_request.fill_missing_columns(<span class="kw-2">&amp;</span>metadata)<span class="question-mark">?</span>;
 
-        </span><span class="self">self</span>.inner
+        <span class="self">self</span>.inner
             .handle_request_body(RequestBody::Write(write_request))
             .<span class="kw">await
     </span>}
