@@ -991,6 +991,7 @@
 <span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>::auth::UserProviderRef;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>axum::body::BoxBody;
 <span class="kw">use </span>axum::extract::{Path, Query, State};
@@ -1026,7 +1027,6 @@
 <span class="kw">use </span>tower_http::compression::CompressionLayer;
 <span class="kw">use </span>tower_http::trace::TraceLayer;
 
-<span class="kw">use </span><span class="kw">crate</span>::auth::UserProviderRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     AlreadyStartedSnafu, CollectRecordbatchSnafu, Error, InternalSnafu, InvalidQuerySnafu, <span class="prelude-ty">Result</span>,
     StartHttpSnafu, UnexpectedResultSnafu,

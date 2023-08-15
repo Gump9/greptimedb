@@ -514,6 +514,31 @@
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -530,19 +555,31 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>common_datasource::compression::CompressionType;
 <span class="kw">use </span>common_telemetry::{debug, info};
-<span class="kw">use </span>store_api::manifest::action::{ProtocolAction, ProtocolVersion};
+<span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>store_api::manifest::{ManifestVersion, MAX_VERSION, MIN_VERSION};
 <span class="kw">use </span>tokio::sync::RwLock;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::manifest::action::{
     RegionChange, RegionCheckpoint, RegionManifest, RegionManifestBuilder, RegionMetaAction,
-    RegionMetaActionIter, RegionMetaActionList,
+    RegionMetaActionList,
 };
-<span class="kw">use </span><span class="kw">crate</span>::manifest::options::RegionManifestOptions;
 <span class="kw">use </span><span class="kw">crate</span>::manifest::storage::ManifestObjectStore;
 <span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataRef;
+
+<span class="doccomment">/// Options for [RegionManifestManager].
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>RegionManifestOptions {
+    <span class="doccomment">/// Directory to store manifest.
+    </span><span class="kw">pub </span>manifest_dir: String,
+    <span class="kw">pub </span>object_store: ObjectStore,
+    <span class="kw">pub </span>compress_type: CompressionType,
+    <span class="doccomment">/// Interval of version ([ManifestVersion](store_api::manifest::ManifestVersion)) between two checkpoints.
+    /// Set to 0 to disable checkpoint.
+    </span><span class="kw">pub </span>checkpoint_distance: u64,
+}
 
 <span class="comment">// rewrite note:
 // trait Checkpoint -&gt; struct RegionCheckpoint
@@ -652,6 +689,12 @@
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
         inner.manifest.clone()
     }
+
+    <span class="attr">#[cfg(test)]
+    </span><span class="kw">pub async fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ManifestObjectStore {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
+        inner.store.clone()
+    }
 }
 
 <span class="attr">#[cfg(test)]
@@ -671,10 +714,12 @@
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>RegionManifestManagerInner {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RegionManifestManagerInner {
     store: ManifestObjectStore,
     options: RegionManifestOptions,
     last_version: ManifestVersion,
+    <span class="doccomment">/// The last version included in checkpoint file.
+    </span>last_checkpoint_version: ManifestVersion,
     manifest: Arc&lt;RegionManifest&gt;,
 }
 
@@ -714,12 +759,11 @@
             RegionMetaActionList::with_action(RegionMetaAction::Change(RegionChange { metadata }));
         store.save(version, <span class="kw-2">&amp;</span>action_list.encode()<span class="question-mark">?</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="comment">// todo: start gc task
-
-        </span><span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             store,
             options,
             last_version: version,
+            last_checkpoint_version: MIN_VERSION,
             manifest: Arc::new(manifest),
         })
     }
@@ -738,10 +782,11 @@
         <span class="comment">// recover from storage
         // construct manifest builder
         </span><span class="kw">let </span><span class="kw-2">mut </span>version = MIN_VERSION;
-        <span class="kw">let </span>last_checkpoint = store.load_last_checkpoint().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>checkpoint = last_checkpoint
-            .map(|(<span class="kw">_</span>, raw_checkpoint)| RegionCheckpoint::decode(<span class="kw-2">&amp;</span>raw_checkpoint))
-            .transpose()<span class="question-mark">?</span>;
+        <span class="kw">let </span>checkpoint = <span class="self">Self</span>::last_checkpoint(<span class="kw-2">&amp;</span>store).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>last_checkpoint_version = checkpoint
+            .as_ref()
+            .map(|checkpoint| checkpoint.last_version)
+            .unwrap_or(MIN_VERSION);
         <span class="kw">let </span><span class="kw-2">mut </span>manifest_builder = <span class="kw">if let </span><span class="prelude-val">Some</span>(checkpoint) = checkpoint {
             <span class="macro">info!</span>(
                 <span class="string">&quot;Recover region manifest {} from checkpoint version {}&quot;</span>,
@@ -792,19 +837,17 @@
         );
         <span class="kw">let </span>version = manifest.manifest_version;
 
-        <span class="comment">// todo: start gc task
-
-        </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self </span>{
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self </span>{
             store,
             options,
             last_version: version,
+            last_checkpoint_version,
             manifest: Arc::new(manifest),
         }))
     }
 
     <span class="kw">async fn </span>stop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="comment">// todo: stop gc task
-        </span><span class="prelude-val">Ok</span>(())
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">async fn </span>update(<span class="kw-2">&amp;mut </span><span class="self">self</span>, action_list: RegionMetaActionList) -&gt; <span class="prelude-ty">Result</span>&lt;ManifestVersion&gt; {
@@ -831,6 +874,7 @@
         }
         <span class="kw">let </span>new_manifest = manifest_builder.try_build()<span class="question-mark">?</span>;
         <span class="self">self</span>.manifest = Arc::new(new_manifest);
+        <span class="self">self</span>.may_do_checkpoint(version).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(version)
     }
@@ -843,112 +887,118 @@
         <span class="self">self</span>.last_version
     }
 
-    <span class="comment">// pub (crate) fn checkpointer(&amp;self) -&gt; Checkpointer {
-    //     todo!()
-    // }
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>may_do_checkpoint(<span class="kw-2">&amp;mut </span><span class="self">self</span>, version: ManifestVersion) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span>version - <span class="self">self</span>.last_checkpoint_version &gt;= <span class="self">self</span>.options.checkpoint_distance
+            &amp;&amp; <span class="self">self</span>.options.checkpoint_distance != <span class="number">0
+        </span>{
+            <span class="macro">debug!</span>(
+                <span class="string">&quot;Going to do checkpoint for version [{} ~ {}]&quot;</span>,
+                <span class="self">self</span>.last_checkpoint_version, version
+            );
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(checkpoint) = <span class="self">self</span>.do_checkpoint().<span class="kw">await</span><span class="question-mark">? </span>{
+                <span class="self">self</span>.last_checkpoint_version = checkpoint.last_version();
+            }
+        }
 
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_last_checkpoint_version(<span class="kw-2">&amp;</span><span class="self">self</span>, _version: ManifestVersion) {
-        <span class="macro">todo!</span>()
+        <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Update inner state.
-    </span><span class="kw">pub fn </span>update_state(<span class="kw-2">&amp;</span><span class="self">self</span>, _version: ManifestVersion, _protocol: <span class="prelude-ty">Option</span>&lt;ProtocolAction&gt;) {
-        <span class="macro">todo!</span>()
+    <span class="doccomment">/// Make a new checkpoint. Return the fresh one if there are some actions to compact.
+    </span><span class="kw">async fn </span>do_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RegionCheckpoint&gt;&gt; {
+        <span class="kw">let </span>last_checkpoint = <span class="self">Self</span>::last_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>.store).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>current_version = <span class="self">self</span>.last_version;
+
+        <span class="kw">let </span>(start_version, <span class="kw-2">mut </span>manifest_builder) = <span class="kw">if let </span><span class="prelude-val">Some</span>(checkpoint) = last_checkpoint {
+            (
+                checkpoint.last_version + <span class="number">1</span>,
+                RegionManifestBuilder::with_checkpoint(checkpoint.checkpoint),
+            )
+        } <span class="kw">else </span>{
+            (MIN_VERSION, RegionManifestBuilder::default())
+        };
+        <span class="kw">let </span>end_version = current_version;
+
+        <span class="kw">if </span>start_version &gt;= end_version {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="self">self</span>.store.scan(start_version, end_version).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>last_version = start_version;
+        <span class="kw">let </span><span class="kw-2">mut </span>compacted_actions = <span class="number">0</span>;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((version, raw_action_list)) = iter.next_log().<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="kw">let </span>action_list = RegionMetaActionList::decode(<span class="kw-2">&amp;</span>raw_action_list)<span class="question-mark">?</span>;
+            <span class="kw">for </span>action <span class="kw">in </span>action_list.actions {
+                <span class="kw">match </span>action {
+                    RegionMetaAction::Change(action) =&gt; {
+                        manifest_builder.apply_change(version, action);
+                    }
+                    RegionMetaAction::Edit(action) =&gt; {
+                        manifest_builder.apply_edit(version, action);
+                    }
+                    RegionMetaAction::Remove(<span class="kw">_</span>) | RegionMetaAction::Protocol(<span class="kw">_</span>) =&gt; {
+                        <span class="macro">debug!</span>(
+                            <span class="string">&quot;Unhandled action for region {}, action: {:?}&quot;</span>,
+                            <span class="self">self</span>.manifest.metadata.region_id, action
+                        );
+                    }
+                }
+            }
+            last_version = version;
+            compacted_actions += <span class="number">1</span>;
+        }
+
+        <span class="kw">if </span>compacted_actions == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+        }
+
+        <span class="kw">let </span>region_manifest = manifest_builder.try_build()<span class="question-mark">?</span>;
+        <span class="kw">let </span>checkpoint = RegionCheckpoint {
+            last_version,
+            compacted_actions,
+            checkpoint: <span class="prelude-val">Some</span>(region_manifest),
+        };
+
+        <span class="self">self</span>.store
+            .save_checkpoint(last_version, <span class="kw-2">&amp;</span>checkpoint.encode()<span class="question-mark">?</span>)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="comment">// TODO(ruihang): this task can be detached
+        </span><span class="self">self</span>.store.delete_until(last_version, <span class="bool-val">true</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="macro">info!</span>(
+            <span class="string">&quot;Done manifest checkpoint for region {}, version: [{}, {}], current latest version: {}, compacted {} actions.&quot;</span>,
+            <span class="self">self</span>.manifest.metadata.region_id, start_version, end_version, last_version, compacted_actions
+        );
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(checkpoint))
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>save_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, checkpoint: <span class="kw-2">&amp;</span>RegionCheckpoint) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">todo!</span>()
-    }
+    <span class="doccomment">/// Fetch the last [RegionCheckpoint] from storage.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>last_checkpoint(
+        store: <span class="kw-2">&amp;</span>ManifestObjectStore,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RegionCheckpoint&gt;&gt; {
+        <span class="kw">let </span>last_checkpoint = store.load_last_checkpoint().<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>may_do_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, version: ManifestVersion) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">todo!</span>()
-    }
-
-    <span class="comment">// pub(crate) fn manifest_store(&amp;self) -&gt; &amp;Arc&lt;ManifestObjectStore&gt; {
-    //     todo!()
-    // }
-
-    // from Manifest
-
-    </span><span class="kw">async fn </span>scan(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        start: ManifestVersion,
-        end: ManifestVersion,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;RegionMetaActionIter&gt; {
-        <span class="macro">todo!</span>()
-    }
-
-    <span class="kw">async fn </span>do_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RegionCheckpoint&gt;&gt; {
-        <span class="macro">todo!</span>()
-    }
-
-    <span class="kw">async fn </span>last_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RegionCheckpoint&gt;&gt; {
-        <span class="macro">todo!</span>()
-    }
-
-    <span class="comment">// from Checkpoint
-
-    </span><span class="doccomment">/// Set a protocol action into checkpoint
-    </span><span class="kw">pub fn </span>set_protocol(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _action: ProtocolAction) {
-        <span class="macro">todo!</span>()
-    }
-
-    <span class="doccomment">/// The last compacted action&#39;s version of checkpoint
-    </span><span class="kw">pub fn </span>last_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ManifestVersion {
-        <span class="macro">todo!</span>()
-    }
-
-    <span class="doccomment">/// Encode this checkpoint into a byte vector
-    </span><span class="kw">pub fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
-        <span class="macro">todo!</span>()
-    }
-
-    <span class="kw">pub fn </span>decode(_bytes: <span class="kw-2">&amp;</span>[u8], _reader_version: ProtocolVersion) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="macro">todo!</span>()
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((version, bytes)) = last_checkpoint {
+            <span class="kw">let </span>checkpoint = RegionCheckpoint::decode(<span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(checkpoint))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        }
     }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
+    <span class="kw">use </span>api::v1::SemanticType;
     <span class="kw">use </span>common_datasource::compression::CompressionType;
     <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
     <span class="kw">use </span>datatypes::schema::ColumnSchema;
-    <span class="kw">use </span>store_api::storage::RegionId;
+    <span class="kw">use </span>store_api::metadata::ColumnMetadata;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::manifest::action::RegionChange;
-    <span class="kw">use </span><span class="kw">crate</span>::metadata::{ColumnMetadata, RegionMetadata, RegionMetadataBuilder, SemanticType};
+    <span class="kw">use </span><span class="kw">crate</span>::manifest::tests::utils::basic_region_metadata;
+    <span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataBuilder;
     <span class="kw">use </span><span class="kw">crate</span>::test_util::TestEnv;
-
-    <span class="kw">fn </span>basic_region_metadata() -&gt; RegionMetadata {
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = RegionMetadataBuilder::new(RegionId::new(<span class="number">23</span>, <span class="number">33</span>), <span class="number">0</span>);
-        builder
-            .push_column_metadata(ColumnMetadata {
-                column_schema: ColumnSchema::new(
-                    <span class="string">&quot;ts&quot;</span>,
-                    ConcreteDataType::timestamp_millisecond_datatype(),
-                    <span class="bool-val">false</span>,
-                ),
-                semantic_type: SemanticType::Timestamp,
-                column_id: <span class="number">45</span>,
-            })
-            .push_column_metadata(ColumnMetadata {
-                column_schema: ColumnSchema::new(<span class="string">&quot;pk&quot;</span>, ConcreteDataType::string_datatype(), <span class="bool-val">false</span>),
-                semantic_type: SemanticType::Tag,
-                column_id: <span class="number">36</span>,
-            })
-            .push_column_metadata(ColumnMetadata {
-                column_schema: ColumnSchema::new(
-                    <span class="string">&quot;val&quot;</span>,
-                    ConcreteDataType::float64_datatype(),
-                    <span class="bool-val">false</span>,
-                ),
-                semantic_type: SemanticType::Field,
-                column_id: <span class="number">251</span>,
-            })
-            .primary_key(<span class="macro">vec!</span>[<span class="number">36</span>]);
-        builder.build().unwrap()
-    }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>create_manifest_manager() {

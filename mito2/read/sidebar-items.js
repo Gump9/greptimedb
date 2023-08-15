@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Source"],"struct":["Batch","SourceStats"],"trait":["BatchReader"],"type":["BoxedBatchReader"]};
+window.SIDEBAR_ITEMS = {"enum":["Source"],"struct":["Batch","BatchBuilder","BatchColumn","SourceStats"],"trait":["BatchReader"],"type":["BoxedBatchReader"]};

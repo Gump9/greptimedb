@@ -990,6 +990,10 @@
 <a href="#990" id="990">990</a>
 <a href="#991" id="991">991</a>
 <a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1034,7 +1038,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     <span class="self">self</span>, CatalogSnafu, DecodeLogicalPlanSnafu, DeleteExprToRequestSnafu, DeleteSnafu,
     ExecuteLogicalPlanSnafu, ExecuteSqlSnafu, InsertDataSnafu, InsertSnafu, JoinTaskSnafu,
-    PlanStatementSnafu, <span class="prelude-ty">Result</span>, TableNotFoundSnafu,
+    PlanStatementSnafu, <span class="prelude-ty">Result</span>, TableNotFoundSnafu, UnsupportedGrpcRequestSnafu,
 };
 <span class="kw">use </span><span class="kw">crate</span>::instance::Instance;
 
@@ -1213,6 +1217,10 @@
                 <span class="self">self</span>.handle_query(query, ctx).<span class="kw">await
             </span>}
             Request::Ddl(request) =&gt; <span class="self">self</span>.handle_ddl(request, ctx).<span class="kw">await</span>,
+            Request::RowInserts(<span class="kw">_</span>) | Request::RowDelete(<span class="kw">_</span>) =&gt; UnsupportedGrpcRequestSnafu {
+                kind: <span class="string">&quot;row insert/delete&quot;</span>,
+            }
+            .fail(),
         }
     }
 }

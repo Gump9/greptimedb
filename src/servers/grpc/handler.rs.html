@@ -221,6 +221,9 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -241,6 +244,7 @@
 <span class="kw">use </span>api::helper::request_type;
 <span class="kw">use </span>api::v1::auth_header::AuthScheme;
 <span class="kw">use </span>api::v1::{Basic, GreptimeRequest, RequestHeader};
+<span class="kw">use </span>auth::{Identity, Password, UserInfoRef, UserProviderRef};
 <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>common_catalog::parse_catalog_and_schema_from_db_string;
 <span class="kw">use </span>common_error::ext::ErrorExt;
@@ -252,7 +256,6 @@
 <span class="kw">use </span>session::context::{QueryContextBuilder, QueryContextRef};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 
-<span class="kw">use </span><span class="kw">crate</span>::auth::{Identity, Password, UserProviderRef};
 <span class="kw">use </span><span class="kw">crate</span>::error::Error::UnsupportedAuthScheme;
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     AuthSnafu, InvalidQuerySnafu, JoinTaskSnafu, NotFoundAuthHeaderSnafu, <span class="prelude-ty">Result </span><span class="kw">as </span>InternalResult,
@@ -294,9 +297,12 @@
         <span class="kw">let </span>header = request.header.as_ref();
         <span class="kw">let </span>query_ctx = create_query_context(header);
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.auth(header, <span class="kw-2">&amp;</span>query_ctx).<span class="kw">await</span><span class="question-mark">? </span>{
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e));
-        }
+        <span class="kw">match </span><span class="self">self</span>.auth(header, <span class="kw-2">&amp;</span>query_ctx).<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)),
+            <span class="prelude-val">Ok</span>(user_info) =&gt; {
+                query_ctx.set_current_user(user_info);
+            }
+        };
 
         <span class="kw">let </span>handler = <span class="self">self</span>.handler.clone();
         <span class="kw">let </span>request_type = request_type(<span class="kw-2">&amp;</span>query);
@@ -333,9 +339,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         header: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RequestHeader&gt;,
         query_ctx: <span class="kw-2">&amp;</span>QueryContextRef,
-    ) -&gt; TonicResult&lt;InternalResult&lt;()&gt;&gt; {
+    ) -&gt; TonicResult&lt;InternalResult&lt;<span class="prelude-ty">Option</span>&lt;UserInfoRef&gt;&gt;&gt; {
         <span class="kw">let </span><span class="prelude-val">Some</span>(user_provider) = <span class="self">self</span>.user_provider.as_ref() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>));
         };
 
         <span class="kw">let </span>auth_scheme = header
@@ -361,7 +367,7 @@
                 name: <span class="string">&quot;Token AuthScheme&quot;</span>.to_string(),
             }),
         }
-        .map(|<span class="kw">_</span>| ())
+        .map(<span class="prelude-val">Some</span>)
         .map_err(|e| {
             <span class="macro">increment_counter!</span>(
                 METRIC_AUTH_FAILURE,

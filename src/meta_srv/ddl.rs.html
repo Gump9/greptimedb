@@ -203,6 +203,15 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -224,11 +233,15 @@
 <span class="kw">use </span>common_meta::rpc::ddl::{AlterTableTask, CreateTableTask, DropTableTask, TruncateTableTask};
 <span class="kw">use </span>common_meta::rpc::router::TableRoute;
 <span class="kw">use </span>common_procedure::{watcher, ProcedureId, ProcedureManagerRef, ProcedureWithId};
+<span class="kw">use </span>common_telemetry::error;
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>table::metadata::RawTableInfo;
 <span class="kw">use </span>table::requests::AlterTableRequest;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{
+    RegisterProcedureLoaderSnafu, <span class="prelude-ty">Result</span>, SubmitProcedureSnafu, UnsupportedSnafu,
+    WaitProcedureSnafu,
+};
 <span class="kw">use </span><span class="kw">crate</span>::procedure::alter_table::AlterTableProcedure;
 <span class="kw">use </span><span class="kw">crate</span>::procedure::create_table::CreateTableProcedure;
 <span class="kw">use </span><span class="kw">crate</span>::procedure::drop_table::DropTableProcedure;
@@ -296,7 +309,7 @@
                     CreateTableProcedure::from_json(json, context).map(|p| Box::new(p) <span class="kw">as _</span>)
                 }),
             )
-            .context(error::RegisterProcedureLoaderSnafu {
+            .context(RegisterProcedureLoaderSnafu {
                 type_name: CreateTableProcedure::TYPE_NAME,
             })<span class="question-mark">?</span>;
 
@@ -310,7 +323,7 @@
                     DropTableProcedure::from_json(json, context).map(|p| Box::new(p) <span class="kw">as _</span>)
                 }),
             )
-            .context(error::RegisterProcedureLoaderSnafu {
+            .context(RegisterProcedureLoaderSnafu {
                 type_name: DropTableProcedure::TYPE_NAME,
             })<span class="question-mark">?</span>;
 
@@ -324,7 +337,7 @@
                     AlterTableProcedure::from_json(json, context).map(|p| Box::new(p) <span class="kw">as _</span>)
                 }),
             )
-            .context(error::RegisterProcedureLoaderSnafu {
+            .context(RegisterProcedureLoaderSnafu {
                 type_name: AlterTableProcedure::TYPE_NAME,
             })
     }
@@ -388,8 +401,13 @@
         truncate_table_task: TruncateTableTask,
         table_route: TableRoute,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ProcedureId&gt; {
-        <span class="macro">todo!</span>(<span class="string">&quot;implement truncate table procedure, cluster_id = {}, truncate_table_task = {:?}, table_route = {:?}&quot;</span>,
+        <span class="macro">error!</span>(<span class="string">&quot;truncate table procedure is not supported, cluster_id = {}, truncate_table_task = {:?}, table_route = {:?}&quot;</span>,
             cluster_id, truncate_table_task, table_route);
+
+        UnsupportedSnafu {
+            operation: <span class="string">&quot;TRUNCATE TABLE&quot;</span>,
+        }
+        .fail()
     }
 
     <span class="kw">async fn </span>submit_procedure(<span class="kw-2">&amp;</span><span class="self">self</span>, procedure_with_id: ProcedureWithId) -&gt; <span class="prelude-ty">Result</span>&lt;ProcedureId&gt; {
@@ -399,11 +417,11 @@
             </span>.procedure_manager
             .submit(procedure_with_id)
             .<span class="kw">await
-            </span>.context(error::SubmitProcedureSnafu)<span class="question-mark">?</span>;
+            </span>.context(SubmitProcedureSnafu)<span class="question-mark">?</span>;
 
         watcher::wait(<span class="kw-2">&amp;mut </span>watcher)
             .<span class="kw">await
-            </span>.context(error::WaitProcedureSnafu)<span class="question-mark">?</span>;
+            </span>.context(WaitProcedureSnafu)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(procedure_id)
     }

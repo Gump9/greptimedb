@@ -124,21 +124,6 @@
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -155,21 +140,22 @@
 
 </span><span class="doccomment">//! Mito region engine.
 
-</span><span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests;
+</span><span class="comment">// TODO: migrate test to RegionRequest
+// #[cfg(test)]
+// mod tests;
 
-<span class="kw">use </span>std::sync::Arc;
+</span><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>object_store::ObjectStore;
-<span class="kw">use </span>snafu::{OptionExt, ResultExt};
+<span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>store_api::logstore::LogStore;
+<span class="kw">use </span>store_api::region_request::RegionRequest;
 <span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::MitoConfig;
-<span class="kw">use </span><span class="kw">crate</span>::error::{RecvSnafu, RegionNotFoundSnafu, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span><span class="kw">crate</span>::request::{
-    CloseRequest, CreateRequest, OpenRequest, RegionRequest, RequestBody, WriteRequest,
-};
+<span class="kw">use </span><span class="kw">crate</span>::error::{RecvSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::request::RegionTask;
 <span class="kw">use </span><span class="kw">crate</span>::worker::WorkerGroup;
 
 <span class="doccomment">/// Region engine implementation for timeseries data.
@@ -200,54 +186,37 @@
         <span class="self">self</span>.inner.stop().<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Creates a new region.
-    </span><span class="kw">pub async fn </span>create_region(<span class="kw-2">&amp;</span><span class="self">self</span>, create_request: CreateRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.inner
-            .handle_request_body(RequestBody::Create(create_request))
-            .<span class="kw">await
-    </span>}
-
-    <span class="doccomment">/// Opens an existing region.
-    ///
-    /// Returns error if the region does not exist.
-    </span><span class="kw">pub async fn </span>open_region(<span class="kw-2">&amp;</span><span class="self">self</span>, open_request: OpenRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.inner
-            .handle_request_body(RequestBody::Open(open_request))
-            .<span class="kw">await
-    </span>}
-
-    <span class="doccomment">/// Closes a region.
-    ///
-    /// Does nothing if the region is already closed.
-    </span><span class="kw">pub async fn </span>close_region(<span class="kw-2">&amp;</span><span class="self">self</span>, close_request: CloseRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.inner
-            .handle_request_body(RequestBody::Close(close_request))
-            .<span class="kw">await
-    </span>}
+    <span class="kw">pub async fn </span>handle_request(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        region_id: RegionId,
+        request: RegionRequest,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
+        <span class="self">self</span>.inner.handle_request(region_id, request).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Output::AffectedRows(<span class="number">0</span>))
+    }
 
     <span class="doccomment">/// Returns true if the specific region exists.
     </span><span class="kw">pub fn </span>is_region_exists(<span class="kw-2">&amp;</span><span class="self">self</span>, region_id: RegionId) -&gt; bool {
         <span class="self">self</span>.inner.workers.is_region_exists(region_id)
     }
 
-    <span class="doccomment">/// Write to a region.
-    </span><span class="kw">pub async fn </span>write_region(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>write_request: WriteRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>region = <span class="self">self
-            </span>.inner
-            .workers
-            .get_region(write_request.region_id)
-            .context(RegionNotFoundSnafu {
-                region_id: write_request.region_id,
-            })<span class="question-mark">?</span>;
-        <span class="kw">let </span>metadata = region.metadata();
+    <span class="comment">// /// Write to a region.
+    // pub async fn write_region(&amp;self, write_request: WriteRequest) -&gt; Result&lt;()&gt; {
+    // write_request.validate()?;
+    // RequestValidator::write_request(&amp;write_request)?;
 
-        write_request.fill_missing_columns(<span class="kw-2">&amp;</span>metadata)<span class="question-mark">?</span>;
+    // TODO(yingwen): Fill default values.
+    // We need to fill default values before writing it to WAL so we can get
+    // the same default value after reopening the region.
 
-        <span class="self">self</span>.inner
-            .handle_request_body(RequestBody::Write(write_request))
-            .<span class="kw">await
-    </span>}
-}
+    // let metadata = region.metadata();
+
+    // write_request.fill_missing_columns(&amp;metadata)?;
+    //     self.inner
+    //         .handle_request_body(RequestBody::Write(write_request))
+    //         .await
+    // }
+</span>}
 
 <span class="doccomment">/// Inner struct of [MitoEngine].
 </span><span class="kw">struct </span>EngineInner {
@@ -272,9 +241,10 @@
         <span class="self">self</span>.workers.stop().<span class="kw">await
     </span>}
 
-    <span class="doccomment">/// Handles [RequestBody] and return its executed result.
-    </span><span class="kw">async fn </span>handle_request_body(<span class="kw-2">&amp;</span><span class="self">self</span>, body: RequestBody) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>(request, receiver) = RegionRequest::from_body(body);
+    <span class="comment">// TODO(yingwen): return `Output` instead of `Result&lt;()&gt;`.
+    </span><span class="doccomment">/// Handles [RequestBody] and return its executed result.
+    </span><span class="kw">async fn </span>handle_request(<span class="kw-2">&amp;</span><span class="self">self</span>, region_id: RegionId, request: RegionRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>(request, receiver) = RegionTask::from_request(region_id, request);
         <span class="self">self</span>.workers.submit_to_worker(request).<span class="kw">await</span><span class="question-mark">?</span>;
 
         receiver.<span class="kw">await</span>.context(RecvSnafu)<span class="question-mark">?

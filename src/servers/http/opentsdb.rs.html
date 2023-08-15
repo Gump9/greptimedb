@@ -242,6 +242,9 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -258,9 +261,10 @@
 
 </span><span class="kw">use </span>std::collections::HashMap;
 
+<span class="kw">use </span>auth::UserInfoRef;
 <span class="kw">use </span>axum::extract::{Query, RawBody, State};
 <span class="kw">use </span>axum::http::StatusCode <span class="kw">as </span>HttpStatusCode;
-<span class="kw">use </span>axum::Json;
+<span class="kw">use </span>axum::{Extension, Json};
 <span class="kw">use </span>hyper::Body;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>session::context::QueryContext;
@@ -321,12 +325,14 @@
 </span><span class="kw">pub async fn </span>put(
     State(opentsdb_handler): State&lt;OpentsdbProtocolHandlerRef&gt;,
     Query(params): Query&lt;HashMap&lt;String, String&gt;&gt;,
+    user_info: Extension&lt;UserInfoRef&gt;,
     RawBody(body): RawBody,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(HttpStatusCode, Json&lt;OpentsdbPutResponse&gt;)&gt; {
     <span class="kw">let </span>summary = params.contains_key(<span class="string">&quot;summary&quot;</span>);
     <span class="kw">let </span>details = params.contains_key(<span class="string">&quot;details&quot;</span>);
 
     <span class="kw">let </span>ctx = QueryContext::with_db_name(params.get(<span class="string">&quot;db&quot;</span>));
+    ctx.set_current_user(<span class="prelude-val">Some</span>(user_info.<span class="number">0</span>));
 
     <span class="kw">let </span>data_points = parse_data_points(body).<span class="kw">await</span><span class="question-mark">?</span>;
 

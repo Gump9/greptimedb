@@ -214,6 +214,22 @@
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -269,7 +285,9 @@
 <span class="kw">pub mod </span>table_info;
 <span class="kw">pub mod </span>table_name;
 <span class="kw">pub mod </span>table_region;
-<span class="kw">mod </span>table_route;
+<span class="comment">// TODO(weny): removes it.
+</span><span class="attr">#[allow(unused)]
+</span><span class="kw">pub mod </span>table_route;
 
 <span class="kw">use </span>std::sync::Arc;
 
@@ -281,8 +299,9 @@
 <span class="kw">use </span>table_name::{TableNameKey, TableNameManager, TableNameValue};
 <span class="kw">use </span>table_region::{TableRegionKey, TableRegionManager, TableRegionValue};
 
-<span class="kw">use </span><span class="self">self</span>::catalog_name::CatalogNameValue;
-<span class="kw">use </span><span class="self">self</span>::schema_name::SchemaNameValue;
+<span class="kw">use </span><span class="self">self</span>::catalog_name::{CatalogManager, CatalogNameValue};
+<span class="kw">use </span><span class="self">self</span>::schema_name::{SchemaManager, SchemaNameValue};
+<span class="kw">use </span><span class="self">self</span>::table_route::TableRouteValue;
 <span class="kw">use </span><span class="kw">crate</span>::error::{InvalidTableMetadataSnafu, <span class="prelude-ty">Result</span>, SerdeJsonSnafu};
 <span class="kw">pub use </span><span class="kw">crate</span>::key::table_route::{TableRouteKey, TABLE_ROUTE_PREFIX};
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackendRef;
@@ -341,6 +360,8 @@
     table_info_manager: TableInfoManager,
     table_region_manager: TableRegionManager,
     datanode_table_manager: DatanodeTableManager,
+    catalog_manager: CatalogManager,
+    schema_manager: SchemaManager,
 }
 
 <span class="kw">impl </span>TableMetadataManager {
@@ -349,7 +370,9 @@
             table_name_manager: TableNameManager::new(kv_backend.clone()),
             table_info_manager: TableInfoManager::new(kv_backend.clone()),
             table_region_manager: TableRegionManager::new(kv_backend.clone()),
-            datanode_table_manager: DatanodeTableManager::new(kv_backend),
+            datanode_table_manager: DatanodeTableManager::new(kv_backend.clone()),
+            catalog_manager: CatalogManager::new(kv_backend.clone()),
+            schema_manager: SchemaManager::new(kv_backend),
         }
     }
 
@@ -367,6 +390,14 @@
 
     <span class="kw">pub fn </span>datanode_table_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DatanodeTableManager {
         <span class="kw-2">&amp;</span><span class="self">self</span>.datanode_table_manager
+    }
+
+    <span class="kw">pub fn </span>catalog_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CatalogManager {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.catalog_manager
+    }
+
+    <span class="kw">pub fn </span>schema_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SchemaManager {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.schema_manager
     }
 }
 
@@ -416,7 +447,8 @@
     TableNameValue,
     TableInfoValue,
     TableRegionValue,
-    DatanodeTableValue
+    DatanodeTableValue,
+    TableRouteValue
 }
 
 <span class="attr">#[cfg(test)]

@@ -587,6 +587,7 @@
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -605,12 +606,13 @@
 <span class="kw">use </span>std::collections::{BTreeSet, HashMap};
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>api::v1::OpType;
 <span class="kw">use </span>common_base::BitVec;
 <span class="kw">use </span>datatypes::prelude::ScalarVector;
 <span class="kw">use </span>datatypes::schema::{SchemaBuilder, SchemaRef};
 <span class="kw">use </span>datatypes::vectors::{BooleanVector, UInt8Vector};
 <span class="kw">use </span>snafu::{ensure, ResultExt};
-<span class="kw">use </span>store_api::storage::{Chunk, ColumnId, OpType};
+<span class="kw">use </span>store_api::storage::{Chunk, ColumnId};
 
 <span class="kw">use </span><span class="kw">crate</span>::error;
 <span class="kw">use </span><span class="kw">crate</span>::metadata::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
@@ -940,7 +942,7 @@
             });
 
         <span class="kw">for </span>(i, op_type) <span class="kw">in </span>op_types.iter_data().enumerate() {
-            <span class="kw">if </span>op_type == <span class="prelude-val">Some</span>(OpType::Delete.as_u8()) {
+            <span class="kw">if </span>op_type == <span class="prelude-val">Some</span>(OpType::Delete <span class="kw">as </span>u8) {
                 selected.set(i, <span class="bool-val">false</span>);
             }
         }
@@ -949,10 +951,10 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>api::v1::OpType;
     <span class="kw">use </span>datatypes::prelude::ScalarVector;
     <span class="kw">use </span>datatypes::type_id::LogicalTypeId;
     <span class="kw">use </span>datatypes::vectors::{TimestampMillisecondVector, VectorRef};
-    <span class="kw">use </span>store_api::storage::OpType;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::metadata::Error;

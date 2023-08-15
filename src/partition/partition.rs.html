@@ -365,7 +365,7 @@
         };
         <span class="kw">let </span>partition: MetaPartition = def.try_into().unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="string">r#&quot;{&quot;column_list&quot;:&quot;a,b&quot;,&quot;value_list&quot;:&quot;\&quot;MaxValue\&quot;,{\&quot;Value\&quot;:{\&quot;Int32\&quot;:1}}&quot;}&quot;#</span>,
+            <span class="string">r#&quot;{&quot;column_list&quot;:[&quot;a&quot;,&quot;b&quot;],&quot;value_list&quot;:[&quot;\&quot;MaxValue\&quot;&quot;,&quot;{\&quot;Value\&quot;:{\&quot;Int32\&quot;:1}}&quot;]}&quot;#</span>,
             serde_json::to_string(<span class="kw-2">&amp;</span>partition).unwrap(),
         );
 

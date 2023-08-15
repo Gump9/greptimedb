@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["RegionManifestManager","RegionManifestManagerInner"]};
+window.SIDEBAR_ITEMS = {"struct":["RegionManifestManager","RegionManifestManagerInner","RegionManifestOptions"]};

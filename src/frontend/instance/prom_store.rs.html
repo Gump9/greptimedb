@@ -198,6 +198,18 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -215,6 +227,7 @@
 </span><span class="kw">use </span>api::prom_store::remote::read_request::ResponseType;
 <span class="kw">use </span>api::prom_store::remote::{Query, QueryResult, ReadRequest, ReadResponse, WriteRequest};
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>auth::{PermissionChecker, PermissionCheckerRef, PermissionReq};
 <span class="kw">use </span>common_catalog::format_full_table_name;
 <span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_query::Output;
@@ -222,7 +235,7 @@
 <span class="kw">use </span>common_telemetry::logging;
 <span class="kw">use </span>metrics::counter;
 <span class="kw">use </span>prost::Message;
-<span class="kw">use </span>servers::error::{<span class="self">self</span>, <span class="prelude-ty">Result </span><span class="kw">as </span>ServerResult};
+<span class="kw">use </span>servers::error::{<span class="self">self</span>, AuthSnafu, <span class="prelude-ty">Result </span><span class="kw">as </span>ServerResult};
 <span class="kw">use </span>servers::prom_store::{<span class="self">self</span>, Metrics};
 <span class="kw">use </span>servers::query_handler::{PromStoreProtocolHandler, PromStoreResponse};
 <span class="kw">use </span>session::context::QueryContextRef;
@@ -348,6 +361,11 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>PromStoreProtocolHandler <span class="kw">for </span>Instance {
     <span class="kw">async fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, request: WriteRequest, ctx: QueryContextRef) -&gt; ServerResult&lt;()&gt; {
+        <span class="self">self</span>.plugins
+            .get::&lt;PermissionCheckerRef&gt;()
+            .as_ref()
+            .check_permission(ctx.current_user(), PermissionReq::PromStoreWrite)
+            .context(AuthSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>(requests, samples) = prom_store::to_grpc_insert_requests(request)<span class="question-mark">?</span>;
         <span class="kw">let _ </span>= <span class="self">self
             </span>.handle_inserts(requests, ctx)
@@ -364,6 +382,12 @@
         request: ReadRequest,
         ctx: QueryContextRef,
     ) -&gt; ServerResult&lt;PromStoreResponse&gt; {
+        <span class="self">self</span>.plugins
+            .get::&lt;PermissionCheckerRef&gt;()
+            .as_ref()
+            .check_permission(ctx.current_user(), PermissionReq::PromStoreRead)
+            .context(AuthSnafu)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>response_type = negotiate_response_type(<span class="kw-2">&amp;</span>request.accepted_response_types)<span class="question-mark">?</span>;
 
         <span class="comment">// TODO(dennis): use read_hints to speedup query if possible

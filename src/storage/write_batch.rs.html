@@ -577,6 +577,7 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -596,11 +597,12 @@
 
 <span class="kw">use </span>std::collections::HashMap;
 
+<span class="kw">use </span>api::v1::OpType;
 <span class="kw">use </span>common_recordbatch::RecordBatch;
 <span class="kw">use </span>datatypes::schema::{ColumnSchema, SchemaRef};
 <span class="kw">use </span>datatypes::vectors::VectorRef;
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
-<span class="kw">use </span>store_api::storage::{OpType, WriteRequest};
+<span class="kw">use </span>store_api::storage::WriteRequest;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     BatchMissingColumnSnafu, CreateDefaultSnafu, CreateRecordBatchSnafu, Error, HasNullSnafu,

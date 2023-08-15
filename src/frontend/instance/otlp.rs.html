@@ -50,6 +50,12 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -65,12 +71,13 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>auth::{PermissionChecker, PermissionCheckerRef, PermissionReq};
 <span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>metrics::counter;
 <span class="kw">use </span>opentelemetry_proto::tonic::collector::metrics::v1::{
     ExportMetricsServiceRequest, ExportMetricsServiceResponse,
 };
-<span class="kw">use </span>servers::error::{<span class="self">self</span>, <span class="prelude-ty">Result </span><span class="kw">as </span>ServerResult};
+<span class="kw">use </span>servers::error::{<span class="self">self</span>, AuthSnafu, <span class="prelude-ty">Result </span><span class="kw">as </span>ServerResult};
 <span class="kw">use </span>servers::otlp;
 <span class="kw">use </span>servers::query_handler::OpenTelemetryProtocolHandler;
 <span class="kw">use </span>session::context::QueryContextRef;
@@ -86,6 +93,11 @@
         request: ExportMetricsServiceRequest,
         ctx: QueryContextRef,
     ) -&gt; ServerResult&lt;ExportMetricsServiceResponse&gt; {
+        <span class="self">self</span>.plugins
+            .get::&lt;PermissionCheckerRef&gt;()
+            .as_ref()
+            .check_permission(ctx.current_user(), PermissionReq::Otlp)
+            .context(AuthSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>(requests, rows) = otlp::to_grpc_insert_requests(request)<span class="question-mark">?</span>;
         <span class="kw">let _ </span>= <span class="self">self
             </span>.handle_inserts(requests, ctx)

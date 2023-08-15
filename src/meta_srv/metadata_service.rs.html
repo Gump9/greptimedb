@@ -155,20 +155,6 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -186,15 +172,15 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>common_meta::helper::{CatalogKey, CatalogValue, SchemaKey, SchemaValue};
-<span class="kw">use </span>common_meta::rpc::store::CompareAndPutRequest;
+<span class="kw">use </span>common_meta::key::catalog_name::CatalogNameKey;
+<span class="kw">use </span>common_meta::key::schema_name::SchemaNameKey;
+<span class="kw">use </span>common_meta::key::TableMetadataManagerRef;
 <span class="kw">use </span>common_telemetry::{info, timer};
 <span class="kw">use </span>metrics::increment_counter;
 <span class="kw">use </span>snafu::{ensure, ResultExt};
 
 <span class="kw">use </span><span class="kw">crate</span>::error;
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
-<span class="kw">use </span><span class="kw">crate</span>::service::store::kv::KvStoreRef;
 
 <span class="doccomment">/// This trait defines some methods of metadata
 </span><span class="attr">#[async_trait]
@@ -214,12 +200,14 @@
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>DefaultMetadataService {
-    kv_store: KvStoreRef,
+    table_metadata_manager: TableMetadataManagerRef,
 }
 
 <span class="kw">impl </span>DefaultMetadataService {
-    <span class="kw">pub fn </span>new(kv_store: KvStoreRef) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ kv_store }
+    <span class="kw">pub fn </span>new(table_metadata_manager: TableMetadataManagerRef) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            table_metadata_manager,
+        }
     }
 }
 
@@ -232,51 +220,39 @@
         if_not_exist: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>_timer = <span class="macro">timer!</span>(<span class="kw">crate</span>::metrics::METRIC_META_CREATE_SCHEMA);
-        <span class="kw">let </span>kv_store = <span class="self">self</span>.kv_store.clone();
 
-        <span class="kw">let </span>catalog_key = CatalogKey {
-            catalog_name: catalog_name.to_string(),
-        }
-        .to_string();
+        <span class="self">self</span>.table_metadata_manager
+            .catalog_manager()
+            .create(CatalogNameKey::new(catalog_name))
+            .<span class="kw">await
+            </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>schema_key = SchemaKey {
-            catalog_name: catalog_name.to_string(),
-            schema_name: schema_name.to_string(),
-        }
-        .to_string();
+        <span class="macro">increment_counter!</span>(<span class="kw">crate</span>::metrics::METRIC_META_CREATE_CATALOG);
+        <span class="macro">info!</span>(<span class="string">&quot;Successfully created a catalog: {}&quot;</span>, catalog_name);
 
-        <span class="kw">let </span>req = CompareAndPutRequest {
-            key: catalog_key.into(),
-            expect: <span class="macro">vec!</span>[],
-            value: CatalogValue {}
-                .as_bytes()
-                .context(error::InvalidCatalogValueSnafu)<span class="question-mark">?</span>,
-        };
+        <span class="kw">let </span>schema = SchemaNameKey::new(catalog_name, schema_name);
 
-        <span class="kw">let </span>resp = kv_store.compare_and_put(req).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">if </span>resp.success {
-            <span class="macro">increment_counter!</span>(<span class="kw">crate</span>::metrics::METRIC_META_CREATE_CATALOG);
-            <span class="macro">info!</span>(<span class="string">&quot;Successfully created a catalog: {}&quot;</span>, catalog_name);
-        }
-
-        <span class="kw">let </span>req = CompareAndPutRequest {
-            key: schema_key.into(),
-            expect: <span class="macro">vec!</span>[],
-            value: SchemaValue {}
-                .as_bytes()
-                .context(error::InvalidCatalogValueSnafu)<span class="question-mark">?</span>,
-        };
-        <span class="kw">let </span>resp = kv_store.compare_and_put(req).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">if </span>resp.success {
-            <span class="macro">info!</span>(<span class="string">&quot;Successfully created a schema: {}&quot;</span>, schema_name);
-        }
+        <span class="kw">let </span>exist = <span class="self">self
+            </span>.table_metadata_manager
+            .schema_manager()
+            .exist(schema)
+            .<span class="kw">await
+            </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 
         <span class="macro">ensure!</span>(
-            resp.success || if_not_exist,
+            !exist || if_not_exist,
             error::SchemaAlreadyExistsSnafu { schema_name }
         );
+
+        <span class="kw">if </span>!exist {
+            <span class="self">self</span>.table_metadata_manager
+                .schema_manager()
+                .create(schema)
+                .<span class="kw">await
+                </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?</span>;
+
+            <span class="macro">info!</span>(<span class="string">&quot;Successfully created a schema: {}&quot;</span>, schema_name);
+        }
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -290,16 +266,21 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">use </span>common_meta::helper::{CatalogKey, SchemaKey};
+    <span class="kw">use </span>common_meta::key::catalog_name::CatalogNameKey;
+    <span class="kw">use </span>common_meta::key::schema_name::SchemaNameKey;
+    <span class="kw">use </span>common_meta::key::{TableMetaKey, TableMetadataManager};
 
     <span class="kw">use super</span>::{DefaultMetadataService, MetadataService};
-    <span class="kw">use </span><span class="kw">crate</span>::service::store::kv::KvStoreRef;
+    <span class="kw">use </span><span class="kw">crate</span>::service::store::kv::{KvBackendAdapter, KvStoreRef};
     <span class="kw">use </span><span class="kw">crate</span>::service::store::memory::MemStore;
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_create_schema() {
         <span class="kw">let </span>kv_store = Arc::new(MemStore::default());
-        <span class="kw">let </span>service = DefaultMetadataService::new(kv_store.clone());
+        <span class="kw">let </span>table_metadata_manager = Arc::new(TableMetadataManager::new(KvBackendAdapter::wrap(
+            kv_store.clone(),
+        )));
+        <span class="kw">let </span>service = DefaultMetadataService::new(table_metadata_manager);
 
         service
             .create_schema(<span class="string">&quot;catalog&quot;</span>, <span class="string">&quot;public&quot;</span>, <span class="bool-val">false</span>)
@@ -318,22 +299,13 @@
     }
 
     <span class="kw">async fn </span>verify_result(kv_store: KvStoreRef) {
-        <span class="kw">let </span>key: Vec&lt;u8&gt; = CatalogKey {
-            catalog_name: <span class="string">&quot;catalog&quot;</span>.to_string(),
-        }
-        .to_string()
-        .into();
+        <span class="kw">let </span>key = CatalogNameKey::new(<span class="string">&quot;catalog&quot;</span>).as_raw_key();
 
         <span class="kw">let </span>result = kv_store.get(<span class="kw-2">&amp;</span>key).<span class="kw">await</span>.unwrap();
         <span class="kw">let </span>kv = result.unwrap();
         <span class="macro">assert_eq!</span>(key, kv.key());
 
-        <span class="kw">let </span>key: Vec&lt;u8&gt; = SchemaKey {
-            catalog_name: <span class="string">&quot;catalog&quot;</span>.to_string(),
-            schema_name: <span class="string">&quot;public&quot;</span>.to_string(),
-        }
-        .to_string()
-        .into();
+        <span class="kw">let </span>key = SchemaNameKey::new(<span class="string">&quot;catalog&quot;</span>, <span class="string">&quot;public&quot;</span>).as_raw_key();
 
         <span class="kw">let </span>result = kv_store.get(<span class="kw-2">&amp;</span>key).<span class="kw">await</span>.unwrap();
         <span class="kw">let </span>kv = result.unwrap();

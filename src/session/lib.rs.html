@@ -88,6 +88,10 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -108,18 +112,19 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>arc_swap::ArcSwap;
+<span class="kw">use </span>auth::UserInfoRef;
 <span class="kw">use </span>common_catalog::build_db_string;
 <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>context::QueryContextBuilder;
 
-<span class="kw">use </span><span class="kw">crate</span>::context::{Channel, ConnInfo, QueryContextRef, UserInfo};
+<span class="kw">use </span><span class="kw">crate</span>::context::{Channel, ConnInfo, QueryContextRef};
 
 <span class="doccomment">/// Session for persistent connection such as MySQL, PostgreSQL etc.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Session {
     catalog: ArcSwap&lt;String&gt;,
     schema: ArcSwap&lt;String&gt;,
-    user_info: ArcSwap&lt;UserInfo&gt;,
+    user_info: ArcSwap&lt;UserInfoRef&gt;,
     conn_info: ConnInfo,
 }
 
@@ -130,7 +135,7 @@
         Session {
             catalog: ArcSwap::new(Arc::new(DEFAULT_CATALOG_NAME.into())),
             schema: ArcSwap::new(Arc::new(DEFAULT_SCHEMA_NAME.into())),
-            user_info: ArcSwap::new(Arc::new(UserInfo::default())),
+            user_info: ArcSwap::new(Arc::new(auth::userinfo_by_name(<span class="prelude-val">None</span>))),
             conn_info: ConnInfo::new(addr, channel),
         }
     }
@@ -138,6 +143,9 @@
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new_query_context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QueryContextRef {
         QueryContextBuilder::default()
+            .current_user(ArcSwap::new(Arc::new(<span class="prelude-val">Some</span>(
+                <span class="self">self</span>.user_info.load().as_ref().clone(),
+            ))))
             .current_catalog(<span class="self">self</span>.catalog.load().to_string())
             .current_schema(<span class="self">self</span>.schema.load().to_string())
             .sql_dialect(<span class="self">self</span>.conn_info.channel.dialect())
@@ -155,12 +163,12 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>user_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;UserInfo&gt; {
-        <span class="self">self</span>.user_info.load().clone()
+    </span><span class="kw">pub fn </span>user_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UserInfoRef {
+        <span class="self">self</span>.user_info.load().clone().as_ref().clone()
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>set_user_info(<span class="kw-2">&amp;</span><span class="self">self</span>, user_info: UserInfo) {
+    </span><span class="kw">pub fn </span>set_user_info(<span class="kw-2">&amp;</span><span class="self">self</span>, user_info: UserInfoRef) {
         <span class="self">self</span>.user_info.store(Arc::new(user_info));
     }
 

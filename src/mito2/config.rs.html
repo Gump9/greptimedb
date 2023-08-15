@@ -116,7 +116,7 @@
     <span class="comment">// Manifest configs:
     </span><span class="doccomment">/// Number of meta action updated to trigger a new checkpoint
     /// for the manifest (default 10).
-    </span><span class="kw">pub </span>manifest_checkpoint_interval: u64,
+    </span><span class="kw">pub </span>manifest_checkpoint_distance: u64,
     <span class="doccomment">/// Manifest compression type (default uncompressed).
     </span><span class="kw">pub </span>manifest_compress_type: CompressionType,
 }
@@ -127,7 +127,7 @@
             num_workers: DEFAULT_NUM_WORKERS,
             worker_channel_size: <span class="number">128</span>,
             worker_request_batch_size: <span class="number">64</span>,
-            manifest_checkpoint_interval: <span class="number">10</span>,
+            manifest_checkpoint_distance: <span class="number">10</span>,
             manifest_compress_type: CompressionType::Uncompressed,
         }
     }

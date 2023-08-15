@@ -238,10 +238,10 @@
 <span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>auth::UserProviderRef;
 <span class="kw">use </span>common_base::Plugins;
 <span class="kw">use </span>common_runtime::Builder <span class="kw">as </span>RuntimeBuilder;
 <span class="kw">use </span>common_telemetry::info;
-<span class="kw">use </span>servers::auth::UserProviderRef;
 <span class="kw">use </span>servers::configurator::ConfiguratorRef;
 <span class="kw">use </span>servers::error::Error::InternalIo;
 <span class="kw">use </span>servers::grpc::GrpcServer;

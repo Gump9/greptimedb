@@ -324,6 +324,10 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -417,9 +421,9 @@
     <span class="attr">#[clap(short, long)]
     </span>selector: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
-    </span>use_memory_store: bool,
+    </span>use_memory_store: <span class="prelude-ty">Option</span>&lt;bool&gt;,
     <span class="attr">#[clap(long)]
-    </span>disable_region_failover: bool,
+    </span>disable_region_failover: <span class="prelude-ty">Option</span>&lt;bool&gt;,
     <span class="attr">#[clap(long)]
     </span>http_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
@@ -462,9 +466,13 @@
                 .context(error::UnsupportedSelectorTypeSnafu { selector_type })<span class="question-mark">?</span>;
         }
 
-        opts.use_memory_store = <span class="self">self</span>.use_memory_store;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(use_memory_store) = <span class="self">self</span>.use_memory_store {
+            opts.use_memory_store = use_memory_store;
+        }
 
-        opts.disable_region_failover = <span class="self">self</span>.disable_region_failover;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(disable_region_failover) = <span class="self">self</span>.disable_region_failover {
+            opts.disable_region_failover = disable_region_failover;
+        }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(http_addr) = <span class="kw-2">&amp;</span><span class="self">self</span>.http_addr {
             opts.http_opts.addr = http_addr.clone();

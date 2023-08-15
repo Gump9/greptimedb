@@ -600,6 +600,34 @@
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -628,6 +656,19 @@
 <span class="attr">#[derive(Debug, Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
 </span><span class="kw">pub enum </span>Error {
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list catalogs: {}&quot;</span>, source))]
+    </span>ListCatalogs {
+        location: Location,
+        source: BoxedError,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list {}&#39;s schemas: {}&quot;</span>, catalog, source))]
+    </span>ListSchemas {
+        location: Location,
+        catalog: String,
+        source: BoxedError,
+    },
+
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to join a future: {}&quot;</span>, source))]
     </span>Join {
         location: Location,
@@ -708,7 +749,11 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Empty key is not allowed&quot;</span>))]
     </span>EmptyKey { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute via Etcd, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Failed to execute via Etcd, source: {}, location: {}&quot;</span>,
+        source,
+        location
+    ))]
     </span>EtcdFailed {
         source: etcd_client::Error,
         location: Location,
@@ -1074,6 +1119,12 @@
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Too many partitions, location: {}&quot;</span>, location))]
     </span>TooManyPartitions { location: Location },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Unsupported operation {}, location: {}&quot;</span>, operation, location))]
+    </span>Unsupported {
+        operation: String,
+        location: Location,
+    },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -1120,7 +1171,8 @@
             | Error::NoEnoughAvailableDatanode { .. }
             | Error::ConvertGrpcExpr { .. }
             | Error::PublishMessage { .. }
-            | Error::Join { .. } =&gt; StatusCode::Internal,
+            | Error::Join { .. }
+            | Error::Unsupported { .. } =&gt; StatusCode::Internal,
             Error::EmptyKey { .. }
             | Error::MissingRequiredParameter { .. }
             | Error::MissingRequestHeader { .. }
@@ -1158,6 +1210,10 @@
             | Error::SubmitProcedure { source, .. }
             | Error::WaitProcedure { source, .. } =&gt; source.status_code(),
             Error::ShutdownServer { source, .. } | Error::StartHttp { source, .. } =&gt; {
+                source.status_code()
+            }
+
+            Error::ListCatalogs { source, .. } | Error::ListSchemas { source, .. } =&gt; {
                 source.status_code()
             }
 

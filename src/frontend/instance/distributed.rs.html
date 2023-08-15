@@ -977,7 +977,6 @@
 <a href="#977" id="977">977</a>
 <a href="#978" id="978">978</a>
 <a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1012,11 +1011,10 @@
 <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>common_catalog::format_full_table_name;
 <span class="kw">use </span>common_error::ext::BoxedError;
-<span class="kw">use </span>common_meta::helper::{SchemaKey, SchemaValue};
+<span class="kw">use </span>common_meta::key::schema_name::SchemaNameKey;
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::rpc::ddl::{DdlTask, SubmitDdlTaskRequest, SubmitDdlTaskResponse};
 <span class="kw">use </span>common_meta::rpc::router::{Partition, Partition <span class="kw">as </span>MetaPartition, RouteRequest};
-<span class="kw">use </span>common_meta::rpc::store::CompareAndPutRequest;
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_telemetry::{debug, info};
@@ -1044,11 +1042,10 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::catalog::FrontendCatalogManager;
 <span class="kw">use </span><span class="kw">crate</span>::error::{
-    <span class="self">self</span>, AlterExprToRequestSnafu, CatalogEntrySerdeSnafu, CatalogSnafu, ColumnDataTypeSnafu,
-    ColumnNotFoundSnafu, DeserializePartitionSnafu, InvokeDatanodeSnafu, ParseSqlSnafu,
-    RequestDatanodeSnafu, RequestMetaSnafu, <span class="prelude-ty">Result</span>, SchemaExistsSnafu, StartMetaClientSnafu,
-    TableAlreadyExistSnafu, TableNotFoundSnafu, TableSnafu, ToTableDeleteRequestSnafu,
-    UnrecognizedTableOptionSnafu,
+    <span class="self">self</span>, AlterExprToRequestSnafu, CatalogSnafu, ColumnDataTypeSnafu, ColumnNotFoundSnafu,
+    DeserializePartitionSnafu, InvokeDatanodeSnafu, NotSupportedSnafu, ParseSqlSnafu,
+    RequestDatanodeSnafu, RequestMetaSnafu, <span class="prelude-ty">Result</span>, SchemaExistsSnafu, TableAlreadyExistSnafu,
+    TableNotFoundSnafu, TableSnafu, ToTableDeleteRequestSnafu, UnrecognizedTableOptionSnafu,
 };
 <span class="kw">use </span><span class="kw">crate</span>::expr_factory;
 <span class="kw">use </span><span class="kw">crate</span>::instance::distributed::inserter::DistInserter;
@@ -1443,31 +1440,28 @@
             };
         }
 
-        <span class="kw">let </span>key = SchemaKey {
-            catalog_name: catalog.to_owned(),
-            schema_name: expr.database_name.clone(),
-        };
-        <span class="kw">let </span>value = SchemaValue {};
-        <span class="kw">let </span>client = <span class="self">self
-            </span>.meta_client
-            .store_client()
-            .context(StartMetaClientSnafu)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>request = CompareAndPutRequest::new()
-            .with_key(key.to_string())
-            .with_value(value.as_bytes().context(CatalogEntrySerdeSnafu)<span class="question-mark">?</span>);
-
-        <span class="kw">let </span>response = client
-            .compare_and_put(request.into())
+        <span class="kw">let </span>schema = SchemaNameKey::new(catalog, <span class="kw-2">&amp;</span>expr.database_name);
+        <span class="kw">let </span>exist = <span class="self">self
+            </span>.catalog_manager
+            .table_metadata_manager_ref()
+            .schema_manager()
+            .exist(schema)
             .<span class="kw">await
-            </span>.context(RequestMetaSnafu)<span class="question-mark">?</span>;
+            </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 
         <span class="macro">ensure!</span>(
-            response.success,
+            !exist,
             SchemaExistsSnafu {
-                name: key.schema_name
+                name: schema.to_string(),
             }
         );
+
+        <span class="self">self</span>.catalog_manager
+            .table_metadata_manager_ref()
+            .schema_manager()
+            .create(schema)
+            .<span class="kw">await
+            </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 
         <span class="comment">// Since the database created on meta does not go through KvBackend, so we manually
         // invalidate the cache here.
@@ -1662,6 +1656,10 @@
         <span class="kw">match </span>request {
             Request::Inserts(requests) =&gt; <span class="self">self</span>.handle_dist_insert(requests, ctx).<span class="kw">await</span>,
             Request::Delete(request) =&gt; <span class="self">self</span>.handle_dist_delete(request, ctx).<span class="kw">await</span>,
+            Request::RowInserts(<span class="kw">_</span>) | Request::RowDelete(<span class="kw">_</span>) =&gt; NotSupportedSnafu {
+                feat: <span class="string">&quot;row insert/delete&quot;</span>,
+            }
+            .fail(),
             Request::Query(<span class="kw">_</span>) =&gt; {
                 <span class="macro">unreachable!</span>(<span class="string">&quot;Query should have been handled directly in Frontend Instance!&quot;</span>)
             }
@@ -1930,7 +1928,7 @@ PARTITION BY RANGE COLUMNS (b) (
   PARTITION r2 VALUES LESS THAN (MAXVALUE),
 )
 ENGINE=mito&quot;</span>,
-                <span class="string">r#&quot;[{&quot;column_list&quot;:&quot;b&quot;,&quot;value_list&quot;:&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;hz\&quot;}}&quot;},{&quot;column_list&quot;:&quot;b&quot;,&quot;value_list&quot;:&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;sh\&quot;}}&quot;},{&quot;column_list&quot;:&quot;b&quot;,&quot;value_list&quot;:&quot;\&quot;MaxValue\&quot;&quot;}]&quot;#</span>,
+                <span class="string">r#&quot;[{&quot;column_list&quot;:[&quot;b&quot;],&quot;value_list&quot;:[&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;hz\&quot;}}&quot;]},{&quot;column_list&quot;:[&quot;b&quot;],&quot;value_list&quot;:[&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;sh\&quot;}}&quot;]},{&quot;column_list&quot;:[&quot;b&quot;],&quot;value_list&quot;:[&quot;\&quot;MaxValue\&quot;&quot;]}]&quot;#</span>,
             ),
             (
                 <span class="string">r&quot;
@@ -1941,7 +1939,7 @@ PARTITION BY RANGE COLUMNS (b, a) (
   PARTITION r2 VALUES LESS THAN (MAXVALUE, MAXVALUE),
 )
 ENGINE=mito&quot;</span>,
-                <span class="string">r#&quot;[{&quot;column_list&quot;:&quot;b,a&quot;,&quot;value_list&quot;:&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;hz\&quot;}},{\&quot;Value\&quot;:{\&quot;Int32\&quot;:10}}&quot;},{&quot;column_list&quot;:&quot;b,a&quot;,&quot;value_list&quot;:&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;sh\&quot;}},{\&quot;Value\&quot;:{\&quot;Int32\&quot;:20}}&quot;},{&quot;column_list&quot;:&quot;b,a&quot;,&quot;value_list&quot;:&quot;\&quot;MaxValue\&quot;,\&quot;MaxValue\&quot;&quot;}]&quot;#</span>,
+                <span class="string">r#&quot;[{&quot;column_list&quot;:[&quot;b&quot;,&quot;a&quot;],&quot;value_list&quot;:[&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;hz\&quot;}}&quot;,&quot;{\&quot;Value\&quot;:{\&quot;Int32\&quot;:10}}&quot;]},{&quot;column_list&quot;:[&quot;b&quot;,&quot;a&quot;],&quot;value_list&quot;:[&quot;{\&quot;Value\&quot;:{\&quot;String\&quot;:\&quot;sh\&quot;}}&quot;,&quot;{\&quot;Value\&quot;:{\&quot;Int32\&quot;:20}}&quot;]},{&quot;column_list&quot;:[&quot;b&quot;,&quot;a&quot;],&quot;value_list&quot;:[&quot;\&quot;MaxValue\&quot;&quot;,&quot;\&quot;MaxValue\&quot;&quot;]}]&quot;#</span>,
             ),
         ];
         <span class="kw">for </span>(sql, expected) <span class="kw">in </span>cases {

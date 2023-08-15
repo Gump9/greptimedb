@@ -317,6 +317,96 @@
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -335,6 +425,7 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>client::api::v1::meta::TableRouteValue;
 <span class="kw">use </span>common_meta::error <span class="kw">as </span>MetaError;
 <span class="kw">use </span>common_meta::helper::{CatalogKey <span class="kw">as </span>v1CatalogKey, SchemaKey <span class="kw">as </span>v1SchemaKey, TableGlobalValue};
 <span class="kw">use </span>common_meta::key::catalog_name::{CatalogNameKey, CatalogNameValue};
@@ -343,8 +434,10 @@
 <span class="kw">use </span>common_meta::key::table_info::{TableInfoKey, TableInfoValue};
 <span class="kw">use </span>common_meta::key::table_name::{TableNameKey, TableNameValue};
 <span class="kw">use </span>common_meta::key::table_region::{RegionDistribution, TableRegionKey, TableRegionValue};
+<span class="kw">use </span>common_meta::key::table_route::{NextTableRouteKey, TableRouteValue <span class="kw">as </span>NextTableRouteValue};
 <span class="kw">use </span>common_meta::key::TableMetaKey;
 <span class="kw">use </span>common_meta::range_stream::PaginationStream;
+<span class="kw">use </span>common_meta::rpc::router::TableRoute;
 <span class="kw">use </span>common_meta::rpc::store::{BatchDeleteRequest, BatchPutRequest, PutRequest, RangeRequest};
 <span class="kw">use </span>common_meta::rpc::KeyValue;
 <span class="kw">use </span>common_meta::util::get_prefix_end_key;
@@ -353,6 +446,7 @@
 <span class="kw">use </span>futures::TryStreamExt;
 <span class="kw">use </span>meta_srv::service::store::etcd::EtcdStore;
 <span class="kw">use </span>meta_srv::service::store::kv::{KvBackendAdapter, KvStoreRef};
+<span class="kw">use </span>prost::Message;
 <span class="kw">use </span>snafu::ResultExt;
 
 <span class="kw">use </span><span class="kw">crate</span>::cli::{Instance, Tool};
@@ -364,6 +458,15 @@
     </span>etcd_addr: String,
     <span class="attr">#[clap(long)]
     </span>dryrun: bool,
+
+    <span class="attr">#[clap(long)]
+    </span>skip_table_global_keys: bool,
+    <span class="attr">#[clap(long)]
+    </span>skip_catalog_keys: bool,
+    <span class="attr">#[clap(long)]
+    </span>skip_schema_keys: bool,
+    <span class="attr">#[clap(long)]
+    </span>skip_table_route_keys: bool,
 }
 
 <span class="kw">impl </span>UpgradeCommand {
@@ -376,6 +479,10 @@
         <span class="kw">let </span>tool = MigrateTableMetadata {
             etcd_store: EtcdStore::with_etcd_client(client),
             dryrun: <span class="self">self</span>.dryrun,
+            skip_catalog_keys: <span class="self">self</span>.skip_catalog_keys,
+            skip_table_global_keys: <span class="self">self</span>.skip_table_global_keys,
+            skip_schema_keys: <span class="self">self</span>.skip_schema_keys,
+            skip_table_route_keys: <span class="self">self</span>.skip_table_route_keys,
         };
         <span class="prelude-val">Ok</span>(Instance::Tool(Box::new(tool)))
     }
@@ -384,15 +491,32 @@
 <span class="kw">struct </span>MigrateTableMetadata {
     etcd_store: KvStoreRef,
     dryrun: bool,
+
+    skip_table_global_keys: bool,
+
+    skip_catalog_keys: bool,
+
+    skip_schema_keys: bool,
+
+    skip_table_route_keys: bool,
 }
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>Tool <span class="kw">for </span>MigrateTableMetadata {
     <span class="comment">// migrates database&#39;s metadata from 0.3 to 0.4.
     </span><span class="kw">async fn </span>do_work(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.migrate_table_global_values().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="self">self</span>.migrate_catalog_keys().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="self">self</span>.migrate_schema_keys().<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">if </span>!<span class="self">self</span>.skip_table_global_keys {
+            <span class="self">self</span>.migrate_table_global_values().<span class="kw">await</span><span class="question-mark">?</span>;
+        }
+        <span class="kw">if </span>!<span class="self">self</span>.skip_catalog_keys {
+            <span class="self">self</span>.migrate_catalog_keys().<span class="kw">await</span><span class="question-mark">?</span>;
+        }
+        <span class="kw">if </span>!<span class="self">self</span>.skip_schema_keys {
+            <span class="self">self</span>.migrate_schema_keys().<span class="kw">await</span><span class="question-mark">?</span>;
+        }
+        <span class="kw">if </span>!<span class="self">self</span>.skip_table_route_keys {
+            <span class="self">self</span>.migrate_table_route_keys().<span class="kw">await</span><span class="question-mark">?</span>;
+        }
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -400,6 +524,62 @@
 <span class="kw">const </span>PAGE_SIZE: usize = <span class="number">1000</span>;
 
 <span class="kw">impl </span>MigrateTableMetadata {
+    <span class="kw">async fn </span>migrate_table_route_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>key = <span class="string">b&quot;__meta_table_route&quot;</span>.to_vec();
+        <span class="kw">let </span>range_end = get_prefix_end_key(<span class="kw-2">&amp;</span>key);
+        <span class="kw">let </span><span class="kw-2">mut </span>keys = Vec::new();
+        <span class="macro">info!</span>(<span class="string">&quot;Start scanning key from: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>key));
+
+        <span class="kw">let </span><span class="kw-2">mut </span>stream = PaginationStream::new(
+            KvBackendAdapter::wrap(<span class="self">self</span>.etcd_store.clone()),
+            RangeRequest::new().with_range(key, range_end),
+            PAGE_SIZE,
+            Arc::new(|kv: KeyValue| {
+                <span class="kw">let </span>value =
+                    TableRouteValue::decode(<span class="kw-2">&amp;</span>kv.value[..]).context(MetaError::DecodeProtoSnafu)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>((kv.key, value))
+            }),
+        );
+
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((key, value)) = stream.try_next().<span class="kw">await</span>.context(error::IterStreamSnafu)<span class="question-mark">? </span>{
+            <span class="self">self</span>.migrate_table_route_key(value).<span class="kw">await</span><span class="question-mark">?</span>;
+            keys.push(key);
+        }
+
+        <span class="macro">info!</span>(<span class="string">&quot;Total migrated TableRouteKeys: {}&quot;</span>, keys.len());
+        <span class="self">self</span>.delete_migrated_keys(keys).<span class="kw">await</span>;
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">async fn </span>migrate_table_route_key(<span class="kw-2">&amp;</span><span class="self">self</span>, value: TableRouteValue) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>table_route = TableRoute::try_from_raw(
+            <span class="kw-2">&amp;</span>value.peers,
+            value.table_route.expect(<span class="string">&quot;expected table_route&quot;</span>),
+        )
+        .unwrap();
+
+        <span class="kw">let </span>new_table_value = NextTableRouteValue::new(table_route.region_routes);
+
+        <span class="kw">let </span>new_key = NextTableRouteKey::new(table_route.table.id <span class="kw">as </span>u32);
+        <span class="macro">info!</span>(<span class="string">&quot;Creating &#39;{new_key}&#39;&quot;</span>);
+
+        <span class="kw">if </span><span class="self">self</span>.dryrun {
+            <span class="macro">info!</span>(<span class="string">&quot;Dryrun: do nothing&quot;</span>);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.etcd_store
+                .put(
+                    PutRequest::new()
+                        .with_key(new_key.as_raw_key())
+                        .with_value(new_table_value.try_as_raw_value().unwrap()),
+                )
+                .<span class="kw">await
+                </span>.unwrap();
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="kw">async fn </span>migrate_schema_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="comment">// The schema key prefix.
         </span><span class="kw">let </span>key = <span class="string">b&quot;__s&quot;</span>.to_vec();

@@ -242,6 +242,7 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>auth::UserProviderRef;
 <span class="kw">use </span>common_runtime::Runtime;
 <span class="kw">use </span>common_telemetry::logging::{info, warn};
 <span class="kw">use </span>futures::StreamExt;
@@ -254,7 +255,6 @@
 <span class="kw">use </span>tokio::net::TcpStream;
 <span class="kw">use </span>tokio_rustls::rustls::ServerConfig;
 
-<span class="kw">use </span><span class="kw">crate</span>::auth::UserProviderRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::{Error, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::mysql::handler::MysqlInstanceShim;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::sql::ServerSqlQueryHandlerRef;

@@ -227,12 +227,12 @@
 </span><span class="kw">use </span>std::io::Cursor;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>api::v1::OpType;
 <span class="kw">use </span>common_recordbatch::RecordBatch;
 <span class="kw">use </span>datatypes::arrow::ipc::reader::StreamReader;
 <span class="kw">use </span>datatypes::arrow::ipc::writer::{IpcWriteOptions, StreamWriter};
 <span class="kw">use </span>datatypes::schema::Schema;
 <span class="kw">use </span>snafu::{ensure, ResultExt};
-<span class="kw">use </span>store_api::storage::OpType;
 
 <span class="kw">use </span><span class="kw">crate</span>::codec::{Decoder, Encoder};
 <span class="kw">use </span><span class="kw">crate</span>::error::{

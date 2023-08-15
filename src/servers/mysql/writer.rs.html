@@ -264,17 +264,6 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -293,7 +282,6 @@
 
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_recordbatch::{util, RecordBatch};
-<span class="kw">use </span>common_telemetry::warn;
 <span class="kw">use </span>datatypes::prelude::{ConcreteDataType, Value};
 <span class="kw">use </span>datatypes::schema::SchemaRef;
 <span class="kw">use </span>metrics::increment_counter;
@@ -308,9 +296,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::metrics::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Try to write multiple output to the writer if possible.
-</span><span class="kw">pub async fn </span>write_output&lt;<span class="lifetime">&#39;a</span>, W: AsyncWrite + Send + Sync + Unpin&gt;(
-    w: QueryResultWriter&lt;<span class="lifetime">&#39;a</span>, W&gt;,
-    query: <span class="kw-2">&amp;</span>str,
+</span><span class="kw">pub async fn </span>write_output&lt;W: AsyncWrite + Send + Sync + Unpin&gt;(
+    w: QueryResultWriter&lt;<span class="lifetime">&#39;_</span>, W&gt;,
     query_context: QueryContextRef,
     outputs: Vec&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -319,7 +306,7 @@
         <span class="kw">let </span>result_writer = writer.take().context(error::InternalSnafu {
             err_msg: <span class="string">&quot;Sending multiple result set is unsupported&quot;</span>,
         })<span class="question-mark">?</span>;
-        writer = result_writer.try_write_one(query, output).<span class="kw">await</span><span class="question-mark">?</span>;
+        writer = result_writer.try_write_one(output).<span class="kw">await</span><span class="question-mark">?</span>;
     }
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(result_writer) = writer {
@@ -352,7 +339,6 @@
     <span class="doccomment">/// Try to write one result set. If there are more than one result set, return `Some`.
     </span><span class="kw">pub async fn </span>try_write_one(
         <span class="self">self</span>,
-        query: <span class="kw-2">&amp;</span>str,
         output: <span class="prelude-ty">Result</span>&lt;Output&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MysqlResultWriter&lt;<span class="lifetime">&#39;a</span>, W&gt;&gt;&gt; {
         <span class="comment">// We don&#39;t support sending multiple query result because the RowWriter&#39;s lifetime is bound to
@@ -368,16 +354,14 @@
                         recordbatches,
                         schema,
                     };
-                    <span class="self">Self</span>::write_query_result(query, query_result, <span class="self">self</span>.writer, <span class="self">self</span>.query_context)
-                        .<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="self">Self</span>::write_query_result(query_result, <span class="self">self</span>.writer, <span class="self">self</span>.query_context).<span class="kw">await</span><span class="question-mark">?</span>;
                 }
                 Output::RecordBatches(recordbatches) =&gt; {
                     <span class="kw">let </span>query_result = QueryResult {
                         schema: recordbatches.schema(),
                         recordbatches: recordbatches.take(),
                     };
-                    <span class="self">Self</span>::write_query_result(query, query_result, <span class="self">self</span>.writer, <span class="self">self</span>.query_context)
-                        .<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="self">Self</span>::write_query_result(query_result, <span class="self">self</span>.writer, <span class="self">self</span>.query_context).<span class="kw">await</span><span class="question-mark">?</span>;
                 }
                 Output::AffectedRows(rows) =&gt; {
                     <span class="kw">let </span>next_writer = <span class="self">Self</span>::write_affected_rows(<span class="self">self</span>.writer, rows).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -387,7 +371,7 @@
                     )));
                 }
             },
-            <span class="prelude-val">Err</span>(error) =&gt; <span class="self">Self</span>::write_query_error(query, error, <span class="self">self</span>.writer).<span class="kw">await</span><span class="question-mark">?</span>,
+            <span class="prelude-val">Err</span>(error) =&gt; <span class="self">Self</span>::write_query_error(error, <span class="self">self</span>.writer).<span class="kw">await</span><span class="question-mark">?</span>,
         }
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
     }
@@ -412,7 +396,6 @@
     }
 
     <span class="kw">async fn </span>write_query_result(
-        query: <span class="kw-2">&amp;</span>str,
         query_result: QueryResult,
         writer: QueryResultWriter&lt;<span class="lifetime">&#39;a</span>, W&gt;,
         query_context: QueryContextRef,
@@ -429,7 +412,7 @@
                 row_writer.finish().<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(())
             }
-            <span class="prelude-val">Err</span>(error) =&gt; <span class="self">Self</span>::write_query_error(query, error, writer).<span class="kw">await</span>,
+            <span class="prelude-val">Err</span>(error) =&gt; <span class="self">Self</span>::write_query_error(error, writer).<span class="kw">await</span>,
         }
     }
 
@@ -477,12 +460,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>write_query_error(
-        query: <span class="kw-2">&amp;</span>str,
-        error: Error,
-        w: QueryResultWriter&lt;<span class="lifetime">&#39;a</span>, W&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">warn!</span>(error; <span class="string">&quot;Failed to execute query &#39;{}&#39;&quot;</span>, query);
+    <span class="kw">async fn </span>write_query_error(error: Error, w: QueryResultWriter&lt;<span class="lifetime">&#39;a</span>, W&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">increment_counter!</span>(
             METRIC_ERROR_COUNTER,
             <span class="kw-2">&amp;</span>[(METRIC_PROTOCOL_LABEL, METRIC_ERROR_COUNTER_LABEL_MYSQL)]

@@ -974,6 +974,7 @@
 <span class="kw">use </span>aide::axum::{routing <span class="kw">as </span>apirouting, ApiRouter, IntoApiResponse};
 <span class="kw">use </span>aide::openapi::{Info, OpenApi, Server <span class="kw">as </span>OpenAPIServer};
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>auth::UserProviderRef;
 <span class="kw">use </span>axum::body::BoxBody;
 <span class="kw">use </span>axum::error_handling::HandleErrorLayer;
 <span class="kw">use </span>axum::extract::{DefaultBodyLimit, MatchedPath};
@@ -1005,7 +1006,6 @@
 
 <span class="kw">use </span><span class="self">self</span>::authorize::HttpAuth;
 <span class="kw">use </span><span class="self">self</span>::influxdb::{influxdb_health, influxdb_ping, influxdb_write_v1, influxdb_write_v2};
-<span class="kw">use </span><span class="kw">crate</span>::auth::UserProviderRef;
 <span class="kw">use </span><span class="kw">crate</span>::configurator::ConfiguratorRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::{AlreadyStartedSnafu, <span class="prelude-ty">Result</span>, StartHttpSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::http::admin::{compact, flush};

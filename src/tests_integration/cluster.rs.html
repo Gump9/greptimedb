@@ -328,6 +328,9 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -351,6 +354,7 @@
 <span class="kw">use </span>client::Client;
 <span class="kw">use </span>common_base::Plugins;
 <span class="kw">use </span>common_grpc::channel_manager::{ChannelConfig, ChannelManager};
+<span class="kw">use </span>common_meta::key::TableMetadataManager;
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::DatanodeId;
 <span class="kw">use </span>common_runtime::Builder <span class="kw">as </span>RuntimeBuilder;
@@ -365,7 +369,7 @@
 <span class="kw">use </span>meta_srv::metadata_service::{DefaultMetadataService, MetadataService};
 <span class="kw">use </span>meta_srv::metasrv::{MetaSrv, MetaSrvOptions};
 <span class="kw">use </span>meta_srv::mocks::MockInfo;
-<span class="kw">use </span>meta_srv::service::store::kv::KvStoreRef;
+<span class="kw">use </span>meta_srv::service::store::kv::{KvBackendAdapter, KvStoreRef};
 <span class="kw">use </span>meta_srv::service::store::memory::MemStore;
 <span class="kw">use </span>servers::grpc::GrpcServer;
 <span class="kw">use </span>servers::query_handler::grpc::ServerGrpcQueryHandlerAdaptor;
@@ -461,8 +465,10 @@
 
         <span class="kw">let </span>mock =
             meta_srv::mocks::mock(opt, <span class="self">self</span>.kv_store.clone(), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(datanode_clients)).<span class="kw">await</span>;
-
-        <span class="kw">let </span>metadata_service = DefaultMetadataService::new(mock.meta_srv.kv_store().clone());
+        <span class="kw">let </span>table_metadata_manager = Arc::new(TableMetadataManager::new(KvBackendAdapter::wrap(
+            mock.meta_srv.kv_store().clone(),
+        )));
+        <span class="kw">let </span>metadata_service = DefaultMetadataService::new(table_metadata_manager);
         metadata_service
             .create_schema(<span class="string">&quot;another_catalog&quot;</span>, <span class="string">&quot;another_schema&quot;</span>, <span class="bool-val">true</span>)
             .<span class="kw">await

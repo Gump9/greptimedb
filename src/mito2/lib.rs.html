@@ -171,6 +171,7 @@
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -204,12 +205,13 @@
 </span><span class="kw">pub mod </span>memtable;
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub mod </span>metadata;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>proto_util;
 <span class="kw">pub mod </span>read;
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">mod </span>region;
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub mod </span>request;
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">mod </span>row_converter;
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub mod </span>sst;
 <span class="kw">pub mod </span>wal;

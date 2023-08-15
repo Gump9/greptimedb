@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["config","docs","engine","error","manifest","memtable","metadata","proto_util","read","region","request","sst","wal","worker"]};
+window.SIDEBAR_ITEMS = {"mod":["config","docs","engine","error","manifest","memtable","metadata","read","region","request","row_converter","sst","wal","worker"]};

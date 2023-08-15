@@ -380,13 +380,6 @@
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -568,13 +561,13 @@
     <span class="kw">use </span>api::v1::{Column, ColumnDataType, InsertRequest <span class="kw">as </span>GrpcInsertRequest, SemanticType};
     <span class="kw">use </span>client::client_manager::DatanodeClients;
     <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
-    <span class="kw">use </span>common_meta::helper::{CatalogKey, CatalogValue, SchemaKey, SchemaValue};
+    <span class="kw">use </span>common_meta::key::catalog_name::{CatalogManager, CatalogNameKey};
+    <span class="kw">use </span>common_meta::key::schema_name::{SchemaManager, SchemaNameKey};
     <span class="kw">use </span>common_meta::key::table_name::TableNameKey;
     <span class="kw">use </span>common_meta::key::table_region::RegionDistribution;
     <span class="kw">use </span>common_meta::key::{TableMetadataManager, TableMetadataManagerRef};
     <span class="kw">use </span>common_meta::kv_backend::memory::MemoryKvBackend;
-    <span class="kw">use </span>common_meta::kv_backend::{KvBackend, KvBackendRef};
-    <span class="kw">use </span>common_meta::rpc::store::PutRequest;
+    <span class="kw">use </span>common_meta::kv_backend::KvBackendRef;
     <span class="kw">use </span>datatypes::prelude::{ConcreteDataType, VectorRef};
     <span class="kw">use </span>datatypes::schema::{ColumnDefaultConstraint, ColumnSchema, Schema};
     <span class="kw">use </span>datatypes::vectors::Int32Vector;
@@ -587,24 +580,17 @@
     <span class="kw">async fn </span>prepare_mocked_backend() -&gt; KvBackendRef {
         <span class="kw">let </span>backend = Arc::new(MemoryKvBackend::default());
 
-        <span class="kw">let </span>default_catalog = CatalogKey {
-            catalog_name: DEFAULT_CATALOG_NAME.to_string(),
-        }
-        .to_string();
-        <span class="kw">let </span>req = PutRequest::new()
-            .with_key(default_catalog.as_bytes())
-            .with_value(CatalogValue.as_bytes().unwrap());
-        backend.put(req).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>catalog_manager = CatalogManager::new(backend.clone());
+        <span class="kw">let </span>schema_manager = SchemaManager::new(backend.clone());
 
-        <span class="kw">let </span>default_schema = SchemaKey {
-            catalog_name: DEFAULT_CATALOG_NAME.to_string(),
-            schema_name: DEFAULT_SCHEMA_NAME.to_string(),
-        }
-        .to_string();
-        <span class="kw">let </span>req = PutRequest::new()
-            .with_key(default_schema.as_bytes())
-            .with_value(SchemaValue.as_bytes().unwrap());
-        backend.put(req).<span class="kw">await</span>.unwrap();
+        catalog_manager
+            .create(CatalogNameKey::default())
+            .<span class="kw">await
+            </span>.unwrap();
+        schema_manager
+            .create(SchemaNameKey::default())
+            .<span class="kw">await
+            </span>.unwrap();
 
         backend
     }

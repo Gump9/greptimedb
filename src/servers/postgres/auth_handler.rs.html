@@ -252,6 +252,10 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -269,6 +273,7 @@
 </span><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::sync::Exclusive;
 
+<span class="kw">use </span>::auth::{userinfo_by_name, Identity, Password, UserInfoRef, UserProviderRef};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_catalog::parse_catalog_and_schema_from_db_string;
 <span class="kw">use </span>common_error::ext::ErrorExt;
@@ -280,12 +285,10 @@
 <span class="kw">use </span>pgwire::messages::response::ErrorResponse;
 <span class="kw">use </span>pgwire::messages::startup::Authentication;
 <span class="kw">use </span>pgwire::messages::{PgWireBackendMessage, PgWireFrontendMessage};
-<span class="kw">use </span>session::context::UserInfo;
 <span class="kw">use </span>session::Session;
 <span class="kw">use </span>snafu::IntoError;
 
 <span class="kw">use </span><span class="kw">super</span>::PostgresServerHandler;
-<span class="kw">use </span><span class="kw">crate</span>::auth::{Identity, Password, UserProviderRef};
 <span class="kw">use </span><span class="kw">crate</span>::error::{AuthSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::sql::ServerSqlQueryHandlerRef;
 
@@ -328,26 +331,26 @@
 }
 
 <span class="kw">impl </span>PgLoginVerifier {
-    <span class="kw">async fn </span>auth(<span class="kw-2">&amp;</span><span class="self">self</span>, login: <span class="kw-2">&amp;</span>LoginInfo, password: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+    <span class="kw">async fn </span>auth(<span class="kw-2">&amp;</span><span class="self">self</span>, login: <span class="kw-2">&amp;</span>LoginInfo, password: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;UserInfoRef&gt;&gt; {
         <span class="kw">let </span>user_provider = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.user_provider {
             <span class="prelude-val">Some</span>(provider) =&gt; provider,
-            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         };
 
         <span class="kw">let </span>user_name = <span class="kw">match </span><span class="kw-2">&amp;</span>login.user {
             <span class="prelude-val">Some</span>(name) =&gt; name,
-            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         };
         <span class="kw">let </span>catalog = <span class="kw">match </span><span class="kw-2">&amp;</span>login.catalog {
             <span class="prelude-val">Some</span>(name) =&gt; name,
-            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         };
         <span class="kw">let </span>schema = <span class="kw">match </span><span class="kw-2">&amp;</span>login.schema {
             <span class="prelude-val">Some</span>(name) =&gt; name,
-            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         };
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = user_provider
+        <span class="kw">match </span>user_provider
             .auth(
                 Identity::UserId(user_name, <span class="prelude-val">None</span>),
                 Password::PlainText(password.to_string().into()),
@@ -356,16 +359,17 @@
             )
             .<span class="kw">await
         </span>{
-            <span class="macro">increment_counter!</span>(
-                <span class="kw">crate</span>::metrics::METRIC_AUTH_FAILURE,
-                <span class="kw-2">&amp;</span>[(
-                    <span class="kw">crate</span>::metrics::METRIC_CODE_LABEL,
-                    <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e.status_code())
-                )]
-            );
-            <span class="prelude-val">Err</span>(AuthSnafu.into_error(e))
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">increment_counter!</span>(
+                    <span class="kw">crate</span>::metrics::METRIC_AUTH_FAILURE,
+                    <span class="kw-2">&amp;</span>[(
+                        <span class="kw">crate</span>::metrics::METRIC_CODE_LABEL,
+                        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e.status_code())
+                    )]
+                );
+                <span class="prelude-val">Err</span>(AuthSnafu.into_error(e))
+            }
+            <span class="prelude-val">Ok</span>(user_info) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(user_info)),
         }
     }
 }
@@ -380,10 +384,8 @@
     <span class="kw">if let </span><span class="prelude-val">Some</span>(current_schema) = client.metadata().get(<span class="kw">super</span>::METADATA_SCHEMA) {
         session.set_schema(current_schema.clone());
     }
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(username) = client.metadata().get(<span class="kw">super</span>::METADATA_USER) {
-        session.set_user_info(UserInfo::new(username));
-    }
-}
+    <span class="comment">// set userinfo outside
+</span>}
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>StartupHandler <span class="kw">for </span>PostgresServerHandler {
@@ -428,6 +430,9 @@
                         ))
                         .<span class="kw">await</span><span class="question-mark">?</span>;
                 } <span class="kw">else </span>{
+                    <span class="self">self</span>.session.set_user_info(userinfo_by_name(
+                        client.metadata().get(<span class="kw">super</span>::METADATA_USER).cloned(),
+                    ));
                     set_client_info(client, <span class="kw-2">&amp;</span><span class="self">self</span>.session);
                     auth::finish_authentication(client, <span class="self">self</span>.param_provider.as_ref()).<span class="kw">await</span>;
                 }
@@ -442,7 +447,12 @@
 
                 <span class="comment">// do authenticate
                 </span><span class="kw">let </span>auth_result = <span class="self">self</span>.login_verifier.auth(<span class="kw-2">&amp;</span>login_info, pwd.password()).<span class="kw">await</span>;
-                <span class="kw">if </span>!<span class="macro">matches!</span>(auth_result, <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)) {
+
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(user_info)) = auth_result {
+                    <span class="self">self</span>.session.set_user_info(user_info);
+                    set_client_info(client, <span class="kw-2">&amp;</span><span class="self">self</span>.session);
+                    auth::finish_authentication(client, <span class="self">self</span>.param_provider.as_ref()).<span class="kw">await</span>;
+                } <span class="kw">else </span>{
                     <span class="kw">return </span>send_error(
                         client,
                         <span class="string">&quot;FATAL&quot;</span>,
@@ -451,8 +461,6 @@
                     )
                     .<span class="kw">await</span>;
                 }
-                set_client_info(client, <span class="kw-2">&amp;</span><span class="self">self</span>.session);
-                auth::finish_authentication(client, <span class="self">self</span>.param_provider.as_ref()).<span class="kw">await</span>;
             }
             <span class="kw">_ </span>=&gt; {}
         }

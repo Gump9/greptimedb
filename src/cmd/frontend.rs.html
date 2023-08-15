@@ -515,6 +515,7 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>auth::UserProviderRef;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>common_base::Plugins;
 <span class="kw">use </span>common_telemetry::logging;
@@ -522,9 +523,8 @@
 <span class="kw">use </span>frontend::instance::{FrontendInstance, Instance <span class="kw">as </span>FeInstance};
 <span class="kw">use </span>frontend::service_config::{InfluxdbOptions, PrometheusOptions};
 <span class="kw">use </span>meta_client::MetaClientOptions;
-<span class="kw">use </span>servers::auth::UserProviderRef;
 <span class="kw">use </span>servers::tls::{TlsMode, TlsOption};
-<span class="kw">use </span>servers::{auth, Mode};
+<span class="kw">use </span>servers::Mode;
 <span class="kw">use </span>snafu::ResultExt;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, IllegalAuthConfigSnafu, <span class="prelude-ty">Result</span>, StartCatalogManagerSnafu};
@@ -737,10 +737,10 @@
     <span class="kw">use </span>std::io::Write;
     <span class="kw">use </span>std::time::Duration;
 
+    <span class="kw">use </span>auth::{Identity, Password, UserProviderRef};
     <span class="kw">use </span>common_base::readable_size::ReadableSize;
     <span class="kw">use </span>common_test_util::temp_dir::create_named_temp_file;
     <span class="kw">use </span>frontend::service_config::GrpcOptions;
-    <span class="kw">use </span>servers::auth::{Identity, Password, UserProviderRef};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::options::ENV_VAR_SEP;

@@ -292,6 +292,7 @@
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -316,11 +317,12 @@
 <span class="kw">use </span>std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>api::v1::OpType;
 <span class="kw">use </span>common_time::range::TimestampRange;
 <span class="kw">use </span>common_time::Timestamp;
 <span class="kw">use </span>datatypes::vectors::VectorRef;
 <span class="kw">use </span>metrics::{decrement_gauge, increment_gauge};
-<span class="kw">use </span>store_api::storage::{consts, OpType, SequenceNumber};
+<span class="kw">use </span>store_api::storage::{consts, SequenceNumber};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::flush::FlushStrategyRef;

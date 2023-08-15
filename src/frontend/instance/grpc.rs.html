@@ -87,6 +87,19 @@
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -104,15 +117,16 @@
 </span><span class="kw">use </span>api::v1::greptime_request::Request;
 <span class="kw">use </span>api::v1::query_request::Query;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>auth::{PermissionChecker, PermissionCheckerRef, PermissionReq};
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>query::parser::PromQuery;
 <span class="kw">use </span>servers::interceptor::{GrpcQueryInterceptor, GrpcQueryInterceptorRef};
 <span class="kw">use </span>servers::query_handler::grpc::GrpcQueryHandler;
 <span class="kw">use </span>servers::query_handler::sql::SqlQueryHandler;
 <span class="kw">use </span>session::context::QueryContextRef;
-<span class="kw">use </span>snafu::{ensure, OptionExt};
+<span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{Error, IncompleteGrpcResultSnafu, NotSupportedSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{Error, IncompleteGrpcResultSnafu, NotSupportedSnafu, PermissionSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::instance::Instance;
 
 <span class="attr">#[async_trait]
@@ -124,8 +138,20 @@
         <span class="kw">let </span>interceptor = interceptor_ref.as_ref();
         interceptor.pre_execute(<span class="kw-2">&amp;</span>request, ctx.clone())<span class="question-mark">?</span>;
 
+        <span class="self">self</span>.plugins
+            .get::&lt;PermissionCheckerRef&gt;()
+            .as_ref()
+            .check_permission(ctx.current_user(), PermissionReq::GrpcRequest(<span class="kw-2">&amp;</span>request))
+            .context(PermissionSnafu)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>output = <span class="kw">match </span>request {
             Request::Inserts(requests) =&gt; <span class="self">self</span>.handle_inserts(requests, ctx.clone()).<span class="kw">await</span><span class="question-mark">?</span>,
+            Request::RowInserts(<span class="kw">_</span>) | Request::RowDelete(<span class="kw">_</span>) =&gt; {
+                <span class="kw">return </span>NotSupportedSnafu {
+                    feat: <span class="string">&quot;row insert/delete&quot;</span>,
+                }
+                .fail();
+            }
             Request::Query(query_request) =&gt; {
                 <span class="kw">let </span>query = query_request.query.context(IncompleteGrpcResultSnafu {
                     err_msg: <span class="string">&quot;Missing field &#39;QueryRequest.query&#39;&quot;</span>,

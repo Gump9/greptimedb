@@ -311,6 +311,57 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -332,6 +383,7 @@
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
 <span class="kw">use </span>datatypes::arrow::error::ArrowError;
+<span class="kw">use </span>datatypes::prelude::ConcreteDataType;
 <span class="kw">use </span>prost::{DecodeError, EncodeError};
 <span class="kw">use </span>snafu::{Location, Snafu};
 <span class="kw">use </span>store_api::manifest::ManifestVersion;
@@ -573,6 +625,50 @@
     <span class="comment">// Shared error for each writer in the write group.
     </span><span class="attr">#[snafu(display(<span class="string">&quot;Failed to write region, source: {}&quot;</span>, source))]
     </span>WriteGroup { source: Arc&lt;Error&gt; },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Row length mismatch, expect: {}, actual: {}, location: {}&quot;</span>,
+        expect,
+        actual,
+        location
+    ))]
+    </span>RowLengthMismatch {
+        expect: usize,
+        actual: usize,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Row value mismatches field data type&quot;</span>))]
+    </span>FieldTypeMismatch { source: datatypes::error::Error },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to serialize field, location: {}&quot;</span>, location))]
+    </span>SerializeField {
+        source: memcomparable::Error,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Data type: {} does not support serialization/deserialization, location: {}&quot;</span>,
+        data_type,
+        location
+    ))]
+    </span>NotSupportedField {
+        data_type: ConcreteDataType,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Failed to deserialize field, source: {}, location: {}&quot;</span>,
+        source,
+        location
+    ))]
+    </span>DeserializeField {
+        source: memcomparable::Error,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid batch, {}, location: {}&quot;</span>, reason, location))]
+    </span>InvalidBatch { reason: String, location: Location },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -617,6 +713,12 @@
             | DecodeWal { .. } =&gt; StatusCode::Internal,
             WriteBuffer { source, .. } =&gt; source.status_code(),
             WriteGroup { source, .. } =&gt; source.status_code(),
+            RowLengthMismatch { .. } =&gt; StatusCode::InvalidArguments,
+            FieldTypeMismatch { source, .. } =&gt; source.status_code(),
+            SerializeField { .. } =&gt; StatusCode::Internal,
+            NotSupportedField { .. } =&gt; StatusCode::Unsupported,
+            DeserializeField { .. } =&gt; StatusCode::Unexpected,
+            InvalidBatch { .. } =&gt; StatusCode::InvalidArguments,
         }
     }
 

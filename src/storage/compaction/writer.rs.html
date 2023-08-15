@@ -585,6 +585,7 @@
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -701,6 +702,7 @@
     <span class="kw">use </span>std::sync::atomic::{AtomicU64, Ordering};
     <span class="kw">use </span>std::sync::Arc;
 
+    <span class="kw">use </span>api::v1::OpType;
     <span class="kw">use </span>common_base::readable_size::ReadableSize;
     <span class="kw">use </span>common_test_util::temp_dir::create_temp_dir;
     <span class="kw">use </span>common_time::Timestamp;
@@ -711,7 +713,7 @@
     };
     <span class="kw">use </span>object_store::services::Fs;
     <span class="kw">use </span>object_store::ObjectStore;
-    <span class="kw">use </span>store_api::storage::{ChunkReader, OpType, SequenceNumber};
+    <span class="kw">use </span>store_api::storage::{ChunkReader, SequenceNumber};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::file_purger::noop::new_noop_file_purger;

@@ -32,6 +32,8 @@
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -50,7 +52,9 @@
 
 </span><span class="kw">pub mod </span>error;
 <span class="kw">pub mod </span>heartbeat;
-<span class="kw">pub mod </span>helper;
+<span class="comment">// TODO(weny): Removes it
+</span><span class="attr">#[allow(deprecated)]
+</span><span class="kw">pub mod </span>helper;
 <span class="kw">pub mod </span>ident;
 <span class="kw">pub mod </span>instruction;
 <span class="kw">pub mod </span>key;

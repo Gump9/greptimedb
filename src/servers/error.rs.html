@@ -505,6 +505,8 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -538,8 +540,6 @@
 <span class="kw">use </span>tonic::codegen::http::{HeaderMap, HeaderValue};
 <span class="kw">use </span>tonic::metadata::MetadataMap;
 <span class="kw">use </span>tonic::Code;
-
-<span class="kw">use </span><span class="kw">crate</span>::auth;
 
 <span class="attr">#[derive(Debug, Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
@@ -621,6 +621,9 @@
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Not supported: {}&quot;</span>, feat))]
     </span>NotSupported { feat: String },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid request parameter: {}&quot;</span>, reason))]
+    </span>InvalidParameter { reason: String, location: Location },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid query: {}&quot;</span>, reason))]
     </span>InvalidQuery { reason: String, location: Location },
@@ -866,6 +869,7 @@
             | CheckDatabaseValidity { source, .. } =&gt; source.status_code(),
 
             NotSupported { .. }
+            | InvalidParameter { .. }
             | InvalidQuery { .. }
             | InfluxdbLineProtocol { .. }
             | ConnResetByPeer { .. }

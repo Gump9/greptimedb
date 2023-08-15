@@ -1795,9 +1795,9 @@
 }
 
 <span class="kw">impl </span>CompareAndPutResponse {
-    <span class="kw">pub fn </span>handle&lt;R, E, F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; std::result::Result&lt;R, E&gt;
+    <span class="kw">pub fn </span>handle&lt;R, E, F&gt;(<span class="self">self</span>, f: F) -&gt; std::result::Result&lt;R, E&gt;
     <span class="kw">where
-        </span>F: FnOnce(<span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; std::result::Result&lt;R, E&gt;,
+        </span>F: FnOnce(<span class="self">Self</span>) -&gt; std::result::Result&lt;R, E&gt;,
     {
         f(<span class="self">self</span>)
     }

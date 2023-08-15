@@ -70,6 +70,9 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -90,22 +93,25 @@
 
 <span class="kw">use </span>common_telemetry::info;
 <span class="kw">use </span>snafu::ensure;
+<span class="kw">use </span>store_api::region_request::RegionCreateRequest;
+<span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{RegionExistsSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::metadata::{RegionMetadataBuilder, INIT_REGION_VERSION};
 <span class="kw">use </span><span class="kw">crate</span>::region::opener::RegionOpener;
-<span class="kw">use </span><span class="kw">crate</span>::request::CreateRequest;
 <span class="kw">use </span><span class="kw">crate</span>::worker::RegionWorkerLoop;
 
 <span class="kw">impl</span>&lt;S&gt; RegionWorkerLoop&lt;S&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_create_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request: CreateRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_create_request(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        region_id: RegionId,
+        request: RegionCreateRequest,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="comment">// Checks whether the table exists.
-        </span><span class="kw">if </span><span class="self">self</span>.regions.is_region_exists(request.region_id) {
+        </span><span class="kw">if </span><span class="self">self</span>.regions.is_region_exists(region_id) {
             <span class="macro">ensure!</span>(
                 request.create_if_not_exists,
-                RegionExistsSnafu {
-                    region_id: request.region_id,
-                }
+                RegionExistsSnafu { region_id }
             );
 
             <span class="comment">// Region already exists.
@@ -113,7 +119,7 @@
         }
 
         <span class="comment">// Convert the request into a RegionMetadata and validate it.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = RegionMetadataBuilder::new(request.region_id, INIT_REGION_VERSION);
+        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = RegionMetadataBuilder::new(region_id, INIT_REGION_VERSION);
         <span class="kw">for </span>column <span class="kw">in </span>request.column_metadatas {
             builder.push_column_metadata(column);
         }
@@ -122,7 +128,7 @@
 
         <span class="comment">// Create a MitoRegion from the RegionMetadata.
         </span><span class="kw">let </span>region = RegionOpener::new(
-            request.region_id,
+            region_id,
             <span class="self">self</span>.memtable_builder.clone(),
             <span class="self">self</span>.object_store.clone(),
         )

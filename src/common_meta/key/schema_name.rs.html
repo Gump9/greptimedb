@@ -140,6 +140,36 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -157,6 +187,7 @@
 </span><span class="kw">use </span>std::fmt::Display;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>futures::stream::BoxStream;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -173,6 +204,15 @@
 </span><span class="kw">pub struct </span>SchemaNameKey&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">pub </span>catalog: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
     <span class="kw">pub </span>schema: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Default <span class="kw">for </span>SchemaNameKey&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            catalog: DEFAULT_CATALOG_NAME,
+            schema: DEFAULT_SCHEMA_NAME,
+        }
+    }
 }
 
 <span class="attr">#[derive(Debug, Serialize, Deserialize)]
@@ -251,6 +291,12 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="kw">pub async fn </span>exist(<span class="kw-2">&amp;</span><span class="self">self</span>, schema: SchemaNameKey&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="kw">let </span>raw_key = schema.as_raw_key();
+
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.kv_backend.get(<span class="kw-2">&amp;</span>raw_key).<span class="kw">await</span><span class="question-mark">?</span>.is_some())
+    }
+
     <span class="doccomment">/// Returns a schema stream, it lists all schemas belong to the target `catalog`.
     </span><span class="kw">pub async fn </span>schema_names(<span class="kw-2">&amp;</span><span class="self">self</span>, catalog: <span class="kw-2">&amp;</span>str) -&gt; BoxStream&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;String&gt;&gt; {
         <span class="kw">let </span>start_key = SchemaNameKey::range_start_key(catalog);
@@ -270,6 +316,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::kv_backend::memory::MemoryKvBackend;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_serialization() {
@@ -280,6 +327,19 @@
         <span class="kw">let </span>parsed: SchemaNameKey&lt;<span class="lifetime">&#39;_</span>&gt; = <span class="string">&quot;__schema_name/my-catalog/my-schema&quot;</span>.try_into().unwrap();
 
         <span class="macro">assert_eq!</span>(key, parsed);
+    }
+
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_key_exist() {
+        <span class="kw">let </span>manager = SchemaManager::new(Arc::new(MemoryKvBackend::default()));
+        <span class="kw">let </span>schema_key = SchemaNameKey::new(<span class="string">&quot;my-catalog&quot;</span>, <span class="string">&quot;my-schema&quot;</span>);
+        manager.create(schema_key).<span class="kw">await</span>.unwrap();
+
+        <span class="macro">assert!</span>(manager.exist(schema_key).<span class="kw">await</span>.unwrap());
+
+        <span class="kw">let </span>wrong_schema_key = SchemaNameKey::new(<span class="string">&quot;my-catalog&quot;</span>, <span class="string">&quot;my-wrong&quot;</span>);
+
+        <span class="macro">assert!</span>(!manager.exist(wrong_schema_key).<span class="kw">await</span>.unwrap());
     }
 }
 </code></pre></div></section></main></body></html>

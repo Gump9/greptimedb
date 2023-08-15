@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["is_column_type_eq","is_column_type_value_eq","is_semantic_type_eq","proto_value_type","to_column_data_type","to_proto_op_type","to_proto_semantic_type","to_proto_value"]};

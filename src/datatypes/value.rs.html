@@ -1875,6 +1875,83 @@
 <a href="#1875" id="1875">1875</a>
 <a href="#1876" id="1876">1876</a>
 <a href="#1877" id="1877">1877</a>
+<a href="#1878" id="1878">1878</a>
+<a href="#1879" id="1879">1879</a>
+<a href="#1880" id="1880">1880</a>
+<a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -2351,15 +2428,11 @@
 <span class="macro">impl_value_from!</span>(String, StringBytes);
 <span class="macro">impl_value_from!</span>(Binary, Bytes);
 <span class="macro">impl_value_from!</span>(Date, Date);
+<span class="macro">impl_value_from!</span>(Time, Time);
 <span class="macro">impl_value_from!</span>(DateTime, DateTime);
 <span class="macro">impl_value_from!</span>(Timestamp, Timestamp);
 <span class="macro">impl_value_from!</span>(Interval, Interval);
-
-<span class="kw">impl </span>From&lt;String&gt; <span class="kw">for </span>Value {
-    <span class="kw">fn </span>from(string: String) -&gt; Value {
-        Value::String(string.into())
-    }
-}
+<span class="macro">impl_value_from!</span>(String, String);
 
 <span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>str&gt; <span class="kw">for </span>Value {
     <span class="kw">fn </span>from(string: <span class="kw-2">&amp;</span>str) -&gt; Value {
@@ -2580,6 +2653,33 @@
     }
 }
 
+<span class="kw">impl </span>From&lt;ValueRef&lt;<span class="lifetime">&#39;_</span>&gt;&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(value: ValueRef&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            ValueRef::Null =&gt; Value::Null,
+            ValueRef::Boolean(v) =&gt; Value::Boolean(v),
+            ValueRef::UInt8(v) =&gt; Value::UInt8(v),
+            ValueRef::UInt16(v) =&gt; Value::UInt16(v),
+            ValueRef::UInt32(v) =&gt; Value::UInt32(v),
+            ValueRef::UInt64(v) =&gt; Value::UInt64(v),
+            ValueRef::Int8(v) =&gt; Value::Int8(v),
+            ValueRef::Int16(v) =&gt; Value::Int16(v),
+            ValueRef::Int32(v) =&gt; Value::Int32(v),
+            ValueRef::Int64(v) =&gt; Value::Int64(v),
+            ValueRef::Float32(v) =&gt; Value::Float32(v),
+            ValueRef::Float64(v) =&gt; Value::Float64(v),
+            ValueRef::String(v) =&gt; Value::String(v.into()),
+            ValueRef::Binary(v) =&gt; Value::Binary(v.into()),
+            ValueRef::Date(v) =&gt; Value::Date(v),
+            ValueRef::DateTime(v) =&gt; Value::DateTime(v),
+            ValueRef::Timestamp(v) =&gt; Value::Timestamp(v),
+            ValueRef::Time(v) =&gt; Value::Time(v),
+            ValueRef::Interval(v) =&gt; Value::Interval(v),
+            ValueRef::List(v) =&gt; v.to_value(),
+        }
+    }
+}
+
 <span class="doccomment">/// Reference to [Value].
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>ValueRef&lt;<span class="lifetime">&#39;a</span>&gt; {
@@ -2649,6 +2749,60 @@
     <span class="doccomment">/// Cast itself to boolean.
     </span><span class="kw">pub fn </span>as_boolean(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;&gt; {
         <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, Boolean)
+    }
+
+    <span class="kw">pub fn </span>as_i8(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;i8&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, Int8)
+    }
+
+    <span class="kw">pub fn </span>as_u8(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u8&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, UInt8)
+    }
+
+    <span class="kw">pub fn </span>as_i16(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;i16&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, Int16)
+    }
+
+    <span class="kw">pub fn </span>as_u16(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u16&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, UInt16)
+    }
+
+    <span class="kw">pub fn </span>as_i32(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;i32&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, Int32)
+    }
+
+    <span class="kw">pub fn </span>as_u32(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, UInt32)
+    }
+
+    <span class="kw">pub fn </span>as_i64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;i64&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, Int64)
+    }
+
+    <span class="kw">pub fn </span>as_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt; {
+        <span class="macro">impl_as_for_value_ref!</span>(<span class="self">self</span>, UInt64)
+    }
+
+    <span class="kw">pub fn </span>as_f32(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;f32&gt;&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            ValueRef::Null =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+            ValueRef::Float32(f) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(f.<span class="number">0</span>)),
+            other =&gt; error::CastTypeSnafu {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;Failed to cast value ref {:?} to ValueRef::Float32&quot;</span>, other,),
+            }
+            .fail(),
+        }
+    }
+
+    <span class="kw">pub fn </span>as_f64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;f64&gt;&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            ValueRef::Null =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+            ValueRef::Float64(f) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(f.<span class="number">0</span>)),
+            other =&gt; error::CastTypeSnafu {
+                msg: <span class="macro">format!</span>(<span class="string">&quot;Failed to cast value ref {:?} to ValueRef::Float64&quot;</span>, other,),
+            }
+            .fail(),
+        }
     }
 
     <span class="doccomment">/// Cast itself to [Date].

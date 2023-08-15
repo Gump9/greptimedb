@@ -372,6 +372,7 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -388,11 +389,11 @@
 
 </span><span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">use </span>greptime_proto::v1::mito::{Mutation, OpType};
-<span class="kw">use </span>greptime_proto::v1::{Row, Rows, Value};
+<span class="kw">use </span>api::v1::{Mutation, OpType, Row, Rows, SemanticType};
+<span class="kw">use </span>datatypes::value::ValueRef;
 <span class="kw">use </span>store_api::storage::SequenceNumber;
 
-<span class="kw">use </span><span class="kw">crate</span>::metadata::{RegionMetadata, SemanticType};
+<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadata;
 
 <span class="doccomment">/// Key value view of a mutation.
 </span><span class="attr">#[derive(Debug)]
@@ -454,24 +455,24 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; KeyValue&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="doccomment">/// Get primary key columns.
-    </span><span class="kw">pub fn </span>primary_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>Value&gt; {
+    </span><span class="kw">pub fn </span>primary_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ValueRef&gt; {
         <span class="self">self</span>.helper.indices[..<span class="self">self</span>.helper.num_primary_key_column]
             .iter()
-            .map(|idx| <span class="kw-2">&amp;</span><span class="self">self</span>.row.values[<span class="kw-2">*</span>idx])
+            .map(|idx| api::helper::pb_value_to_value_ref(<span class="kw-2">&amp;</span><span class="self">self</span>.row.values[<span class="kw-2">*</span>idx]))
     }
 
     <span class="doccomment">/// Get field columns.
-    </span><span class="kw">pub fn </span>fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>Value&gt; {
+    </span><span class="kw">pub fn </span>fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ValueRef&gt; {
         <span class="self">self</span>.helper.indices[<span class="self">self</span>.helper.num_primary_key_column + <span class="number">1</span>..]
             .iter()
-            .map(|idx| <span class="kw-2">&amp;</span><span class="self">self</span>.row.values[<span class="kw-2">*</span>idx])
+            .map(|idx| api::helper::pb_value_to_value_ref(<span class="kw-2">&amp;</span><span class="self">self</span>.row.values[<span class="kw-2">*</span>idx]))
     }
 
     <span class="doccomment">/// Get timestamp.
-    </span><span class="kw">pub fn </span>timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Value {
+    </span><span class="kw">pub fn </span>timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValueRef {
         <span class="comment">// Timestamp is primitive, we clone it.
         </span><span class="kw">let </span>index = <span class="self">self</span>.helper.indices[<span class="self">self</span>.helper.num_primary_key_column];
-        <span class="self">self</span>.row.values[index].clone()
+        api::helper::pb_value_to_value_ref(<span class="kw-2">&amp;</span><span class="self">self</span>.row.values[index])
     }
 
     <span class="doccomment">/// Get number of primary key columns.
@@ -561,15 +562,16 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>api::v1;
+    <span class="kw">use </span>api::v1::ColumnDataType;
     <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
     <span class="kw">use </span>datatypes::schema::ColumnSchema;
-    <span class="kw">use </span>greptime_proto::v1;
-    <span class="kw">use </span>greptime_proto::v1::ColumnDataType;
+    <span class="kw">use </span>store_api::metadata::ColumnMetadata;
     <span class="kw">use </span>store_api::storage::RegionId;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::metadata::{ColumnMetadata, RegionMetadataBuilder};
-    <span class="kw">use </span><span class="kw">crate</span>::proto_util::i64_value;
+    <span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataBuilder;
+    <span class="kw">use </span><span class="kw">crate</span>::test_util::i64_value;
 
     <span class="kw">const </span>TS_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;ts&quot;</span>;
     <span class="kw">const </span>START_SEQ: SequenceNumber = <span class="number">100</span>;
@@ -668,7 +670,7 @@
     <span class="kw">fn </span>check_key_values(kvs: <span class="kw-2">&amp;</span>KeyValues, num_rows: usize, keys: <span class="kw-2">&amp;</span>[i64], ts: i64, values: <span class="kw-2">&amp;</span>[i64]) {
         <span class="macro">assert_eq!</span>(num_rows, kvs.num_rows());
         <span class="kw">let </span><span class="kw-2">mut </span>expect_seq = START_SEQ;
-        <span class="kw">let </span>expect_ts = i64_value(ts);
+        <span class="kw">let </span>expect_ts = ValueRef::Int64(ts);
         <span class="kw">for </span>kv <span class="kw">in </span>kvs.iter() {
             <span class="macro">assert_eq!</span>(expect_seq, kv.sequence());
             expect_seq += <span class="number">1</span>;
@@ -677,11 +679,11 @@
             <span class="macro">assert_eq!</span>(values.len(), kv.num_fields());
 
             <span class="macro">assert_eq!</span>(expect_ts, kv.timestamp());
-            <span class="kw">let </span>expect_keys: Vec&lt;<span class="kw">_</span>&gt; = keys.iter().map(|k| i64_value(<span class="kw-2">*</span>k)).collect();
-            <span class="kw">let </span>actual_keys: Vec&lt;<span class="kw">_</span>&gt; = kv.primary_keys().cloned().collect();
+            <span class="kw">let </span>expect_keys: Vec&lt;<span class="kw">_</span>&gt; = keys.iter().map(|k| ValueRef::Int64(<span class="kw-2">*</span>k)).collect();
+            <span class="kw">let </span>actual_keys: Vec&lt;<span class="kw">_</span>&gt; = kv.primary_keys().collect();
             <span class="macro">assert_eq!</span>(expect_keys, actual_keys);
-            <span class="kw">let </span>expect_values: Vec&lt;<span class="kw">_</span>&gt; = values.iter().map(|v| i64_value(<span class="kw-2">*</span>v)).collect();
-            <span class="kw">let </span>actual_values: Vec&lt;<span class="kw">_</span>&gt; = kv.fields().cloned().collect();
+            <span class="kw">let </span>expect_values: Vec&lt;<span class="kw">_</span>&gt; = values.iter().map(|v| ValueRef::Int64(<span class="kw-2">*</span>v)).collect();
+            <span class="kw">let </span>actual_values: Vec&lt;<span class="kw">_</span>&gt; = kv.fields().collect();
             <span class="macro">assert_eq!</span>(expect_values, actual_values);
         }
     }

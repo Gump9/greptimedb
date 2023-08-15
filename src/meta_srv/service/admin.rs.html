@@ -369,14 +369,14 @@
     <span class="kw">let </span>router = router.route(
         <span class="string">&quot;/catalogs&quot;</span>,
         meta::CatalogsHandler {
-            kv_store: meta_srv.kv_store().clone(),
+            table_metadata_manager: meta_srv.table_metadata_manager().clone(),
         },
     );
 
     <span class="kw">let </span>router = router.route(
         <span class="string">&quot;/schemas&quot;</span>,
         meta::SchemasHandler {
-            kv_store: meta_srv.kv_store().clone(),
+            table_metadata_manager: meta_srv.table_metadata_manager().clone(),
         },
     );
 

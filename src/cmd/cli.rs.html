@@ -150,6 +150,8 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -168,7 +170,9 @@
 <span class="kw">mod </span>cmd;
 <span class="kw">mod </span>helper;
 <span class="kw">mod </span>repl;
-<span class="kw">mod </span>upgrade;
+<span class="comment">// TODO(weny): Removes it
+</span><span class="attr">#[allow(deprecated)]
+</span><span class="kw">mod </span>upgrade;
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bench::BenchTableMetadataCommand;

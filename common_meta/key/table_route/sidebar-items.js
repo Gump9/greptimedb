@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["TABLE_ROUTE_PREFIX"],"struct":["TableRouteKey"]};
+window.SIDEBAR_ITEMS = {"constant":["NEXT_TABLE_ROUTE_PREFIX","TABLE_ROUTE_PREFIX"],"struct":["NextTableRouteKey","TableRouteKey","TableRouteManager","TableRouteValue"]};

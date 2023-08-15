@@ -415,23 +415,6 @@
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -451,11 +434,11 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_catalog::consts::MITO_ENGINE;
-<span class="kw">use </span>common_meta::helper::{CatalogKey, SchemaKey};
 <span class="kw">use </span>common_meta::ident::TableIdent;
+<span class="kw">use </span>common_meta::key::catalog_name::CatalogNameKey;
 <span class="kw">use </span>common_meta::key::datanode_table::DatanodeTableValue;
+<span class="kw">use </span>common_meta::key::schema_name::SchemaNameKey;
 <span class="kw">use </span>common_meta::key::TableMetadataManagerRef;
-<span class="kw">use </span>common_meta::kv_backend::KvBackendRef;
 <span class="kw">use </span>common_telemetry::{error, info, warn};
 <span class="kw">use </span>metrics::increment_gauge;
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
@@ -479,7 +462,6 @@
 <span class="doccomment">/// Catalog manager based on metasrv.
 </span><span class="kw">pub struct </span>RemoteCatalogManager {
     node_id: u64,
-    backend: KvBackendRef,
     engine_manager: TableEngineManagerRef,
     system_table_requests: Mutex&lt;Vec&lt;RegisterSystemTableRequest&gt;&gt;,
     region_alive_keepers: Arc&lt;RegionAliveKeepers&gt;,
@@ -491,14 +473,12 @@
     <span class="kw">pub fn </span>new(
         engine_manager: TableEngineManagerRef,
         node_id: u64,
-        backend: KvBackendRef,
         region_alive_keepers: Arc&lt;RegionAliveKeepers&gt;,
         table_metadata_manager: TableMetadataManagerRef,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             engine_manager,
             node_id,
-            backend,
             system_table_requests: Default::default(),
             region_alive_keepers,
             memory_catalog_manager: MemoryCatalogManager::with_default_setup(),
@@ -543,13 +523,6 @@
             .<span class="kw">await
             </span>.context(ParallelOpenTableSnafu)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">fn </span>build_schema_key(<span class="kw-2">&amp;</span><span class="self">self</span>, catalog_name: String, schema_name: String) -&gt; SchemaKey {
-        SchemaKey {
-            catalog_name,
-            schema_name,
-        }
     }
 }
 
@@ -757,16 +730,12 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         }
 
-        <span class="kw">let </span>key = <span class="self">self
-            </span>.build_schema_key(catalog.to_string(), schema.to_string())
-            .to_string();
         <span class="kw">let </span>remote_schema_exists = <span class="self">self
-            </span>.backend
-            .get(key.as_bytes())
+            </span>.table_metadata_manager
+            .schema_manager()
+            .exist(SchemaNameKey::new(catalog, schema))
             .<span class="kw">await
-            </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?
-            </span>.is_some();
-
+            </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
         <span class="comment">// Create schema locally if remote schema exists. Since local schema is managed by memory
         // catalog manager, creating a local schema is relatively cheap (just a HashMap).
         // Besides, if this method (&quot;schema_exist) is called, it&#39;s very likely that someone wants to
@@ -802,16 +771,13 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         }
 
-        <span class="kw">let </span>key = CatalogKey {
-            catalog_name: catalog.to_string(),
-        };
-
+        <span class="kw">let </span>key = CatalogNameKey::new(catalog);
         <span class="kw">let </span>remote_catalog_exists = <span class="self">self
-            </span>.backend
-            .get(key.to_string().as_bytes())
+            </span>.table_metadata_manager
+            .catalog_manager()
+            .exist(key)
             .<span class="kw">await
-            </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?
-            </span>.is_some();
+            </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 
         <span class="comment">// Create catalog locally if remote catalog exists. Since local catalog is managed by memory
         // catalog manager, creating a local catalog is relatively cheap (just a HashMap).

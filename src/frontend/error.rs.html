@@ -716,6 +716,14 @@
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1296,6 +1304,12 @@
         source: common_meta::error::Error,
         location: Location,
     },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to pass permission check, source: {}&quot;</span>, source))]
+    </span>Permission {
+        source: auth::Error,
+        location: Location,
+    },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -1320,6 +1334,8 @@
             | Error::UnsupportedFormat { .. } =&gt; StatusCode::InvalidArguments,
 
             Error::NotSupported { .. } =&gt; StatusCode::Unsupported,
+
+            Error::Permission { source, .. } =&gt; source.status_code(),
 
             Error::HandleHeartbeatResponse { source, .. }
             | Error::TableMetadataManager { source, .. } =&gt; source.status_code(),

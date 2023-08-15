@@ -142,7 +142,6 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -168,8 +167,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::config::MitoConfig;
 <span class="kw">use </span><span class="kw">crate</span>::error::{RegionCorruptedSnafu, RegionNotFoundSnafu, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span><span class="kw">crate</span>::manifest::manager::RegionManifestManager;
-<span class="kw">use </span><span class="kw">crate</span>::manifest::options::RegionManifestOptions;
+<span class="kw">use </span><span class="kw">crate</span>::manifest::manager::{RegionManifestManager, RegionManifestOptions};
 <span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableBuilderRef;
 <span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadata;
 <span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionBuilder, VersionControl};
@@ -225,7 +223,7 @@
             manifest_dir: new_manifest_dir(<span class="kw-2">&amp;</span><span class="self">self</span>.region_dir),
             object_store: <span class="self">self</span>.object_store,
             compress_type: config.manifest_compress_type,
-            checkpoint_interval: config.manifest_checkpoint_interval,
+            checkpoint_distance: config.manifest_checkpoint_distance,
         };
         <span class="comment">// Writes regions to the manifest file.
         </span><span class="kw">let </span>manifest_manager = RegionManifestManager::new(metadata.clone(), options).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -250,7 +248,7 @@
             manifest_dir: new_manifest_dir(<span class="kw-2">&amp;</span><span class="self">self</span>.region_dir),
             object_store: <span class="self">self</span>.object_store,
             compress_type: config.manifest_compress_type,
-            checkpoint_interval: config.manifest_checkpoint_interval,
+            checkpoint_distance: config.manifest_checkpoint_distance,
         };
         <span class="kw">let </span>manifest_manager =
             RegionManifestManager::open(options)

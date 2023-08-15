@@ -194,6 +194,8 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -213,6 +215,7 @@
 <span class="kw">use </span>std::time::Instant;
 
 <span class="kw">use </span>aide::transform::TransformOperation;
+<span class="kw">use </span>auth::UserInfoRef;
 <span class="kw">use </span>axum::extract::{Json, Query, State};
 <span class="kw">use </span>axum::response::{IntoResponse, Response};
 <span class="kw">use </span>axum::{Extension, Form};
@@ -221,7 +224,6 @@
 <span class="kw">use </span>query::parser::PromQuery;
 <span class="kw">use </span>schemars::JsonSchema;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>session::context::UserInfo;
 
 <span class="kw">use </span><span class="kw">crate</span>::http::{ApiState, GreptimeOptionsConfigState, JsonResponse};
 <span class="kw">use </span><span class="kw">crate</span>::metrics_handler::MetricsHandler;
@@ -238,7 +240,7 @@
     State(state): State&lt;ApiState&gt;,
     Query(query_params): Query&lt;SqlQuery&gt;,
     <span class="comment">// TODO(fys): pass _user_info into query context
-    </span>_user_info: Extension&lt;UserInfo&gt;,
+    </span>user_info: Extension&lt;UserInfoRef&gt;,
     Form(form_params): Form&lt;SqlQuery&gt;,
 ) -&gt; Json&lt;JsonResponse&gt; {
     <span class="kw">let </span>sql_handler = <span class="kw-2">&amp;</span>state.sql_handler;
@@ -257,6 +259,7 @@
     <span class="kw">let </span>resp = <span class="kw">if let </span><span class="prelude-val">Some</span>(sql) = <span class="kw-2">&amp;</span>sql {
         <span class="kw">match </span><span class="kw">crate</span>::http::query_context_from_db(sql_handler.clone(), db).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(query_ctx) =&gt; {
+                query_ctx.set_current_user(<span class="prelude-val">Some</span>(user_info.<span class="number">0</span>));
                 JsonResponse::from_output(sql_handler.do_query(sql, query_ctx).<span class="kw">await</span>).<span class="kw">await
             </span>}
             <span class="prelude-val">Err</span>(resp) =&gt; resp,
@@ -297,7 +300,7 @@
     State(state): State&lt;ApiState&gt;,
     Query(params): Query&lt;PromqlQuery&gt;,
     <span class="comment">// TODO(fys): pass _user_info into query context
-    </span>_user_info: Extension&lt;UserInfo&gt;,
+    </span>user_info: Extension&lt;UserInfoRef&gt;,
 ) -&gt; Json&lt;JsonResponse&gt; {
     <span class="kw">let </span>sql_handler = <span class="kw-2">&amp;</span>state.sql_handler;
     <span class="kw">let </span>exec_start = Instant::now();
@@ -313,6 +316,7 @@
     <span class="kw">let </span>prom_query = params.into();
     <span class="kw">let </span>resp = <span class="kw">match </span><span class="kw">super</span>::query_context_from_db(sql_handler.clone(), db).<span class="kw">await </span>{
         <span class="prelude-val">Ok</span>(query_ctx) =&gt; {
+            query_ctx.set_current_user(<span class="prelude-val">Some</span>(user_info.<span class="number">0</span>));
             JsonResponse::from_output(sql_handler.do_promql_query(<span class="kw-2">&amp;</span>prom_query, query_ctx).<span class="kw">await</span>)
                 .<span class="kw">await
         </span>}

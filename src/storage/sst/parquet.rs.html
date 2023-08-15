@@ -1180,6 +1180,7 @@
     <span class="kw">use </span>std::ops::Range;
     <span class="kw">use </span>std::sync::Arc;
 
+    <span class="kw">use </span>api::v1::OpType;
     <span class="kw">use </span>common_base::readable_size::ReadableSize;
     <span class="kw">use </span>common_test_util::temp_dir::create_temp_dir;
     <span class="kw">use </span>datatypes::arrow::array::{Array, UInt64Array, UInt8Array};
@@ -1187,7 +1188,6 @@
     <span class="kw">use </span>datatypes::types::{TimestampMillisecondType, TimestampType};
     <span class="kw">use </span>datatypes::vectors::TimestampMillisecondVector;
     <span class="kw">use </span>object_store::services::Fs;
-    <span class="kw">use </span>store_api::storage::OpType;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::file_purger::noop::new_noop_file_purger;

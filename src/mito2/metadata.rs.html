@@ -674,22 +674,6 @@
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -709,11 +693,13 @@
 </span><span class="kw">use </span>std::collections::{HashMap, HashSet};
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>api::v1::SemanticType;
 <span class="kw">use </span>datatypes::prelude::DataType;
-<span class="kw">use </span>datatypes::schema::{ColumnSchema, Schema, SchemaRef};
+<span class="kw">use </span>datatypes::schema::{Schema, SchemaRef};
 <span class="kw">use </span>serde::de::Error;
 <span class="kw">use </span>serde::{Deserialize, Deserializer, Serialize};
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
+<span class="kw">use </span>store_api::metadata::ColumnMetadata;
 <span class="kw">use </span>store_api::storage::{ColumnId, RegionId};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{InvalidMetaSnafu, InvalidSchemaSnafu, <span class="prelude-ty">Result</span>, SerdeJsonSnafu};
@@ -834,7 +820,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>id_names = HashMap::with_capacity(<span class="self">self</span>.column_metadatas.len());
         <span class="kw">for </span>col <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.column_metadatas {
             <span class="comment">// Validate each column.
-            </span>col.validate()<span class="question-mark">?</span>;
+            </span><span class="self">Self</span>::validate_column_metadata(col)<span class="question-mark">?</span>;
 
             <span class="comment">// Check whether column id is duplicated. We already check column name
             // is unique in `Schema` so we only check column id here.
@@ -944,6 +930,26 @@
 
         <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="doccomment">/// Checks whether it is a valid column.
+    </span><span class="kw">fn </span>validate_column_metadata(column_metadata: <span class="kw-2">&amp;</span>ColumnMetadata) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span>column_metadata.semantic_type == SemanticType::Timestamp {
+            <span class="macro">ensure!</span>(
+                column_metadata
+                    .column_schema
+                    .data_type
+                    .is_timestamp_compatible(),
+                InvalidMetaSnafu {
+                    reason: <span class="macro">format!</span>(
+                        <span class="string">&quot;{} is not timestamp compatible&quot;</span>,
+                        column_metadata.column_schema.name
+                    ),
+                }
+            );
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="doccomment">/// Builder to build [RegionMetadata].
@@ -1007,44 +1013,6 @@
     }
 }
 
-<span class="doccomment">/// Metadata of a column.
-</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>ColumnMetadata {
-    <span class="doccomment">/// Schema of this column. Is the same as `column_schema` in [SchemaRef].
-    </span><span class="kw">pub </span>column_schema: ColumnSchema,
-    <span class="doccomment">/// Semantic type of this column (e.g. tag or timestamp).
-    </span><span class="kw">pub </span>semantic_type: SemanticType,
-    <span class="doccomment">/// Immutable and unique id of a region.
-    </span><span class="kw">pub </span>column_id: ColumnId,
-}
-
-<span class="kw">impl </span>ColumnMetadata {
-    <span class="doccomment">/// Checks whether it is a valid column.
-    </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">if </span><span class="self">self</span>.semantic_type == SemanticType::Timestamp {
-            <span class="macro">ensure!</span>(
-                <span class="self">self</span>.column_schema.data_type.is_timestamp_compatible(),
-                InvalidMetaSnafu {
-                    reason: <span class="macro">format!</span>(<span class="string">&quot;{} is not timestamp compatible&quot;</span>, <span class="self">self</span>.column_schema.name),
-                }
-            );
-        }
-
-        <span class="prelude-val">Ok</span>(())
-    }
-}
-
-<span class="doccomment">/// The semantic type of one column
-</span><span class="attr">#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>SemanticType {
-    <span class="doccomment">/// Tag column, also is a part of primary key.
-    </span>Tag = <span class="number">0</span>,
-    <span class="doccomment">/// A column that isn&#39;t a time index or part of primary key.
-    </span>Field = <span class="number">1</span>,
-    <span class="doccomment">/// Time index column.
-    </span>Timestamp = <span class="number">2</span>,
-}
-
 <span class="doccomment">/// Fields skipped in serialization.
 </span><span class="kw">struct </span>SkippedFields {
     <span class="doccomment">/// Last schema.
@@ -1092,6 +1060,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
     <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
+    <span class="kw">use </span>datatypes::schema::ColumnSchema;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -1152,7 +1121,6 @@
             semantic_type: SemanticType::Timestamp,
             column_id: <span class="number">1</span>,
         };
-        col.validate().unwrap_err();
 
         builder.push_column_metadata(col);
         <span class="kw">let </span>err = builder.build().unwrap_err();

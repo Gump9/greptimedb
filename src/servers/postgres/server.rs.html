@@ -155,6 +155,7 @@
 <span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>::auth::UserProviderRef;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_runtime::Runtime;
 <span class="kw">use </span>common_telemetry::logging::error;
@@ -165,7 +166,6 @@
 <span class="kw">use </span>tokio_rustls::TlsAcceptor;
 
 <span class="kw">use super</span>::{MakePostgresServerHandler, MakePostgresServerHandlerBuilder};
-<span class="kw">use </span><span class="kw">crate</span>::auth::UserProviderRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::sql::ServerSqlQueryHandlerRef;
 <span class="kw">use </span><span class="kw">crate</span>::server::{AbortableStream, BaseTcpServer, Server};

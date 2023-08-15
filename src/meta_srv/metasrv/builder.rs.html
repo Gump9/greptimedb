@@ -354,6 +354,9 @@
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -522,8 +525,11 @@
         <span class="kw">let </span>mailbox = build_mailbox(<span class="kw-2">&amp;</span>kv_store, <span class="kw-2">&amp;</span>pushers);
         <span class="kw">let </span>procedure_manager = build_procedure_manager(<span class="kw-2">&amp;</span>options, <span class="kw-2">&amp;</span>kv_store);
         <span class="kw">let </span>table_id_sequence = Arc::new(Sequence::new(TABLE_ID_SEQ, <span class="number">1024</span>, <span class="number">10</span>, kv_store.clone()));
+        <span class="kw">let </span>table_metadata_manager = Arc::new(TableMetadataManager::new(KvBackendAdapter::wrap(
+            kv_store.clone(),
+        )));
         <span class="kw">let </span>metadata_service = metadata_service
-            .unwrap_or_else(|| Arc::new(DefaultMetadataService::new(kv_store.clone())));
+            .unwrap_or_else(|| Arc::new(DefaultMetadataService::new(table_metadata_manager)));
         <span class="kw">let </span>lock = lock.unwrap_or_else(|| Arc::new(MemLock::default()));
         <span class="kw">let </span>table_metadata_manager = build_table_metadata_manager(<span class="kw-2">&amp;</span>kv_store);
         <span class="kw">let </span>ddl_manager = build_ddl_manager(

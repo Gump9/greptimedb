@@ -49,6 +49,11 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -68,23 +73,28 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>common_telemetry::info;
+<span class="kw">use </span>store_api::region_request::RegionOpenRequest;
+<span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::region::opener::RegionOpener;
-<span class="kw">use </span><span class="kw">crate</span>::request::OpenRequest;
 <span class="kw">use </span><span class="kw">crate</span>::worker::RegionWorkerLoop;
 
 <span class="kw">impl</span>&lt;S&gt; RegionWorkerLoop&lt;S&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_open_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request: OpenRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">if </span><span class="self">self</span>.regions.is_region_exists(request.region_id) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_open_request(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        region_id: RegionId,
+        request: RegionOpenRequest,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span><span class="self">self</span>.regions.is_region_exists(region_id) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
-        <span class="macro">info!</span>(<span class="string">&quot;Try to open region {}&quot;</span>, request.region_id);
+        <span class="macro">info!</span>(<span class="string">&quot;Try to open region {}&quot;</span>, region_id);
 
         <span class="comment">// Open region from specific region dir.
         </span><span class="kw">let </span>region = RegionOpener::new(
-            request.region_id,
+            region_id,
             <span class="self">self</span>.memtable_builder.clone(),
             <span class="self">self</span>.object_store.clone(),
         )
@@ -92,7 +102,7 @@
         .open(<span class="kw-2">&amp;</span><span class="self">self</span>.config)
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="macro">info!</span>(<span class="string">&quot;Region {} is opened&quot;</span>, request.region_id);
+        <span class="macro">info!</span>(<span class="string">&quot;Region {} is opened&quot;</span>, region_id);
 
         <span class="comment">// Insert the MitoRegion into the RegionMap.
         </span><span class="self">self</span>.regions.insert_region(Arc::new(region));
