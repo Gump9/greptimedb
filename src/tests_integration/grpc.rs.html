@@ -885,6 +885,25 @@
 <a href="#885" id="885">885</a>
 <a href="#886" id="886">886</a>
 <a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -909,10 +928,11 @@
     <span class="kw">use </span>api::v1::query_request::Query;
     <span class="kw">use </span>api::v1::{
         alter_expr, AddColumn, AddColumns, AlterExpr, Column, ColumnDataType, ColumnDef,
-        CreateDatabaseExpr, CreateTableExpr, DdlRequest, DeleteRequest, DropTableExpr,
-        FlushTableExpr, InsertRequest, InsertRequests, QueryRequest, SemanticType,
+        CreateDatabaseExpr, CreateTableExpr, DdlRequest, DeleteRequest, DeleteRequests,
+        DropTableExpr, FlushTableExpr, InsertRequest, InsertRequests, QueryRequest, SemanticType,
     };
     <span class="kw">use </span>common_catalog::consts::MITO_ENGINE;
+    <span class="kw">use </span>common_meta::rpc::router::region_distribution;
     <span class="kw">use </span>common_query::Output;
     <span class="kw">use </span>common_recordbatch::RecordBatches;
     <span class="kw">use </span>frontend::instance::Instance;
@@ -1103,7 +1123,6 @@ CREATE TABLE {table_name} (
 | ts                  | a | b                 |
 +---------------------+---+-------------------+
 | 2023-01-01T07:26:12 | 1 | ts: 1672557972000 |
-| 2023-01-01T07:26:14 | 3 | ts: 1672557974000 |
 | 2023-01-01T07:26:15 | 4 | ts: 1672557975000 |
 | 2023-01-01T07:26:16 | 5 | ts: 1672557976000 |
 | 2023-01-01T07:26:17 |   | ts: 1672557977000 |
@@ -1137,7 +1156,6 @@ CREATE TABLE {table_name} (
 +---------------------+----+-------------------+
 | 2023-01-01T07:26:24 | 50 | ts: 1672557984000 |
 | 2023-01-01T07:26:25 | 51 | ts: 1672557985000 |
-| 2023-01-01T07:26:27 | 53 | ts: 1672557987000 |
 +---------------------+----+-------------------+&quot;</span>,
                 ),
             ]),
@@ -1223,16 +1241,16 @@ CREATE TABLE {table_name} (
         <span class="kw">let </span>table = table.as_any().downcast_ref::&lt;DistTable&gt;().unwrap();
         <span class="kw">let </span>table_id = table.table_info().table_id();
 
-        <span class="kw">let </span>table_region_value = instance
+        <span class="kw">let </span>table_route_value = instance
             .table_metadata_manager()
-            .table_region_manager()
+            .table_route_manager()
             .get(table_id)
             .<span class="kw">await
             </span>.unwrap()
             .unwrap();
 
-        <span class="kw">let </span>region_to_dn_map = table_region_value
-            .region_distribution
+        <span class="kw">let </span>region_to_dn_map = region_distribution(<span class="kw-2">&amp;</span>table_route_value.region_routes)
+            .unwrap()
             .iter()
             .map(|(k, v)| (v[<span class="number">0</span>], <span class="kw-2">*</span>k))
             .collect::&lt;HashMap&lt;u32, u64&gt;&gt;();
@@ -1414,7 +1432,7 @@ CREATE TABLE {table_name} (
 +---------------------+----+-------------------+&quot;</span>;
         <span class="macro">assert_eq!</span>(recordbatches.pretty_print().unwrap(), expected);
 
-        <span class="kw">let </span>delete = DeleteRequest {
+        <span class="kw">let </span>new_grpc_delete_request = |a, b, ts, row_count| DeleteRequest {
             table_name: table_name.to_string(),
             region_number: <span class="number">0</span>,
             key_columns: <span class="macro">vec!</span>[
@@ -1422,7 +1440,7 @@ CREATE TABLE {table_name} (
                     column_name: <span class="string">&quot;a&quot;</span>.to_string(),
                     semantic_type: SemanticType::Field <span class="kw">as </span>i32,
                     values: <span class="prelude-val">Some</span>(Values {
-                        i32_values: <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">12</span>, <span class="number">22</span>, <span class="number">52</span>],
+                        i32_values: a,
                         ..Default::default()
                     }),
                     datatype: ColumnDataType::Int32 <span class="kw">as </span>i32,
@@ -1432,12 +1450,7 @@ CREATE TABLE {table_name} (
                     column_name: <span class="string">&quot;b&quot;</span>.to_string(),
                     semantic_type: SemanticType::Tag <span class="kw">as </span>i32,
                     values: <span class="prelude-val">Some</span>(Values {
-                        string_values: <span class="macro">vec!</span>[
-                            <span class="string">&quot;ts: 1672557973000&quot;</span>.to_string(),
-                            <span class="string">&quot;ts: 1672557979000&quot;</span>.to_string(),
-                            <span class="string">&quot;ts: 1672557982000&quot;</span>.to_string(),
-                            <span class="string">&quot;ts: 1672557986000&quot;</span>.to_string(),
-                        ],
+                        string_values: b,
                         ..Default::default()
                     }),
                     datatype: ColumnDataType::String <span class="kw">as </span>i32,
@@ -1447,22 +1460,43 @@ CREATE TABLE {table_name} (
                     column_name: <span class="string">&quot;ts&quot;</span>.to_string(),
                     semantic_type: SemanticType::Timestamp <span class="kw">as </span>i32,
                     values: <span class="prelude-val">Some</span>(Values {
-                        ts_millisecond_values: <span class="macro">vec!</span>[
-                            <span class="number">1672557973000</span>,
-                            <span class="number">1672557979000</span>,
-                            <span class="number">1672557982000</span>,
-                            <span class="number">1672557986000</span>,
-                        ],
+                        ts_millisecond_values: ts,
                         ..Default::default()
                     }),
                     datatype: ColumnDataType::TimestampMillisecond <span class="kw">as </span>i32,
                     ..Default::default()
                 },
             ],
-            row_count: <span class="number">4</span>,
+            row_count,
         };
-        <span class="kw">let </span>output = query(instance, Request::Delete(delete)).<span class="kw">await</span>;
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(output, Output::AffectedRows(<span class="number">4</span>)));
+        <span class="kw">let </span>delete1 = new_grpc_delete_request(
+            <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">12</span>, <span class="number">22</span>, <span class="number">52</span>],
+            <span class="macro">vec!</span>[
+                <span class="string">&quot;ts: 1672557973000&quot;</span>.to_string(),
+                <span class="string">&quot;ts: 1672557979000&quot;</span>.to_string(),
+                <span class="string">&quot;ts: 1672557982000&quot;</span>.to_string(),
+                <span class="string">&quot;ts: 1672557986000&quot;</span>.to_string(),
+            ],
+            <span class="macro">vec!</span>[<span class="number">1672557973000</span>, <span class="number">1672557979000</span>, <span class="number">1672557982000</span>, <span class="number">1672557986000</span>],
+            <span class="number">4</span>,
+        );
+        <span class="kw">let </span>delete2 = new_grpc_delete_request(
+            <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">53</span>],
+            <span class="macro">vec!</span>[
+                <span class="string">&quot;ts: 1672557974000&quot;</span>.to_string(),
+                <span class="string">&quot;ts: 1672557987000&quot;</span>.to_string(),
+            ],
+            <span class="macro">vec!</span>[<span class="number">1672557974000</span>, <span class="number">1672557987000</span>],
+            <span class="number">2</span>,
+        );
+        <span class="kw">let </span>output = query(
+            instance,
+            Request::Deletes(DeleteRequests {
+                deletes: <span class="macro">vec!</span>[delete1, delete2],
+            }),
+        )
+        .<span class="kw">await</span>;
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(output, Output::AffectedRows(<span class="number">6</span>)));
 
         <span class="kw">let </span>output = query(instance, request).<span class="kw">await</span>;
         <span class="kw">let </span>Output::Stream(stream) = output <span class="kw">else </span>{
@@ -1474,7 +1508,6 @@ CREATE TABLE {table_name} (
 | ts                  | a  | b                 |
 +---------------------+----+-------------------+
 | 2023-01-01T07:26:12 | 1  | ts: 1672557972000 |
-| 2023-01-01T07:26:14 | 3  | ts: 1672557974000 |
 | 2023-01-01T07:26:15 | 4  | ts: 1672557975000 |
 | 2023-01-01T07:26:16 | 5  | ts: 1672557976000 |
 | 2023-01-01T07:26:17 |    | ts: 1672557977000 |
@@ -1484,7 +1517,6 @@ CREATE TABLE {table_name} (
 | 2023-01-01T07:26:23 | 23 | ts: 1672557983000 |
 | 2023-01-01T07:26:24 | 50 | ts: 1672557984000 |
 | 2023-01-01T07:26:25 | 51 | ts: 1672557985000 |
-| 2023-01-01T07:26:27 | 53 | ts: 1672557987000 |
 +---------------------+----+-------------------+&quot;</span>;
         <span class="macro">assert_eq!</span>(recordbatches.pretty_print().unwrap(), expected);
     }
@@ -1503,16 +1535,16 @@ CREATE TABLE {table_name} (
             .unwrap();
         <span class="kw">let </span>table = table.as_any().downcast_ref::&lt;DistTable&gt;().unwrap();
         <span class="kw">let </span>table_id = table.table_info().ident.table_id;
-        <span class="kw">let </span>table_region_value = instance
+        <span class="kw">let </span>table_route_value = instance
             .table_metadata_manager()
-            .table_region_manager()
+            .table_route_manager()
             .get(table_id)
             .<span class="kw">await
             </span>.unwrap()
             .unwrap();
 
-        <span class="kw">let </span>region_to_dn_map = table_region_value
-            .region_distribution
+        <span class="kw">let </span>region_to_dn_map = region_distribution(<span class="kw-2">&amp;</span>table_route_value.region_routes)
+            .unwrap()
             .iter()
             .map(|(k, v)| (v[<span class="number">0</span>], <span class="kw-2">*</span>k))
             .collect::&lt;HashMap&lt;u32, u64&gt;&gt;();
@@ -1652,7 +1684,13 @@ CREATE TABLE {table_name} (
             row_count: <span class="number">2</span>,
         };
 
-        <span class="kw">let </span>output = query(instance, Request::Delete(delete)).<span class="kw">await</span>;
+        <span class="kw">let </span>output = query(
+            instance,
+            Request::Deletes(DeleteRequests {
+                deletes: <span class="macro">vec!</span>[delete],
+            }),
+        )
+        .<span class="kw">await</span>;
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(output, Output::AffectedRows(<span class="number">2</span>)));
 
         <span class="kw">let </span>output = query(instance, request).<span class="kw">await</span>;

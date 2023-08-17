@@ -146,7 +146,7 @@
 
         <span class="kw">let </span>output = <span class="kw">match </span>request {
             Request::Inserts(requests) =&gt; <span class="self">self</span>.handle_inserts(requests, ctx.clone()).<span class="kw">await</span><span class="question-mark">?</span>,
-            Request::RowInserts(<span class="kw">_</span>) | Request::RowDelete(<span class="kw">_</span>) =&gt; {
+            Request::RowInserts(<span class="kw">_</span>) | Request::RowDeletes(<span class="kw">_</span>) =&gt; {
                 <span class="kw">return </span>NotSupportedSnafu {
                     feat: <span class="string">&quot;row insert/delete&quot;</span>,
                 }
@@ -192,7 +192,7 @@
                     </span>}
                 }
             }
-            Request::Ddl(<span class="kw">_</span>) | Request::Delete(<span class="kw">_</span>) =&gt; {
+            Request::Ddl(<span class="kw">_</span>) | Request::Deletes(<span class="kw">_</span>) =&gt; {
                 GrpcQueryHandler::do_query(<span class="self">self</span>.grpc_query_handler.as_ref(), request, ctx.clone())
                     .<span class="kw">await</span><span class="question-mark">?
             </span>}

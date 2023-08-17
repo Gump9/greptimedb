@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["STATIC_USER_PROVIDER"],"fn":["auth_mysql","double_sha1","sha1_one","sha1_two"],"struct":["StaticUserProvider"]};
+window.SIDEBAR_ITEMS = {"constant":["STATIC_USER_PROVIDER"],"struct":["StaticUserProvider"]};

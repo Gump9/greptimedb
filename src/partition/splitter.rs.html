@@ -713,6 +713,19 @@
 <a href="#713" id="713">713</a>
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -836,7 +849,15 @@
                         (column_name.to_string(), builder.to_vector())
                     })
                     .collect();
-                (region_id, DeleteRequest { key_column_values })
+                (
+                    region_id,
+                    DeleteRequest {
+                        catalog_name: request.catalog_name.clone(),
+                        schema_name: request.schema_name.clone(),
+                        table_name: request.table_name.clone(),
+                        key_column_values,
+                    },
+                )
             })
             .collect();
         <span class="prelude-val">Ok</span>(requests)
@@ -1154,7 +1175,12 @@
             <span class="string">&quot;host&quot;</span>.to_string(),
             Arc::new(StringVector::from(<span class="macro">vec!</span>[<span class="string">&quot;localhost&quot;</span>])) <span class="kw">as _</span>,
         );
-        <span class="kw">let </span>delete = DeleteRequest { key_column_values };
+        <span class="kw">let </span>delete = DeleteRequest {
+            catalog_name: <span class="string">&quot;foo_catalog&quot;</span>.to_string(),
+            schema_name: <span class="string">&quot;foo_schema&quot;</span>.to_string(),
+            table_name: <span class="string">&quot;foo_table&quot;</span>.to_string(),
+            key_column_values,
+        };
         <span class="kw">let </span>rule = Arc::new(EmptyPartitionRule) <span class="kw">as </span>PartitionRuleRef;
         <span class="kw">let </span>spliter = WriteSplitter::with_partition_rule(rule);
         <span class="kw">let </span>ret = spliter

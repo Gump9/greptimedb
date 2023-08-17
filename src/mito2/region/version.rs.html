@@ -144,11 +144,11 @@
 
 </span><span class="kw">use </span>std::sync::{Arc, RwLock};
 
+<span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 <span class="kw">use </span>store_api::storage::SequenceNumber;
 
 <span class="kw">use </span><span class="kw">crate</span>::memtable::version::{MemtableVersion, MemtableVersionRef};
 <span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableRef;
-<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataRef;
 <span class="kw">use </span><span class="kw">crate</span>::sst::version::{SstVersion, SstVersionRef};
 <span class="kw">use </span><span class="kw">crate</span>::wal::EntryId;
 

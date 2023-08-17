@@ -119,6 +119,9 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -167,6 +170,9 @@
         duplicated: String,
         location: Location,
     },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Duplicated column name in gRPC requests, name: {}&quot;</span>, name,))]
+    </span>DuplicatedColumnName { name: String, location: Location },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Missing timestamp column, msg: {}&quot;</span>, msg))]
     </span>MissingTimestampColumn { msg: String, location: Location },
@@ -222,9 +228,9 @@
             Error::IllegalDeleteRequest { .. } =&gt; StatusCode::InvalidArguments,
 
             Error::ColumnDataType { .. } =&gt; StatusCode::Internal,
-            Error::DuplicatedTimestampColumn { .. } | Error::MissingTimestampColumn { .. } =&gt; {
-                StatusCode::InvalidArguments
-            }
+            Error::DuplicatedTimestampColumn { .. }
+            | Error::DuplicatedColumnName { .. }
+            | Error::MissingTimestampColumn { .. } =&gt; StatusCode::InvalidArguments,
             Error::InvalidColumnProto { .. } =&gt; StatusCode::InvalidArguments,
             Error::CreateVector { .. } =&gt; StatusCode::InvalidArguments,
             Error::MissingField { .. } =&gt; StatusCode::InvalidArguments,

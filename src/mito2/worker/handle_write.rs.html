@@ -276,12 +276,12 @@
 <span class="kw">use </span>api::v1::{Mutation, WalEntry};
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>store_api::logstore::LogStore;
+<span class="kw">use </span>store_api::metadata::RegionMetadata;
 <span class="kw">use </span>store_api::storage::{RegionId, SequenceNumber};
 <span class="kw">use </span>tokio::sync::oneshot::Sender;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{Error, RegionNotFoundSnafu, <span class="prelude-ty">Result</span>, WriteGroupSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::memtable::KeyValues;
-<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadata;
 <span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionControlData, VersionRef};
 <span class="kw">use </span><span class="kw">crate</span>::region::MitoRegionRef;
 <span class="kw">use </span><span class="kw">crate</span>::request::{SenderWriteRequest, WriteRequest};

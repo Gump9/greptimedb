@@ -438,7 +438,6 @@
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -820,7 +819,6 @@
                 RegionRequest::Open(req) =&gt; <span class="self">self</span>.handle_open_request(task.region_id, req).<span class="kw">await</span>,
                 RegionRequest::Close(<span class="kw">_</span>) =&gt; <span class="self">self</span>.handle_close_request(task.region_id).<span class="kw">await</span>,
                 RegionRequest::Write(<span class="kw">_</span>)
-                | RegionRequest::Read(<span class="kw">_</span>)
                 | RegionRequest::Delete(<span class="kw">_</span>)
                 | RegionRequest::Drop(<span class="kw">_</span>)
                 | RegionRequest::Alter(<span class="kw">_</span>)

@@ -94,7 +94,6 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -119,7 +118,6 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>RegionRequest {
     Write(RegionWriteRequest),
-    Read(RegionReadRequest),
     Delete(RegionDeleteRequest),
     Create(RegionCreateRequest),
     Drop(RegionDropRequest),
@@ -174,7 +172,7 @@
     </span><span class="kw">pub </span>engine: String,
     <span class="doccomment">/// Data directory of the region.
     </span><span class="kw">pub </span>region_dir: String,
-    <span class="doccomment">/// Options of the created region.
+    <span class="doccomment">/// Options of the opened region.
     </span><span class="kw">pub </span>options: HashMap&lt;String, String&gt;,
 }
 

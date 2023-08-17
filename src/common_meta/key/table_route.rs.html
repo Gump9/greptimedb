@@ -292,6 +292,16 @@
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -310,14 +320,13 @@
 
 <span class="kw">use </span>api::v1::meta::TableName;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::ensure;
 <span class="kw">use </span>table::metadata::TableId;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="prelude-ty">Result</span>, UnexpectedSnafu};
-<span class="kw">use </span><span class="kw">crate</span>::key::{to_removed_key, TableMetaKey};
+<span class="kw">use </span><span class="kw">crate</span>::error::Result;
+<span class="kw">use </span><span class="kw">crate</span>::key::{to_removed_key, RegionDistribution, TableMetaKey};
+<span class="kw">use </span><span class="kw">crate</span>::kv_backend::txn::{Compare, CompareOp, Txn, TxnOp, TxnOpResponse};
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackendRef;
-<span class="kw">use </span><span class="kw">crate</span>::rpc::router::{RegionRoute, Table, TableRoute};
-<span class="kw">use </span><span class="kw">crate</span>::rpc::store::{CompareAndPutRequest, MoveValueRequest};
+<span class="kw">use </span><span class="kw">crate</span>::rpc::router::{region_distribution, RegionRoute};
 
 <span class="kw">pub const </span>TABLE_ROUTE_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__meta_table_route&quot;</span>;
 
@@ -347,6 +356,13 @@
             version: <span class="number">0</span>,
         }
     }
+
+    <span class="kw">pub fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>, region_routes: Vec&lt;RegionRoute&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            region_routes,
+            version: <span class="self">self</span>.version + <span class="number">1</span>,
+        }
+    }
 }
 
 <span class="kw">impl </span>TableMetaKey <span class="kw">for </span>NextTableRouteKey {
@@ -370,6 +386,113 @@
         <span class="self">Self </span>{ kv_backend }
     }
 
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_get_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+    ) -&gt; (
+        Txn,
+        <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;&gt;,
+    ) {
+        <span class="kw">let </span>key = NextTableRouteKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+        <span class="kw">let </span>txn = Txn::new().and_then(<span class="macro">vec!</span>[TxnOp::Get(raw_key.clone())]);
+
+        (txn, <span class="self">Self</span>::build_decode_fn(raw_key))
+    }
+
+    <span class="doccomment">/// Builds a create table route transaction. it expected the `__table_route/{table_id}` wasn&#39;t occupied.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_create_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+        table_route_value: <span class="kw-2">&amp;</span>TableRouteValue,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(
+        Txn,
+        <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;&gt;,
+    )&gt; {
+        <span class="kw">let </span>key = NextTableRouteKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+
+        <span class="kw">let </span>txn = Txn::new()
+            .when(<span class="macro">vec!</span>[Compare::with_not_exist_value(
+                raw_key.clone(),
+                CompareOp::Equal,
+            )])
+            .and_then(<span class="macro">vec!</span>[TxnOp::Put(
+                raw_key.clone(),
+                table_route_value.try_as_raw_value()<span class="question-mark">?</span>,
+            )])
+            .or_else(<span class="macro">vec!</span>[TxnOp::Get(raw_key.clone())]);
+
+        <span class="prelude-val">Ok</span>((txn, <span class="self">Self</span>::build_decode_fn(raw_key)))
+    }
+
+    <span class="doccomment">/// Builds a update table route transaction, it expected the remote value equals the `current_table_route_value`.
+    /// It retrieves the latest value if the comparing failed.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_update_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+        current_table_route_value: <span class="kw-2">&amp;</span>TableRouteValue,
+        new_table_route_value: <span class="kw-2">&amp;</span>TableRouteValue,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(
+        Txn,
+        <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;&gt;,
+    )&gt; {
+        <span class="kw">let </span>key = NextTableRouteKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+        <span class="kw">let </span>raw_value = current_table_route_value.try_as_raw_value()<span class="question-mark">?</span>;
+        <span class="kw">let </span>new_raw_value: Vec&lt;u8&gt; = new_table_route_value.try_as_raw_value()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>txn = Txn::new()
+            .when(<span class="macro">vec!</span>[Compare::with_value(
+                raw_key.clone(),
+                CompareOp::Equal,
+                raw_value.clone(),
+            )])
+            .and_then(<span class="macro">vec!</span>[TxnOp::Put(raw_key.clone(), new_raw_value)])
+            .or_else(<span class="macro">vec!</span>[TxnOp::Get(raw_key.clone())]);
+
+        <span class="prelude-val">Ok</span>((txn, <span class="self">Self</span>::build_decode_fn(raw_key)))
+    }
+
+    <span class="doccomment">/// Builds a delete table route transaction, it expected the remote value equals the `table_route_value`.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_delete_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+        table_route_value: <span class="kw-2">&amp;</span>TableRouteValue,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Txn&gt; {
+        <span class="kw">let </span>key = NextTableRouteKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+        <span class="kw">let </span>raw_value = table_route_value.try_as_raw_value()<span class="question-mark">?</span>;
+        <span class="kw">let </span>removed_key = to_removed_key(<span class="kw-2">&amp;</span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>raw_key));
+
+        <span class="kw">let </span>txn = Txn::new().and_then(<span class="macro">vec!</span>[
+            TxnOp::Delete(raw_key),
+            TxnOp::Put(removed_key.into_bytes(), raw_value),
+        ]);
+
+        <span class="prelude-val">Ok</span>(txn)
+    }
+
+    <span class="kw">fn </span>build_decode_fn(
+        raw_key: Vec&lt;u8&gt;,
+    ) -&gt; <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;&gt; {
+        <span class="kw">move </span>|response: <span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;| {
+            response
+                .iter()
+                .filter_map(|resp| {
+                    <span class="kw">if let </span>TxnOpResponse::ResponseGet(r) = resp {
+                        <span class="prelude-val">Some</span>(r)
+                    } <span class="kw">else </span>{
+                        <span class="prelude-val">None
+                    </span>}
+                })
+                .flat_map(|r| <span class="kw-2">&amp;</span>r.kvs)
+                .find(|kv| kv.key == raw_key)
+                .map(|kv| TableRouteValue::try_from(<span class="kw-2">&amp;</span>kv.value))
+                .transpose()
+        }
+    }
+
     <span class="kw">pub async fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;&gt; {
         <span class="kw">let </span>key = NextTableRouteKey::new(table_id);
         <span class="self">self</span>.kv_backend
@@ -379,92 +502,30 @@
             .transpose()
     }
 
-    <span class="comment">// Creates TableRoute key and value. If the key already exists, check whether the value is the same.
-    </span><span class="kw">pub async fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId, region_routes: Vec&lt;RegionRoute&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>key = NextTableRouteKey::new(table_id);
-        <span class="kw">let </span>val = TableRouteValue::new(region_routes);
-        <span class="kw">let </span>req = CompareAndPutRequest::new()
-            .with_key(key.as_raw_key())
-            .with_value(val.try_as_raw_value()<span class="question-mark">?</span>);
-
-        <span class="self">self</span>.kv_backend.compare_and_put(req).<span class="kw">await</span><span class="question-mark">?</span>.handle(|resp| {
-            <span class="kw">if </span>!resp.success {
-                <span class="kw">let </span><span class="prelude-val">Some</span>(cur) = resp
-                    .prev_kv
-                    .map(|kv|TableRouteValue::try_from_raw_value(kv.value))
-                    .transpose()<span class="question-mark">?
-                </span><span class="kw">else </span>{
-                    <span class="kw">return </span>UnexpectedSnafu {
-                        err_msg: <span class="macro">format!</span>(<span class="string">&quot;compare_and_put expect None but failed with current value None, key: {key}, val: {val:?}&quot;</span>),
-                    }.fail();
-                };
-
-                <span class="macro">ensure!</span>(
-                    cur==val,
-                    UnexpectedSnafu {
-                        err_msg: <span class="macro">format!</span>(<span class="string">&quot;current value &#39;{cur:?}&#39; already existed for key &#39;{key}&#39;, {val:?} is not set&quot;</span>),
-                    }
-                );
-            }
-            <span class="prelude-val">Ok</span>(())
-        })
+    <span class="attr">#[cfg(test)]
+    </span><span class="kw">pub async fn </span>get_removed(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;&gt; {
+        <span class="kw">let </span>key = NextTableRouteKey::new(table_id).to_string();
+        <span class="kw">let </span>removed_key = to_removed_key(<span class="kw-2">&amp;</span>key).into_bytes();
+        <span class="self">self</span>.kv_backend
+            .get(<span class="kw-2">&amp;</span>removed_key)
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.map(|x| TableRouteValue::try_from_raw_value(x.value))
+            .transpose()
     }
 
-    <span class="doccomment">/// Compares and puts value of key. `expect` is the expected value, if backend&#39;s current value associated
-    /// with key is the same as `expect`, the value will be updated to `val`.
-    ///
-    /// - If the compare-and-set operation successfully updated value, this method will return an `Ok(Ok())`
-    /// - If associated value is not the same as `expect`, no value will be updated and an
-    ///   `Ok(Err(Option&lt;TableRoute&gt;))` will be returned. The `Option&lt;TableRoute&gt;` indicates
-    ///   the current associated value of key.
-    /// - If any error happens during operation, an `Err(Error)` will be returned.
-    </span><span class="kw">pub async fn </span>compare_and_put(
+    <span class="kw">pub async fn </span>get_region_distribution(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         table_id: TableId,
-        expect: <span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;,
-        region_routes: Vec&lt;RegionRoute&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;std::result::Result&lt;(), <span class="prelude-ty">Option</span>&lt;TableRouteValue&gt;&gt;&gt; {
-        <span class="kw">let </span>key = NextTableRouteKey::new(table_id);
-        <span class="kw">let </span>raw_key = key.as_raw_key();
-
-        <span class="kw">let </span>(expect, version) = <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = expect {
-            (x.try_as_raw_value()<span class="question-mark">?</span>, x.version + <span class="number">1</span>)
-        } <span class="kw">else </span>{
-            (<span class="macro">vec!</span>[], <span class="number">0</span>)
-        };
-        <span class="kw">let </span>value = TableRouteValue {
-            region_routes,
-            version,
-        };
-        <span class="kw">let </span>raw_value = value.try_as_raw_value()<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>req = CompareAndPutRequest::new()
-            .with_key(raw_key)
-            .with_expect(expect)
-            .with_value(raw_value);
-
-        <span class="self">self</span>.kv_backend.compare_and_put(req).<span class="kw">await</span><span class="question-mark">?</span>.handle(|resp| {
-            <span class="prelude-val">Ok</span>(<span class="kw">if </span>resp.success {
-                <span class="prelude-val">Ok</span>(())
-            } <span class="kw">else </span>{
-                <span class="prelude-val">Err</span>(resp
-                    .prev_kv
-                    .map(|x| TableRouteValue::try_from_raw_value(x.value))
-                    .transpose()<span class="question-mark">?</span>)
-            })
-        })
-    }
-
-    <span class="kw">pub async fn </span>remove(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>key = NextTableRouteKey::new(table_id).as_raw_key();
-        <span class="kw">let </span>removed_key = to_removed_key(<span class="kw-2">&amp;</span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>key));
-        <span class="kw">let </span>req = MoveValueRequest::new(key, removed_key.as_bytes());
-        <span class="self">self</span>.kv_backend.move_value(req).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RegionDistribution&gt;&gt; {
+        <span class="self">self</span>.get(table_id)
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.map(|table_route| region_distribution(<span class="kw-2">&amp;</span>table_route.region_routes))
+            .transpose()
     }
 }
 
-<span class="attr">#[derive(Copy, Clone)]
+<span class="attr">#[deprecated(since = <span class="string">&quot;0.4.0&quot;</span>, note = <span class="string">&quot;Please use the NextTableRouteKey instead&quot;</span>)]
+#[derive(Copy, Clone)]
 </span><span class="kw">pub struct </span>TableRouteKey&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">pub </span>table_id: TableId,
     <span class="kw">pub </span>catalog_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
@@ -502,51 +563,10 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::sync::Arc;
 
     <span class="kw">use </span>api::v1::meta::TableName <span class="kw">as </span>PbTableName;
 
     <span class="kw">use </span><span class="kw">super</span>::TableRouteKey;
-    <span class="kw">use </span><span class="kw">crate</span>::key::table_route::{TableRouteManager, TableRouteValue};
-    <span class="kw">use </span><span class="kw">crate</span>::kv_backend::memory::MemoryKvBackend;
-    <span class="kw">use </span><span class="kw">crate</span>::rpc::router::{RegionRoute, Table, TableRoute};
-    <span class="kw">use </span><span class="kw">crate</span>::table_name::TableName;
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_table_route_manager() {
-        <span class="kw">let </span>mgr = TableRouteManager::new(Arc::new(MemoryKvBackend::default()));
-
-        <span class="kw">let </span>table_id = <span class="number">1024u32</span>;
-        <span class="kw">let </span>table = Table {
-            id: table_id <span class="kw">as </span>u64,
-            table_name: TableName::new(<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>, <span class="string">&quot;baz&quot;</span>),
-            table_schema: <span class="string">b&quot;mock schema&quot;</span>.to_vec(),
-        };
-        <span class="kw">let </span>region_route = RegionRoute::default();
-        <span class="kw">let </span>region_routes = <span class="macro">vec!</span>[region_route];
-
-        mgr.create(table_id, region_routes.clone()).<span class="kw">await</span>.unwrap();
-
-        <span class="kw">let </span>got = mgr.get(<span class="number">1024</span>).<span class="kw">await</span>.unwrap().unwrap();
-
-        <span class="macro">assert_eq!</span>(got.region_routes, region_routes);
-
-        <span class="kw">let </span>empty = mgr.get(<span class="number">1023</span>).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert!</span>(empty.is_none());
-
-        <span class="kw">let </span>expect = TableRouteValue::new(region_routes);
-
-        <span class="kw">let </span><span class="kw-2">mut </span>updated = expect.clone();
-        updated.region_routes.push(RegionRoute::default());
-
-        mgr.compare_and_put(<span class="number">1024</span>, <span class="prelude-val">Some</span>(expect.clone()), updated.region_routes.clone())
-            .<span class="kw">await
-            </span>.unwrap();
-
-        mgr.compare_and_put(<span class="number">1024</span>, <span class="prelude-val">Some</span>(expect.clone()), updated.region_routes)
-            .<span class="kw">await
-            </span>.unwrap();
-    }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_table_route_key() {

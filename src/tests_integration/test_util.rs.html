@@ -734,8 +734,6 @@
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -792,7 +790,6 @@
 <span class="kw">use </span>servers::metrics_handler::MetricsHandler;
 <span class="kw">use </span>servers::mysql::server::{MysqlServer, MysqlSpawnConfig, MysqlSpawnRef};
 <span class="kw">use </span>servers::postgres::PostgresServer;
-<span class="kw">use </span>servers::prometheus::PrometheusServer;
 <span class="kw">use </span>servers::query_handler::grpc::ServerGrpcQueryHandlerAdaptor;
 <span class="kw">use </span>servers::query_handler::sql::ServerSqlQueryHandlerAdaptor;
 <span class="kw">use </span>servers::server::Server;
@@ -1282,11 +1279,10 @@
         .with_grpc_handler(ServerGrpcQueryHandlerAdaptor::arc(frontend_ref.clone()))
         .with_script_handler(frontend_ref.clone())
         .with_prom_handler(frontend_ref.clone())
+        .with_prometheus_handler(frontend_ref.clone())
         .with_greptime_config_options(opts.to_toml_string())
         .build();
-    <span class="kw">let </span>prom_server = PrometheusServer::create_server(frontend_ref);
     <span class="kw">let </span>app = http_server.build(http_server.make_app());
-    <span class="kw">let </span>app = app.merge(prom_server.make_app());
     (app, guard)
 }
 

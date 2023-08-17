@@ -505,8 +505,6 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -531,7 +529,7 @@
 <span class="kw">use </span>catalog;
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
-<span class="kw">use </span>common_error::{INNER_ERROR_CODE, INNER_ERROR_MSG};
+<span class="kw">use </span>common_error::{GREPTIME_ERROR_CODE, GREPTIME_ERROR_MSG};
 <span class="kw">use </span>common_telemetry::logging;
 <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
 <span class="kw">use </span>query::parser::PromQuery;
@@ -709,7 +707,7 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to get user info, source: {}&quot;</span>, source))]
     </span>Auth {
         location: Location,
-        source: auth::Error,
+        source: auth::error::Error,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Not found http or grpc authorization header&quot;</span>))]
@@ -960,7 +958,7 @@
         | StatusCode::UserPasswordMismatch
         | StatusCode::AuthHeaderNotFound
         | StatusCode::InvalidAuthHeader =&gt; Code::Unauthenticated,
-        StatusCode::AccessDenied =&gt; Code::PermissionDenied,
+        StatusCode::AccessDenied | StatusCode::PermissionDenied =&gt; Code::PermissionDenied,
     }
 }
 
@@ -971,12 +969,10 @@
         <span class="comment">// If either of the status_code or error msg cannot convert to valid HTTP header value
         // (which is a very rare case), just ignore. Client will use Tonic status code and message.
         </span><span class="kw">let </span>status_code = err.status_code();
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(code) = HeaderValue::from_bytes(status_code.to_string().as_bytes()) {
-            <span class="kw">let _ </span>= headers.insert(INNER_ERROR_CODE, code);
-        }
+        headers.insert(GREPTIME_ERROR_CODE, HeaderValue::from(status_code <span class="kw">as </span>u32));
         <span class="kw">let </span>root_error = err.iter_chain().last().unwrap();
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(err_msg) = HeaderValue::from_bytes(root_error.to_string().as_bytes()) {
-            <span class="kw">let _ </span>= headers.insert(INNER_ERROR_MSG, err_msg);
+            <span class="kw">let _ </span>= headers.insert(GREPTIME_ERROR_MSG, err_msg);
         }
 
         <span class="kw">let </span>metadata = MetadataMap::from_headers(headers);

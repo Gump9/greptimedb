@@ -115,6 +115,10 @@
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -132,15 +136,17 @@
 </span><span class="doccomment">//! Parquet writer.
 
 </span><span class="kw">use </span>common_telemetry::debug;
-<span class="kw">use </span>datatypes::arrow::record_batch::RecordBatch;
 <span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>parquet::basic::{Compression, Encoding, ZstdLevel};
 <span class="kw">use </span>parquet::file::metadata::KeyValue;
 <span class="kw">use </span>parquet::file::properties::WriterProperties;
+<span class="kw">use </span>parquet::schema::types::ColumnPath;
 <span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>store_api::storage::consts::SEQUENCE_COLUMN_NAME;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{NewRecordBatchSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{InvalidMetadataSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::read::Source;
+<span class="kw">use </span><span class="kw">crate</span>::sst::parquet::format::WriteFormat;
 <span class="kw">use </span><span class="kw">crate</span>::sst::parquet::{SstInfo, WriteOptions, PARQUET_METADATA_KEY};
 <span class="kw">use </span><span class="kw">crate</span>::sst::stream_writer::BufferedWriter;
 
@@ -169,40 +175,42 @@
     </span><span class="kw">pub async fn </span>write_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>, opts: <span class="kw-2">&amp;</span>WriteOptions) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SstInfo&gt;&gt; {
         <span class="kw">let </span>metadata = <span class="self">self</span>.source.metadata();
 
-        <span class="kw">let </span>json = metadata.to_json()<span class="question-mark">?</span>;
+        <span class="kw">let </span>json = metadata.to_json().context(InvalidMetadataSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>key_value_meta = KeyValue::new(PARQUET_METADATA_KEY.to_string(), json);
+        <span class="kw">let </span>ts_column = metadata.time_index_column();
 
-        <span class="comment">// FIXME(yingwen): encode metadata into key value.
+        <span class="comment">// TODO(yingwen): Find and set proper column encoding for internal columns: op type and tsid.
         </span><span class="kw">let </span>props_builder = WriterProperties::builder()
             .set_key_value_metadata(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[key_value_meta]))
             .set_compression(Compression::ZSTD(ZstdLevel::default()))
             .set_encoding(Encoding::PLAIN)
-            .set_max_row_group_size(opts.row_group_size);
-        <span class="comment">// TODO(yingwen): Set column encoding for internal columns and timestamp.
-        // e.g. Use DELTA_BINARY_PACKED and disable dictionary for sequence.
+            .set_max_row_group_size(opts.row_group_size)
+            .set_column_encoding(
+                ColumnPath::new(<span class="macro">vec!</span>[SEQUENCE_COLUMN_NAME.to_string()]),
+                Encoding::DELTA_BINARY_PACKED,
+            )
+            .set_column_dictionary_enabled(
+                ColumnPath::new(<span class="macro">vec!</span>[SEQUENCE_COLUMN_NAME.to_string()]),
+                <span class="bool-val">false</span>,
+            )
+            .set_column_encoding(
+                ColumnPath::new(<span class="macro">vec!</span>[ts_column.column_schema.name.clone()]),
+                Encoding::DELTA_BINARY_PACKED,
+            );
+        <span class="kw">let </span>writer_props = props_builder.build();
 
-        </span><span class="kw">let </span>writer_props = props_builder.build();
-
-        <span class="kw">let </span>arrow_schema = metadata.schema.arrow_schema();
+        <span class="kw">let </span>write_format = WriteFormat::new(metadata);
         <span class="kw">let </span><span class="kw-2">mut </span>buffered_writer = BufferedWriter::try_new(
             <span class="self">self</span>.file_path.to_string(),
             <span class="self">self</span>.object_store.clone(),
-            arrow_schema.clone(),
+            write_format.arrow_schema(),
             <span class="prelude-val">Some</span>(writer_props),
             opts.write_buffer_size.as_bytes() <span class="kw">as </span>usize,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(batch) = <span class="self">self</span>.source.next_batch().<span class="kw">await</span><span class="question-mark">? </span>{
-            <span class="kw">let </span>arrow_batch = RecordBatch::try_new(
-                arrow_schema.clone(),
-                batch
-                    .fields()
-                    .iter()
-                    .map(|v| v.data.to_arrow_array())
-                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            )
-            .context(NewRecordBatchSnafu)<span class="question-mark">?</span>;
+            <span class="kw">let </span>arrow_batch = write_format.convert_batch(<span class="kw-2">&amp;</span>batch)<span class="question-mark">?</span>;
 
             buffered_writer.write(<span class="kw-2">&amp;</span>arrow_batch).<span class="kw">await</span><span class="question-mark">?</span>;
         }

@@ -132,11 +132,11 @@
 <span class="kw">use </span>std::sync::{Arc, RwLock};
 
 <span class="kw">use </span>common_telemetry::info;
+<span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 <span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::manifest::manager::RegionManifestManager;
-<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataRef;
 <span class="kw">use </span><span class="kw">crate</span>::region::version::VersionControlRef;
 
 <span class="doccomment">/// Type to store region version.

@@ -254,10 +254,6 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -279,7 +275,6 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>catalog::CatalogManagerRef;
 <span class="kw">use </span>client::client_manager::DatanodeClients;
-<span class="kw">use </span>common_base::bytes::Bytes;
 <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::table_name::TableName;
@@ -332,67 +327,64 @@
         _physical_inputs: <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ExecutionPlan&gt;],
         session_state: <span class="kw-2">&amp;</span>SessionState,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>ExecutionPlan&gt;&gt;&gt; {
-        <span class="kw">let </span>maybe_merge_scan = { node.as_any().downcast_ref::&lt;MergeScanLogicalPlan&gt;() };
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(merge_scan) = maybe_merge_scan {
-            <span class="kw">if </span>merge_scan.is_placeholder() {
-                <span class="comment">// ignore placeholder
-                </span>planner
-                    .create_physical_plan(merge_scan.input(), session_state)
-                    .<span class="kw">await
-                    </span>.map(<span class="prelude-val">Some</span>)
-            } <span class="kw">else </span>{
-                <span class="comment">// TODO(ruihang): generate different execution plans for different variant merge operation
-                </span><span class="kw">let </span>input_plan = merge_scan.input();
-                <span class="kw">let </span>optimized_input =
-                    <span class="self">self</span>.optimize_input_logical_plan(session_state, input_plan)<span class="question-mark">?</span>;
-                <span class="kw">let </span>input_physical_plan = planner
-                    .create_physical_plan(<span class="kw-2">&amp;</span>optimized_input, session_state)
-                    .<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="kw">let </span><span class="prelude-val">Some</span>(table_name) = <span class="self">self</span>.get_table_name(input_plan)<span class="question-mark">? </span><span class="kw">else </span>{
-                    <span class="comment">// no relation found in input plan, going to execute them locally
-                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(input_physical_plan));
-                };
+        <span class="kw">let </span><span class="prelude-val">Some</span>(merge_scan) = node.as_any().downcast_ref::&lt;MergeScanLogicalPlan&gt;() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+        };
 
-                <span class="kw">let </span>input_schema = input_physical_plan.schema().clone();
-                <span class="kw">let </span>input_plan = <span class="self">self</span>.set_table_name(<span class="kw-2">&amp;</span>table_name, input_plan.clone())<span class="question-mark">?</span>;
-                <span class="kw">let </span>substrait_plan: Bytes = DFLogicalSubstraitConvertor
-                    .encode(<span class="kw-2">&amp;</span>input_plan)
-                    .context(error::EncodeSubstraitLogicalPlanSnafu)<span class="question-mark">?
-                    </span>.into();
-                <span class="kw">let </span>peers = <span class="self">self</span>.get_peers(<span class="kw-2">&amp;</span>table_name).<span class="kw">await</span>;
-                <span class="kw">match </span>peers {
-                    <span class="prelude-val">Ok</span>(peers) =&gt; {
-                        <span class="kw">let </span>exec = MergeScanExec::new(
-                            table_name,
-                            peers,
-                            substrait_plan,
-                            input_schema,
-                            <span class="self">self</span>.clients.clone(),
-                        );
+        <span class="kw">let </span>input_plan = merge_scan.input();
+        <span class="kw">let </span>fallback = |logical_plan| <span class="kw">async move </span>{
+            planner
+                .create_physical_plan(logical_plan, session_state)
+                .<span class="kw">await
+                </span>.map(<span class="prelude-val">Some</span>)
+        };
 
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Arc::new(exec) <span class="kw">as _</span>))
-                    }
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(input_physical_plan)),
-                }
-            }
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        <span class="kw">if </span>merge_scan.is_placeholder() {
+            <span class="comment">// ignore placeholder
+            </span><span class="kw">return </span>fallback(input_plan).<span class="kw">await</span>;
         }
+
+        <span class="kw">let </span>optimized_plan = <span class="self">self</span>.optimize_input_logical_plan(session_state, input_plan)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="prelude-val">Some</span>(table_name) = <span class="self">Self</span>::extract_full_table_name(input_plan)<span class="question-mark">? </span><span class="kw">else </span>{
+            <span class="comment">// no relation found in input plan, going to execute them locally
+            </span><span class="kw">return </span>fallback(<span class="kw-2">&amp;</span>optimized_plan).<span class="kw">await</span>;
+        };
+
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(peers) = <span class="self">self</span>.get_peers(<span class="kw-2">&amp;</span>table_name).<span class="kw">await else </span>{
+            <span class="comment">// no peers found, going to execute them locally
+            </span><span class="kw">return </span>fallback(<span class="kw-2">&amp;</span>optimized_plan).<span class="kw">await</span>;
+        };
+
+        <span class="comment">// TODO(ruihang): generate different execution plans for different variant merge operation
+        </span><span class="kw">let </span>schema = optimized_plan.schema().as_ref().into();
+        <span class="comment">// Pass down the original plan, allow execution nodes to do their optimization
+        </span><span class="kw">let </span>amended_plan = <span class="self">Self</span>::plan_with_full_table_name(input_plan.clone(), <span class="kw-2">&amp;</span>table_name)<span class="question-mark">?</span>;
+        <span class="kw">let </span>substrait_plan = DFLogicalSubstraitConvertor
+            .encode(<span class="kw-2">&amp;</span>amended_plan)
+            .context(error::EncodeSubstraitLogicalPlanSnafu)<span class="question-mark">?
+            </span>.into();
+        <span class="kw">let </span>merge_scan_plan = MergeScanExec::new(
+            table_name,
+            peers,
+            substrait_plan,
+            <span class="kw-2">&amp;</span>schema,
+            <span class="self">self</span>.clients.clone(),
+        )<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Arc::new(merge_scan_plan) <span class="kw">as _</span>))
     }
 }
 
 <span class="kw">impl </span>DistExtensionPlanner {
-    <span class="doccomment">/// Extract table name from logical plan
-    </span><span class="kw">fn </span>get_table_name(<span class="kw-2">&amp;</span><span class="self">self</span>, plan: <span class="kw-2">&amp;</span>LogicalPlan) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableName&gt;&gt; {
+    <span class="doccomment">/// Extract fully resolved table name from logical plan
+    </span><span class="kw">fn </span>extract_full_table_name(plan: <span class="kw-2">&amp;</span>LogicalPlan) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableName&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>extractor = TableNameExtractor::default();
         <span class="kw">let _ </span>= plan.visit(<span class="kw-2">&amp;mut </span>extractor)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(extractor.table_name)
     }
 
-    <span class="doccomment">/// Set the fully resolved table name to TableScan plan
-    </span><span class="kw">fn </span>set_table_name(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>TableName, plan: LogicalPlan) -&gt; <span class="prelude-ty">Result</span>&lt;LogicalPlan&gt; {
-        <span class="comment">// let mut rewriter
-        </span>plan.transform(<span class="kw-2">&amp;</span>|plan| TableNameRewriter::rewrite_table_name(plan, name))
+    <span class="doccomment">/// Apply the fully resolved table name to the TableScan plan
+    </span><span class="kw">fn </span>plan_with_full_table_name(plan: LogicalPlan, name: <span class="kw-2">&amp;</span>TableName) -&gt; <span class="prelude-ty">Result</span>&lt;LogicalPlan&gt; {
+        plan.transform(<span class="kw-2">&amp;</span>|plan| TableNameRewriter::rewrite_table_name(plan, name))
     }
 
     <span class="kw">async fn </span>get_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, table_name: <span class="kw-2">&amp;</span>TableName) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Peer&gt;&gt; {

@@ -163,40 +163,6 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -211,53 +177,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">mod </span>datanode_table;
-<span class="kw">mod </span>table_info;
-<span class="kw">mod </span>table_name;
-<span class="kw">mod </span>table_region;
-
+</span><span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::future::Future;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::time::{Duration, Instant};
+<span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>common_meta::key::table_region::RegionDistribution;
 <span class="kw">use </span>common_meta::key::{TableMetadataManager, TableMetadataManagerRef};
+<span class="kw">use </span>common_meta::peer::Peer;
+<span class="kw">use </span>common_meta::rpc::router::{Region, RegionRoute};
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>common_telemetry::info;
 <span class="kw">use </span>datatypes::data_type::ConcreteDataType;
 <span class="kw">use </span>datatypes::schema::{ColumnSchema, RawSchema};
 <span class="kw">use </span>meta_srv::service::store::etcd::EtcdStore;
 <span class="kw">use </span>meta_srv::service::store::kv::KvBackendAdapter;
-<span class="kw">use </span>rand::prelude::SliceRandom;
+<span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>table::metadata::{RawTableInfo, RawTableMeta, TableId, TableIdent, TableType};
 
-<span class="kw">use </span><span class="kw">crate</span>::cli::bench::datanode_table::DatanodeTableBencher;
-<span class="kw">use </span><span class="kw">crate</span>::cli::bench::table_info::TableInfoBencher;
-<span class="kw">use </span><span class="kw">crate</span>::cli::bench::table_name::TableNameBencher;
-<span class="kw">use </span><span class="kw">crate</span>::cli::bench::table_region::TableRegionBencher;
+<span class="kw">use </span><span class="self">self</span>::metadata::TableMetadataBencher;
 <span class="kw">use </span><span class="kw">crate</span>::cli::{Instance, Tool};
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 
-<span class="kw">async fn </span>bench&lt;F, Fut&gt;(desc: <span class="kw-2">&amp;</span>str, f: F, count: u32)
-<span class="kw">where
-    </span>F: Fn(u32) -&gt; Fut,
-    Fut: Future&lt;Output = ()&gt;,
-{
-    <span class="kw">let </span><span class="kw-2">mut </span>total = Duration::default();
-
-    <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..=count {
-        <span class="kw">let </span>start = Instant::now();
-
-        f(i).<span class="kw">await</span>;
-
-        total += start.elapsed();
-    }
-
-    <span class="kw">let </span>cost = total.as_millis() <span class="kw">as </span>f64 / count <span class="kw">as </span>f64;
-    <span class="macro">info!</span>(<span class="string">&quot;{desc}, average operation cost: {cost:.2} ms&quot;</span>);
-}
+<span class="kw">mod </span>metadata;
 
 <span class="kw">async fn </span>bench_self_recorded&lt;F, Fut&gt;(desc: <span class="kw-2">&amp;</span>str, f: F, count: u32)
 <span class="kw">where
@@ -306,31 +249,11 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>Tool <span class="kw">for </span>BenchTableMetadata {
     <span class="kw">async fn </span>do_work(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;Start benching table name manager ...&quot;</span>);
-        TableNameBencher::new(<span class="self">self</span>.table_metadata_manager.table_name_manager(), <span class="self">self</span>.count)
-            .start()
-            .<span class="kw">await</span>;
-
-        <span class="macro">info!</span>(<span class="string">&quot;Start benching table info manager ...&quot;</span>);
-        TableInfoBencher::new(<span class="self">self</span>.table_metadata_manager.table_info_manager(), <span class="self">self</span>.count)
-            .start()
-            .<span class="kw">await</span>;
-
-        <span class="macro">info!</span>(<span class="string">&quot;Start benching table region manager ...&quot;</span>);
-        TableRegionBencher::new(
-            <span class="self">self</span>.table_metadata_manager.table_region_manager(),
-            <span class="self">self</span>.count,
-        )
-        .start()
-        .<span class="kw">await</span>;
-
-        <span class="macro">info!</span>(<span class="string">&quot;Start benching datanode table manager ...&quot;</span>);
-        DatanodeTableBencher::new(
-            <span class="self">self</span>.table_metadata_manager.datanode_table_manager(),
-            <span class="self">self</span>.count,
-        )
-        .start()
-        .<span class="kw">await</span>;
+        <span class="kw">let </span>bencher = TableMetadataBencher::new(<span class="self">self</span>.table_metadata_manager.clone(), <span class="self">self</span>.count);
+        bencher.bench_create().<span class="kw">await</span>;
+        bencher.bench_get().<span class="kw">await</span>;
+        bencher.bench_rename().<span class="kw">await</span>;
+        bencher.bench_delete().<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -383,17 +306,26 @@
     }
 }
 
-<span class="kw">fn </span>create_region_distribution() -&gt; RegionDistribution {
-    <span class="kw">let </span><span class="kw-2">mut </span>regions = (<span class="number">1</span>..=<span class="number">100</span>).collect::&lt;Vec&lt;u32&gt;&gt;();
-    regions.shuffle(<span class="kw-2">&amp;mut </span>rand::thread_rng());
+<span class="kw">fn </span>create_region_routes() -&gt; Vec&lt;RegionRoute&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>regions = Vec::with_capacity(<span class="number">100</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
 
-    <span class="kw">let </span><span class="kw-2">mut </span>region_distribution = RegionDistribution::new();
-    <span class="kw">for </span>datanode_id <span class="kw">in </span><span class="number">0</span>..<span class="number">10 </span>{
-        region_distribution.insert(
-            datanode_id <span class="kw">as </span>u64,
-            regions[datanode_id * <span class="number">10</span>..(datanode_id + <span class="number">1</span>) * <span class="number">10</span>].to_vec(),
-        );
+    <span class="kw">for </span>region_id <span class="kw">in </span><span class="number">0</span>..<span class="number">64u64 </span>{
+        regions.push(RegionRoute {
+            region: Region {
+                id: region_id.into(),
+                name: String::new(),
+                partition: <span class="prelude-val">None</span>,
+                attrs: BTreeMap::new(),
+            },
+            leader_peer: <span class="prelude-val">Some</span>(Peer {
+                id: rng.gen_range(<span class="number">0</span>..<span class="number">10</span>),
+                addr: String::new(),
+            }),
+            follower_peers: <span class="macro">vec!</span>[],
+        });
     }
-    region_distribution
+
+    regions
 }
 </code></pre></div></section></main></body></html>

@@ -138,7 +138,7 @@
     meta_peer_client: MetaPeerClientRef,
     enable: bool,
 ) -&gt; Arc&lt;GreptimeDBTelemetryTask&gt; {
-    <span class="kw">if </span>!enable || <span class="macro">cfg!</span>(test) {
+    <span class="kw">if </span>!enable || <span class="macro">cfg!</span>(test) || <span class="macro">cfg!</span>(debug_assertions) {
         <span class="kw">return </span>Arc::new(GreptimeDBTelemetryTask::disable());
     }
 

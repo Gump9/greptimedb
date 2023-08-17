@@ -296,21 +296,6 @@
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -326,14 +311,15 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::ensure;
+<span class="kw">use </span>table::engine::TableReference;
 <span class="kw">use </span>table::metadata::{RawTableInfo, TableId};
 
 <span class="kw">use </span><span class="kw">super</span>::TABLE_INFO_KEY_PREFIX;
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="prelude-ty">Result</span>, UnexpectedSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::key::{to_removed_key, TableMetaKey};
+<span class="kw">use </span><span class="kw">crate</span>::kv_backend::txn::{Compare, CompareOp, Txn, TxnOp, TxnOpResponse};
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackendRef;
-<span class="kw">use </span><span class="kw">crate</span>::rpc::store::{CompareAndPutRequest, MoveValueRequest};
+<span class="kw">use </span><span class="kw">crate</span>::table_name::TableName;
 
 <span class="kw">pub struct </span>TableInfoKey {
     table_id: TableId,
@@ -364,6 +350,41 @@
             version: <span class="number">0</span>,
         }
     }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>, new_table_info: RawTableInfo) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            table_info: new_table_info,
+            version: <span class="self">self</span>.version + <span class="number">1</span>,
+        }
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_update&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, update: F) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>F: FnOnce(<span class="kw-2">&amp;mut </span>RawTableInfo),
+    {
+        <span class="kw">let </span><span class="kw-2">mut </span>new_table_info = <span class="self">self</span>.table_info.clone();
+        update(<span class="kw-2">&amp;mut </span>new_table_info);
+        <span class="self">Self </span>{
+            table_info: new_table_info,
+            version: <span class="self">self</span>.version + <span class="number">1</span>,
+        }
+    }
+
+    <span class="kw">pub fn </span>table_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableReference {
+        TableReference::full(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.table_info.catalog_name,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.table_info.schema_name,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.table_info.name,
+        )
+    }
+
+    <span class="kw">pub fn </span>table_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableName {
+        TableName {
+            catalog_name: <span class="self">self</span>.table_info.catalog_name.to_string(),
+            schema_name: <span class="self">self</span>.table_info.schema_name.to_string(),
+            table_name: <span class="self">self</span>.table_info.name.to_string(),
+        }
+    }
 }
 
 <span class="kw">pub struct </span>TableInfoManager {
@@ -375,6 +396,125 @@
         <span class="self">Self </span>{ kv_backend }
     }
 
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_get_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+    ) -&gt; (
+        Txn,
+        <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;&gt;,
+    ) {
+        <span class="kw">let </span>key = TableInfoKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+        <span class="kw">let </span>txn = Txn::new().and_then(<span class="macro">vec!</span>[TxnOp::Get(raw_key.clone())]);
+
+        (txn, <span class="self">Self</span>::build_decode_fn(raw_key))
+    }
+
+    <span class="doccomment">/// Builds a create table info transaction, it expected the `__table_info/{table_id}` wasn&#39;t occupied.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_create_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+        table_info_value: <span class="kw-2">&amp;</span>TableInfoValue,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(
+        Txn,
+        <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;&gt;,
+    )&gt; {
+        <span class="kw">let </span>key = TableInfoKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+
+        <span class="kw">let </span>txn = Txn::new()
+            .when(<span class="macro">vec!</span>[Compare::with_not_exist_value(
+                raw_key.clone(),
+                CompareOp::Equal,
+            )])
+            .and_then(<span class="macro">vec!</span>[TxnOp::Put(
+                raw_key.clone(),
+                table_info_value.try_as_raw_value()<span class="question-mark">?</span>,
+            )])
+            .or_else(<span class="macro">vec!</span>[TxnOp::Get(raw_key.clone())]);
+
+        <span class="prelude-val">Ok</span>((txn, <span class="self">Self</span>::build_decode_fn(raw_key)))
+    }
+
+    <span class="doccomment">/// Builds a update table info transaction, it expected the remote value equals the `current_current_table_info_value`.
+    /// It retrieves the latest value if the comparing failed.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_update_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+        current_table_info_value: <span class="kw-2">&amp;</span>TableInfoValue,
+        new_table_info_value: <span class="kw-2">&amp;</span>TableInfoValue,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(
+        Txn,
+        <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;&gt;,
+    )&gt; {
+        <span class="kw">let </span>key = TableInfoKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+        <span class="kw">let </span>raw_value = current_table_info_value.try_as_raw_value()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>txn = Txn::new()
+            .when(<span class="macro">vec!</span>[Compare::with_value(
+                raw_key.clone(),
+                CompareOp::Equal,
+                raw_value.clone(),
+            )])
+            .and_then(<span class="macro">vec!</span>[TxnOp::Put(
+                raw_key.clone(),
+                new_table_info_value.try_as_raw_value()<span class="question-mark">?</span>,
+            )])
+            .or_else(<span class="macro">vec!</span>[TxnOp::Get(raw_key.clone())]);
+
+        <span class="prelude-val">Ok</span>((txn, <span class="self">Self</span>::build_decode_fn(raw_key)))
+    }
+
+    <span class="doccomment">/// Builds a delete table info transaction.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_delete_txn(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_id: TableId,
+        table_info_value: <span class="kw-2">&amp;</span>TableInfoValue,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Txn&gt; {
+        <span class="kw">let </span>key = TableInfoKey::new(table_id);
+        <span class="kw">let </span>raw_key = key.as_raw_key();
+        <span class="kw">let </span>raw_value = table_info_value.try_as_raw_value()<span class="question-mark">?</span>;
+        <span class="kw">let </span>removed_key = to_removed_key(<span class="kw-2">&amp;</span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>raw_key));
+
+        <span class="kw">let </span>txn = Txn::new().and_then(<span class="macro">vec!</span>[
+            TxnOp::Delete(raw_key.clone()),
+            TxnOp::Put(removed_key.into_bytes(), raw_value),
+        ]);
+
+        <span class="prelude-val">Ok</span>(txn)
+    }
+
+    <span class="kw">fn </span>build_decode_fn(
+        raw_key: Vec&lt;u8&gt;,
+    ) -&gt; <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;&gt; {
+        <span class="kw">move </span>|kvs: <span class="kw-2">&amp;</span>Vec&lt;TxnOpResponse&gt;| {
+            kvs.iter()
+                .filter_map(|resp| {
+                    <span class="kw">if let </span>TxnOpResponse::ResponseGet(r) = resp {
+                        <span class="prelude-val">Some</span>(r)
+                    } <span class="kw">else </span>{
+                        <span class="prelude-val">None
+                    </span>}
+                })
+                .flat_map(|r| <span class="kw-2">&amp;</span>r.kvs)
+                .find(|kv| kv.key == raw_key)
+                .map(|kv| TableInfoValue::try_from(<span class="kw-2">&amp;</span>kv.value))
+                .transpose()
+        }
+    }
+
+    <span class="attr">#[cfg(test)]
+    </span><span class="kw">pub async fn </span>get_removed(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;&gt; {
+        <span class="kw">let </span>key = TableInfoKey::new(table_id).to_string();
+        <span class="kw">let </span>removed_key = to_removed_key(<span class="kw-2">&amp;</span>key).into_bytes();
+        <span class="self">self</span>.kv_backend
+            .get(<span class="kw-2">&amp;</span>removed_key)
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.map(|x| TableInfoValue::try_from_raw_value(x.value))
+            .transpose()
+    }
+
     <span class="kw">pub async fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;&gt; {
         <span class="kw">let </span>key = TableInfoKey::new(table_id);
         <span class="kw">let </span>raw_key = key.as_raw_key();
@@ -384,192 +524,22 @@
             </span>.map(|x| TableInfoValue::try_from_raw_value(x.value))
             .transpose()
     }
-
-    <span class="doccomment">/// Create TableInfo key and value. If the key already exists, check if the value is the same.
-    </span><span class="kw">pub async fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId, table_info: <span class="kw-2">&amp;</span>RawTableInfo) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>result = <span class="self">self
-            </span>.compare_and_put(table_id, <span class="prelude-val">None</span>, table_info.clone())
-            .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(curr) = result {
-            <span class="kw">let </span><span class="prelude-val">Some</span>(curr) = curr <span class="kw">else </span>{
-                <span class="kw">return </span>UnexpectedSnafu {
-                    err_msg: <span class="macro">format!</span>(<span class="string">&quot;compare_and_put expect None but failed with current value None, table_id: {table_id}, table_info: {table_info:?}&quot;</span>),
-                }.fail();
-            };
-            <span class="macro">ensure!</span>(
-                <span class="kw-2">&amp;</span>curr.table_info == table_info,
-                UnexpectedSnafu {
-                    err_msg: <span class="macro">format!</span>(
-                        <span class="string">&quot;TableInfoValue for table {table_id} is updated before it is created!&quot;
-                    </span>)
-                }
-            )
-        }
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Compare and put value of key. `expect` is the expected value, if backend&#39;s current value associated
-    /// with key is the same as `expect`, the value will be updated to `val`.
-    ///
-    /// - If the compare-and-set operation successfully updated value, this method will return an `Ok(Ok())`
-    /// - If associated value is not the same as `expect`, no value will be updated and an
-    ///   `Ok(Err(Option&lt;TableInfoValue&gt;))` will be returned. The `Option&lt;TableInfoValue&gt;` indicates
-    ///   the current associated value of key.
-    /// - If any error happens during operation, an `Err(Error)` will be returned.
-    </span><span class="kw">pub async fn </span>compare_and_put(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        table_id: TableId,
-        expect: <span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;,
-        table_info: RawTableInfo,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;std::result::Result&lt;(), <span class="prelude-ty">Option</span>&lt;TableInfoValue&gt;&gt;&gt; {
-        <span class="kw">let </span>key = TableInfoKey::new(table_id);
-        <span class="kw">let </span>raw_key = key.as_raw_key();
-
-        <span class="kw">let </span>(expect, version) = <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = expect {
-            (x.try_as_raw_value()<span class="question-mark">?</span>, x.version + <span class="number">1</span>)
-        } <span class="kw">else </span>{
-            (<span class="macro">vec!</span>[], <span class="number">0</span>)
-        };
-
-        <span class="kw">let </span>value = TableInfoValue {
-            table_info,
-            version,
-        };
-        <span class="kw">let </span>raw_value = value.try_as_raw_value()<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>req = CompareAndPutRequest::new()
-            .with_key(raw_key)
-            .with_expect(expect)
-            .with_value(raw_value);
-        <span class="kw">let </span>resp = <span class="self">self</span>.kv_backend.compare_and_put(req).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="kw">if </span>resp.success {
-            <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(resp
-                .prev_kv
-                .map(|x| TableInfoValue::try_from_raw_value(x.value))
-                .transpose()<span class="question-mark">?</span>)
-        })
-    }
-
-    <span class="kw">pub async fn </span>remove(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>key = TableInfoKey::new(table_id).as_raw_key();
-        <span class="kw">let </span>removed_key = to_removed_key(<span class="kw-2">&amp;</span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>key));
-        <span class="kw">let </span>req = MoveValueRequest::new(key, removed_key.as_bytes());
-        <span class="self">self</span>.kv_backend.move_value(req).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::sync::Arc;
 
     <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
     <span class="kw">use </span>datatypes::schema::{ColumnSchema, RawSchema, Schema};
     <span class="kw">use </span>table::metadata::{RawTableMeta, TableIdent, TableType};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::kv_backend::memory::MemoryKvBackend;
-    <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackend;
-    <span class="kw">use </span><span class="kw">crate</span>::rpc::store::PutRequest;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_deserialization_compatibility() {
         <span class="kw">let </span>s = <span class="string">r#&quot;{&quot;version&quot;:1,&quot;table_info&quot;:{&quot;ident&quot;:{&quot;table_id&quot;:8714,&quot;version&quot;:0},&quot;name&quot;:&quot;go_gc_duration_seconds&quot;,&quot;desc&quot;:&quot;Created on insertion&quot;,&quot;catalog_name&quot;:&quot;e87lehzy63d4cloud_docs_test&quot;,&quot;schema_name&quot;:&quot;public&quot;,&quot;meta&quot;:{&quot;schema&quot;:{&quot;column_schemas&quot;:[{&quot;name&quot;:&quot;instance&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;job&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;quantile&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;greptime_timestamp&quot;,&quot;data_type&quot;:{&quot;Timestamp&quot;:{&quot;Millisecond&quot;:null}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:true,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{&quot;greptime:time_index&quot;:&quot;true&quot;}},{&quot;name&quot;:&quot;greptime_value&quot;,&quot;data_type&quot;:{&quot;Float64&quot;:{}},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}}],&quot;timestamp_index&quot;:3,&quot;version&quot;:0},&quot;primary_key_indices&quot;:[0,1,2],&quot;value_indices&quot;:[],&quot;engine&quot;:&quot;mito&quot;,&quot;next_column_id&quot;:5,&quot;region_numbers&quot;:[],&quot;engine_options&quot;:{},&quot;options&quot;:{&quot;write_buffer_size&quot;:null,&quot;ttl&quot;:null,&quot;extra_options&quot;:{}},&quot;created_on&quot;:&quot;1970-01-01T00:00:00Z&quot;},&quot;table_type&quot;:&quot;Base&quot;}}&quot;#</span>;
         <span class="kw">let </span>v = TableInfoValue::try_from_raw_value(s.as_bytes().to_vec()).unwrap();
         <span class="macro">assert!</span>(v.table_info.meta.partition_key_indices.is_empty());
-    }
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_table_info_manager() {
-        <span class="kw">let </span>backend = Arc::new(MemoryKvBackend::default());
-
-        <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..=<span class="number">3 </span>{
-            <span class="kw">let </span>key = TableInfoKey::new(i).as_raw_key();
-            <span class="kw">let </span>val = TableInfoValue {
-                table_info: new_table_info(i),
-                version: <span class="number">1</span>,
-            }
-            .try_as_raw_value()
-            .unwrap();
-            <span class="kw">let </span>req = PutRequest::new().with_key(key).with_value(val);
-            backend.put(req).<span class="kw">await</span>.unwrap();
-        }
-
-        <span class="kw">let </span>manager = TableInfoManager::new(backend.clone());
-        <span class="macro">assert!</span>(manager.create(<span class="number">99</span>, <span class="kw-2">&amp;</span>new_table_info(<span class="number">99</span>)).<span class="kw">await</span>.is_ok());
-        <span class="macro">assert!</span>(manager.create(<span class="number">99</span>, <span class="kw-2">&amp;</span>new_table_info(<span class="number">99</span>)).<span class="kw">await</span>.is_ok());
-
-        <span class="kw">let </span>result = manager.create(<span class="number">99</span>, <span class="kw-2">&amp;</span>new_table_info(<span class="number">88</span>)).<span class="kw">await</span>;
-        <span class="kw">let </span>err_msg = result.unwrap_err().to_string();
-        <span class="macro">assert!</span>(err_msg
-            .contains(<span class="string">&quot;Unexpected: TableInfoValue for table 99 is updated before it is created!&quot;</span>));
-
-        <span class="kw">let </span>val = manager.get(<span class="number">1</span>).<span class="kw">await</span>.unwrap().unwrap();
-        <span class="macro">assert_eq!</span>(
-            val,
-            TableInfoValue {
-                table_info: new_table_info(<span class="number">1</span>),
-                version: <span class="number">1</span>,
-            }
-        );
-        <span class="macro">assert!</span>(manager.get(<span class="number">4</span>).<span class="kw">await</span>.unwrap().is_none());
-
-        <span class="comment">// test cas failed, current value is not set
-        </span><span class="kw">let </span>table_info = new_table_info(<span class="number">4</span>);
-        <span class="kw">let </span>result = manager
-            .compare_and_put(
-                <span class="number">4</span>,
-                <span class="prelude-val">Some</span>(TableInfoValue {
-                    table_info: table_info.clone(),
-                    version: <span class="number">0</span>,
-                }),
-                table_info.clone(),
-            )
-            .<span class="kw">await
-            </span>.unwrap();
-        <span class="macro">assert!</span>(result.unwrap_err().is_none());
-
-        <span class="kw">let </span>result = manager
-            .compare_and_put(<span class="number">4</span>, <span class="prelude-val">None</span>, table_info.clone())
-            .<span class="kw">await
-            </span>.unwrap();
-        <span class="macro">assert!</span>(result.is_ok());
-
-        <span class="comment">// test cas failed, the new table info is not set
-        </span><span class="kw">let </span>new_table_info = new_table_info(<span class="number">4</span>);
-        <span class="kw">let </span>result = manager
-            .compare_and_put(<span class="number">4</span>, <span class="prelude-val">None</span>, new_table_info.clone())
-            .<span class="kw">await
-            </span>.unwrap();
-        <span class="kw">let </span>actual = result.unwrap_err().unwrap();
-        <span class="macro">assert_eq!</span>(
-            actual,
-            TableInfoValue {
-                table_info: table_info.clone(),
-                version: <span class="number">0</span>,
-            }
-        );
-
-        <span class="comment">// test cas success
-        </span><span class="kw">let </span>result = manager
-            .compare_and_put(<span class="number">4</span>, <span class="prelude-val">Some</span>(actual), new_table_info.clone())
-            .<span class="kw">await
-            </span>.unwrap();
-        <span class="macro">assert!</span>(result.is_ok());
-
-        <span class="macro">assert!</span>(manager.remove(<span class="number">4</span>).<span class="kw">await</span>.is_ok());
-
-        <span class="kw">let </span>kv = backend
-            .get(<span class="string">b&quot;__removed-__table_info/4&quot;</span>)
-            .<span class="kw">await
-            </span>.unwrap()
-            .unwrap();
-        <span class="macro">assert_eq!</span>(<span class="string">b&quot;__removed-__table_info/4&quot;</span>, kv.key.as_slice());
-        <span class="kw">let </span>value = TableInfoValue::try_from_raw_value(kv.value).unwrap();
-        <span class="macro">assert_eq!</span>(value.table_info, new_table_info);
-        <span class="macro">assert_eq!</span>(value.version, <span class="number">1</span>);
     }
 
     <span class="attr">#[test]

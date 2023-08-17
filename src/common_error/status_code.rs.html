@@ -224,6 +224,10 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -310,6 +314,8 @@
     </span>InvalidAuthHeader = <span class="number">7004</span>,
     <span class="doccomment">/// Illegal request to connect catalog-schema
     </span>AccessDenied = <span class="number">7005</span>,
+    <span class="doccomment">/// User is not authorized to perform the operation
+    </span>PermissionDenied = <span class="number">7006</span>,
     <span class="comment">// ====== End of auth related status code =====
 </span>}
 
@@ -346,7 +352,8 @@
             | StatusCode::UserPasswordMismatch
             | StatusCode::AuthHeaderNotFound
             | StatusCode::InvalidAuthHeader
-            | StatusCode::AccessDenied =&gt; <span class="bool-val">false</span>,
+            | StatusCode::AccessDenied
+            | StatusCode::PermissionDenied =&gt; <span class="bool-val">false</span>,
         }
     }
 
@@ -377,7 +384,8 @@
             | StatusCode::UserPasswordMismatch
             | StatusCode::AuthHeaderNotFound
             | StatusCode::InvalidAuthHeader
-            | StatusCode::AccessDenied =&gt; <span class="bool-val">false</span>,
+            | StatusCode::AccessDenied
+            | StatusCode::PermissionDenied =&gt; <span class="bool-val">false</span>,
         }
     }
 

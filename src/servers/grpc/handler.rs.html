@@ -211,19 +211,6 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -257,10 +244,7 @@
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Error::UnsupportedAuthScheme;
-<span class="kw">use </span><span class="kw">crate</span>::error::{
-    AuthSnafu, InvalidQuerySnafu, JoinTaskSnafu, NotFoundAuthHeaderSnafu, <span class="prelude-ty">Result </span><span class="kw">as </span>InternalResult,
-};
-<span class="kw">use </span><span class="kw">crate</span>::grpc::TonicResult;
+<span class="kw">use </span><span class="kw">crate</span>::error::{AuthSnafu, InvalidQuerySnafu, JoinTaskSnafu, NotFoundAuthHeaderSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::metrics::{
     METRIC_AUTH_FAILURE, METRIC_CODE_LABEL, METRIC_DB_LABEL, METRIC_SERVER_GRPC_DB_REQUEST_TIMER,
     METRIC_TYPE_LABEL,
@@ -286,23 +270,15 @@
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_request(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        request: GreptimeRequest,
-    ) -&gt; TonicResult&lt;InternalResult&lt;Output&gt;&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: GreptimeRequest) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
         <span class="kw">let </span>query = request.request.context(InvalidQuerySnafu {
             reason: <span class="string">&quot;Expecting non-empty GreptimeRequest.&quot;</span>,
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>header = request.header.as_ref();
         <span class="kw">let </span>query_ctx = create_query_context(header);
-
-        <span class="kw">match </span><span class="self">self</span>.auth(header, <span class="kw-2">&amp;</span>query_ctx).<span class="kw">await</span><span class="question-mark">? </span>{
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)),
-            <span class="prelude-val">Ok</span>(user_info) =&gt; {
-                query_ctx.set_current_user(user_info);
-            }
-        };
+        <span class="kw">let </span>user_info = <span class="self">self</span>.auth(header, <span class="kw-2">&amp;</span>query_ctx).<span class="kw">await</span><span class="question-mark">?</span>;
+        query_ctx.set_current_user(user_info);
 
         <span class="kw">let </span>handler = <span class="self">self</span>.handler.clone();
         <span class="kw">let </span>request_type = request_type(<span class="kw-2">&amp;</span>query);
@@ -328,20 +304,19 @@
             })
         });
 
-        <span class="kw">let </span>output = handle.<span class="kw">await</span>.context(JoinTaskSnafu).map_err(|e| {
+        handle.<span class="kw">await</span>.context(JoinTaskSnafu).map_err(|e| {
             timer.record(e.status_code());
             e
-        })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(output)
-    }
+        })<span class="question-mark">?
+    </span>}
 
     <span class="kw">async fn </span>auth(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         header: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RequestHeader&gt;,
         query_ctx: <span class="kw-2">&amp;</span>QueryContextRef,
-    ) -&gt; TonicResult&lt;InternalResult&lt;<span class="prelude-ty">Option</span>&lt;UserInfoRef&gt;&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;UserInfoRef&gt;&gt; {
         <span class="kw">let </span><span class="prelude-val">Some</span>(user_provider) = <span class="self">self</span>.user_provider.as_ref() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         };
 
         <span class="kw">let </span>auth_scheme = header
@@ -353,7 +328,7 @@
             })
             .context(NotFoundAuthHeaderSnafu)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>res = <span class="kw">match </span>auth_scheme {
+        <span class="kw">match </span>auth_scheme {
             AuthScheme::Basic(Basic { username, password }) =&gt; user_provider
                 .auth(
                     Identity::UserId(<span class="kw-2">&amp;</span>username, <span class="prelude-val">None</span>),
@@ -374,8 +349,7 @@
                 <span class="kw-2">&amp;</span>[(METRIC_CODE_LABEL, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e.status_code()))]
             );
             e
-        });
-        <span class="prelude-val">Ok</span>(res)
+        })
     }
 }
 

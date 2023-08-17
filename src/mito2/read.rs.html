@@ -253,6 +253,89 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -273,12 +356,15 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_time::Timestamp;
-<span class="kw">use </span>datatypes::vectors::{UInt64Vector, UInt8Vector, Vector, VectorRef};
-<span class="kw">use </span>snafu::ensure;
+<span class="kw">use </span>datatypes::arrow;
+<span class="kw">use </span>datatypes::arrow::array::ArrayRef;
+<span class="kw">use </span>datatypes::prelude::DataType;
+<span class="kw">use </span>datatypes::vectors::{Helper, UInt64Vector, UInt8Vector, Vector, VectorRef};
+<span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
+<span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 <span class="kw">use </span>store_api::storage::ColumnId;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{InvalidBatchSnafu, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataRef;
+<span class="kw">use </span><span class="kw">crate</span>::error::{ConvertVectorSnafu, InvalidBatchSnafu, <span class="prelude-ty">Result</span>};
 
 <span class="doccomment">/// Storage internal representation of a batch of rows
 /// for a primary key (time series).
@@ -311,7 +397,7 @@
         op_types: Arc&lt;UInt8Vector&gt;,
         fields: Vec&lt;BatchColumn&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Batch&gt; {
-        BatchBuilder::new(primary_key, timestamps, sequences, op_types)
+        BatchBuilder::with_required_columns(primary_key, timestamps, sequences, op_types)
             .with_fields(fields)
             .build()
     }
@@ -366,15 +452,26 @@
 <span class="doccomment">/// Builder to build [Batch].
 </span><span class="kw">pub struct </span>BatchBuilder {
     primary_key: Vec&lt;u8&gt;,
-    timestamps: VectorRef,
-    sequences: Arc&lt;UInt64Vector&gt;,
-    op_types: Arc&lt;UInt8Vector&gt;,
+    timestamps: <span class="prelude-ty">Option</span>&lt;VectorRef&gt;,
+    sequences: <span class="prelude-ty">Option</span>&lt;Arc&lt;UInt64Vector&gt;&gt;,
+    op_types: <span class="prelude-ty">Option</span>&lt;Arc&lt;UInt8Vector&gt;&gt;,
     fields: Vec&lt;BatchColumn&gt;,
 }
 
 <span class="kw">impl </span>BatchBuilder {
-    <span class="doccomment">/// Creates a new [BatchBuilder].
-    </span><span class="kw">pub fn </span>new(
+    <span class="doccomment">/// Creates a new [BatchBuilder] with primary key.
+    </span><span class="kw">pub fn </span>new(primary_key: Vec&lt;u8&gt;) -&gt; BatchBuilder {
+        BatchBuilder {
+            primary_key,
+            timestamps: <span class="prelude-val">None</span>,
+            sequences: <span class="prelude-val">None</span>,
+            op_types: <span class="prelude-val">None</span>,
+            fields: Vec::new(),
+        }
+    }
+
+    <span class="doccomment">/// Creates a new [BatchBuilder] with all required columns.
+    </span><span class="kw">pub fn </span>with_required_columns(
         primary_key: Vec&lt;u8&gt;,
         timestamps: VectorRef,
         sequences: Arc&lt;UInt64Vector&gt;,
@@ -382,9 +479,9 @@
     ) -&gt; BatchBuilder {
         BatchBuilder {
             primary_key,
-            timestamps,
-            sequences,
-            op_types,
+            timestamps: <span class="prelude-val">Some</span>(timestamps),
+            sequences: <span class="prelude-val">Some</span>(sequences),
+            op_types: <span class="prelude-val">Some</span>(op_types),
             fields: Vec::new(),
         }
     }
@@ -401,25 +498,90 @@
         <span class="self">self
     </span>}
 
+    <span class="doccomment">/// Push an array as a field.
+    </span><span class="kw">pub fn </span>push_field_array(<span class="kw-2">&amp;mut </span><span class="self">self</span>, column_id: ColumnId, array: ArrayRef) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt; {
+        <span class="kw">let </span>vector = Helper::try_into_vector(array).context(ConvertVectorSnafu)<span class="question-mark">?</span>;
+        <span class="self">self</span>.fields.push(BatchColumn {
+            column_id,
+            data: vector,
+        });
+
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
+    }
+
+    <span class="doccomment">/// Try to set an array as timestamps.
+    </span><span class="kw">pub fn </span>timestamps_array(<span class="kw-2">&amp;mut </span><span class="self">self</span>, array: ArrayRef) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt; {
+        <span class="kw">let </span>vector = Helper::try_into_vector(array).context(ConvertVectorSnafu)<span class="question-mark">?</span>;
+        <span class="macro">ensure!</span>(
+            vector.data_type().is_timestamp_compatible(),
+            InvalidBatchSnafu {
+                reason: <span class="macro">format!</span>(<span class="string">&quot;{:?} is a timestamp type&quot;</span>, vector.data_type()),
+            }
+        );
+
+        <span class="self">self</span>.timestamps = <span class="prelude-val">Some</span>(vector);
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
+    }
+
+    <span class="doccomment">/// Try to set an array as sequences.
+    </span><span class="kw">pub fn </span>sequences_array(<span class="kw-2">&amp;mut </span><span class="self">self</span>, array: ArrayRef) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt; {
+        <span class="macro">ensure!</span>(
+            <span class="kw-2">*</span>array.data_type() == arrow::datatypes::DataType::UInt64,
+            InvalidBatchSnafu {
+                reason: <span class="string">&quot;sequence array is not UInt64 type&quot;</span>,
+            }
+        );
+        <span class="comment">// Safety: The cast must success as we have ensured it is uint64 type.
+        </span><span class="kw">let </span>vector = Arc::new(UInt64Vector::try_from_arrow_array(array).unwrap());
+        <span class="self">self</span>.sequences = <span class="prelude-val">Some</span>(vector);
+
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
+    }
+
+    <span class="doccomment">/// Try to set an array as op types.
+    </span><span class="kw">pub fn </span>op_types_array(<span class="kw-2">&amp;mut </span><span class="self">self</span>, array: ArrayRef) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt; {
+        <span class="macro">ensure!</span>(
+            <span class="kw-2">*</span>array.data_type() == arrow::datatypes::DataType::UInt8,
+            InvalidBatchSnafu {
+                reason: <span class="string">&quot;sequence array is not UInt8 type&quot;</span>,
+            }
+        );
+        <span class="comment">// Safety: The cast must success as we have ensured it is uint64 type.
+        </span><span class="kw">let </span>vector = Arc::new(UInt8Vector::try_from_arrow_array(array).unwrap());
+        <span class="self">self</span>.op_types = <span class="prelude-val">Some</span>(vector);
+
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
+    }
+
     <span class="doccomment">/// Builds the [Batch].
     </span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Batch&gt; {
-        <span class="kw">let </span>ts_len = <span class="self">self</span>.timestamps.len();
+        <span class="kw">let </span>timestamps = <span class="self">self</span>.timestamps.context(InvalidBatchSnafu {
+            reason: <span class="string">&quot;missing timestamps&quot;</span>,
+        })<span class="question-mark">?</span>;
+        <span class="kw">let </span>sequences = <span class="self">self</span>.sequences.context(InvalidBatchSnafu {
+            reason: <span class="string">&quot;missing sequences&quot;</span>,
+        })<span class="question-mark">?</span>;
+        <span class="kw">let </span>op_types = <span class="self">self</span>.op_types.context(InvalidBatchSnafu {
+            reason: <span class="string">&quot;missing op_types&quot;</span>,
+        })<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>ts_len = timestamps.len();
         <span class="macro">ensure!</span>(
-            <span class="self">self</span>.sequences.len() == ts_len,
+            sequences.len() == ts_len,
             InvalidBatchSnafu {
                 reason: <span class="macro">format!</span>(
                     <span class="string">&quot;sequence have different len {} != {}&quot;</span>,
-                    <span class="self">self</span>.sequences.len(),
+                    sequences.len(),
                     ts_len
                 ),
             }
         );
         <span class="macro">ensure!</span>(
-            <span class="self">self</span>.op_types.len() == ts_len,
+            op_types.len() == ts_len,
             InvalidBatchSnafu {
                 reason: <span class="macro">format!</span>(
                     <span class="string">&quot;op type have different len {} != {}&quot;</span>,
-                    <span class="self">self</span>.op_types.len(),
+                    op_types.len(),
                     ts_len
                 ),
             }
@@ -440,9 +602,9 @@
 
         <span class="prelude-val">Ok</span>(Batch {
             primary_key: <span class="self">self</span>.primary_key,
-            timestamps: <span class="self">self</span>.timestamps,
-            sequences: <span class="self">self</span>.sequences,
-            op_types: <span class="self">self</span>.op_types,
+            timestamps,
+            sequences,
+            op_types,
             fields: <span class="self">self</span>.fields,
         })
     }
@@ -487,9 +649,13 @@
 }
 
 <span class="doccomment">/// Async batch reader.
+///
+/// The reader must guarantee [Batch]es returned by it have the same schema.
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>BatchReader: Send {
-    <span class="doccomment">/// Fetch next [Batch].
+    <span class="comment">// TODO(yingwen): fields of the batch returned.
+
+    </span><span class="doccomment">/// Fetch next [Batch].
     ///
     /// Returns `Ok(None)` when the reader has reached its end and calling `next_batch()`
     /// again won&#39;t return batch again.

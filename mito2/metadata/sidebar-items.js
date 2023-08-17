@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["INIT_REGION_VERSION"],"struct":["RegionMetadata","RegionMetadataBuilder","SkippedFields"],"type":["RegionMetadataRef"]};

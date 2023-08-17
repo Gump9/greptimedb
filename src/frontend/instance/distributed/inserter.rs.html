@@ -379,7 +379,6 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -563,11 +562,10 @@
     <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
     <span class="kw">use </span>common_meta::key::catalog_name::{CatalogManager, CatalogNameKey};
     <span class="kw">use </span>common_meta::key::schema_name::{SchemaManager, SchemaNameKey};
-    <span class="kw">use </span>common_meta::key::table_name::TableNameKey;
-    <span class="kw">use </span>common_meta::key::table_region::RegionDistribution;
     <span class="kw">use </span>common_meta::key::{TableMetadataManager, TableMetadataManagerRef};
     <span class="kw">use </span>common_meta::kv_backend::memory::MemoryKvBackend;
     <span class="kw">use </span>common_meta::kv_backend::KvBackendRef;
+    <span class="kw">use </span>common_meta::rpc::router::{Region, RegionRoute};
     <span class="kw">use </span>datatypes::prelude::{ConcreteDataType, VectorRef};
     <span class="kw">use </span>datatypes::schema::{ColumnDefaultConstraint, ColumnSchema, Schema};
     <span class="kw">use </span>datatypes::vectors::Int32Vector;
@@ -623,26 +621,25 @@
             .unwrap()
             .into();
 
-        <span class="kw">let </span>key = TableNameKey::new(DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, table_name);
-        <span class="macro">assert!</span>(table_metadata_manager
-            .table_name_manager()
-            .create(<span class="kw-2">&amp;</span>key, table_id)
-            .<span class="kw">await
-            </span>.is_ok());
+        <span class="kw">let </span>region_route_factory = |region_id: u64, peer: u64| RegionRoute {
+            region: Region {
+                id: region_id.into(),
+                ..Default::default()
+            },
+            leader_peer: <span class="prelude-val">Some</span>(Peer {
+                id: peer,
+                addr: String::new(),
+            }),
+            follower_peers: <span class="macro">vec!</span>[],
+        };
 
-        <span class="macro">assert!</span>(table_metadata_manager
-            .table_info_manager()
-            .compare_and_put(table_id, <span class="prelude-val">None</span>, table_info)
-            .<span class="kw">await
-            </span>.is_ok());
-
-        <span class="kw">let _ </span>= table_metadata_manager
-            .table_region_manager()
-            .compare_and_put(
-                <span class="number">1</span>,
-                <span class="prelude-val">None</span>,
-                RegionDistribution::from([(<span class="number">1</span>, <span class="macro">vec!</span>[<span class="number">1</span>]), (<span class="number">2</span>, <span class="macro">vec!</span>[<span class="number">2</span>]), (<span class="number">3</span>, <span class="macro">vec!</span>[<span class="number">3</span>])]),
-            )
+        <span class="kw">let </span>region_routes = <span class="macro">vec!</span>[
+            region_route_factory(<span class="number">1</span>, <span class="number">1</span>),
+            region_route_factory(<span class="number">2</span>, <span class="number">2</span>),
+            region_route_factory(<span class="number">3</span>, <span class="number">3</span>),
+        ];
+        table_metadata_manager
+            .create_table_metadata(table_info, region_routes)
             .<span class="kw">await
             </span>.unwrap();
     }
@@ -694,6 +691,7 @@
         ];
 
         <span class="kw">let </span><span class="kw-2">mut </span>inserts = inserter.split_inserts(requests).<span class="kw">await</span>.unwrap();
+
         <span class="macro">assert_eq!</span>(inserts.len(), <span class="number">3</span>);
 
         <span class="kw">let </span>new_grpc_insert_request = |column_values: Vec&lt;i32&gt;,

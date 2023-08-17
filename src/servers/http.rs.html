@@ -938,6 +938,37 @@
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1014,6 +1045,10 @@
     METRIC_METHOD_LABEL, METRIC_PATH_LABEL,
 };
 <span class="kw">use </span><span class="kw">crate</span>::metrics_handler::MetricsHandler;
+<span class="kw">use </span><span class="kw">crate</span>::prometheus::{
+    instant_query, label_values_query, labels_query, range_query, series_query,
+    PrometheusHandlerRef,
+};
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::grpc::ServerGrpcQueryHandlerRef;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::sql::ServerSqlQueryHandlerRef;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::{
@@ -1068,6 +1103,7 @@
     influxdb_handler: <span class="prelude-ty">Option</span>&lt;InfluxdbLineProtocolHandlerRef&gt;,
     opentsdb_handler: <span class="prelude-ty">Option</span>&lt;OpentsdbProtocolHandlerRef&gt;,
     prom_handler: <span class="prelude-ty">Option</span>&lt;PromStoreProtocolHandlerRef&gt;,
+    prometheus_handler: <span class="prelude-ty">Option</span>&lt;PrometheusHandlerRef&gt;,
     otlp_handler: <span class="prelude-ty">Option</span>&lt;OpenTelemetryProtocolHandlerRef&gt;,
     script_handler: <span class="prelude-ty">Option</span>&lt;ScriptHandlerRef&gt;,
     shutdown_tx: Mutex&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;()&gt;&gt;&gt;,
@@ -1349,6 +1385,7 @@
                 opentsdb_handler: <span class="prelude-val">None</span>,
                 influxdb_handler: <span class="prelude-val">None</span>,
                 prom_handler: <span class="prelude-val">None</span>,
+                prometheus_handler: <span class="prelude-val">None</span>,
                 otlp_handler: <span class="prelude-val">None</span>,
                 user_provider: <span class="prelude-val">None</span>,
                 script_handler: <span class="prelude-val">None</span>,
@@ -1387,6 +1424,11 @@
 
     <span class="kw">pub fn </span>with_prom_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, handler: PromStoreProtocolHandlerRef) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="kw">let _ </span>= <span class="self">self</span>.inner.prom_handler.get_or_insert(handler);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_prometheus_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, handler: PrometheusHandlerRef) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="kw">let _ </span>= <span class="self">self</span>.inner.prometheus_handler.get_or_insert(handler);
         <span class="self">self
     </span>}
 
@@ -1474,6 +1516,13 @@
             router = router.nest(
                 <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/{HTTP_API_VERSION}/prometheus&quot;</span>),
                 <span class="self">self</span>.route_prom(prom_handler),
+            );
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(prometheus_handler) = <span class="self">self</span>.prometheus_handler.clone() {
+            router = router.nest(
+                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/{HTTP_API_VERSION}/prometheus&quot;</span>),
+                <span class="self">self</span>.route_prometheus(prometheus_handler),
             );
         }
 
@@ -1586,6 +1635,19 @@
             .route(<span class="string">&quot;/private/api.json&quot;</span>, apirouting::get(serve_api))
             .route(<span class="string">&quot;/private/docs&quot;</span>, apirouting::get(serve_docs))
             .with_state(api_state)
+    }
+
+    <span class="kw">fn </span>route_prometheus&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, prometheus_handler: PrometheusHandlerRef) -&gt; Router&lt;S&gt; {
+        Router::new()
+            .route(<span class="string">&quot;/query&quot;</span>, routing::post(instant_query).get(instant_query))
+            .route(<span class="string">&quot;/query_range&quot;</span>, routing::post(range_query).get(range_query))
+            .route(<span class="string">&quot;/labels&quot;</span>, routing::post(labels_query).get(labels_query))
+            .route(<span class="string">&quot;/series&quot;</span>, routing::post(series_query).get(series_query))
+            .route(
+                <span class="string">&quot;/label/:label_name/values&quot;</span>,
+                routing::get(label_values_query),
+            )
+            .with_state(prometheus_handler)
     }
 
     <span class="kw">fn </span>route_prom&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, prom_handler: PromStoreProtocolHandlerRef) -&gt; Router&lt;S&gt; {

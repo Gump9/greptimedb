@@ -134,7 +134,7 @@
     mode: <span class="kw-2">&amp;</span>Mode,
     enable: bool,
 ) -&gt; Arc&lt;GreptimeDBTelemetryTask&gt; {
-    <span class="kw">if </span>!enable || <span class="macro">cfg!</span>(test) {
+    <span class="kw">if </span>!enable || <span class="macro">cfg!</span>(test) || <span class="macro">cfg!</span>(debug_assertions) {
         <span class="kw">return </span>Arc::new(GreptimeDBTelemetryTask::disable());
     }
 

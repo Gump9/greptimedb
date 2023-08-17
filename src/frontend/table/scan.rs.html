@@ -108,11 +108,6 @@
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -130,7 +125,6 @@
 </span><span class="kw">use </span>std::fmt::Formatter;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>api::v1::DeleteRequest;
 <span class="kw">use </span>client::Database;
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>common_query::prelude::Expr;
@@ -161,10 +155,6 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(table: TableRef, db: Database) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ table, db }
     }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>grpc_delete(<span class="kw-2">&amp;</span><span class="self">self</span>, request: DeleteRequest) -&gt; client::Result&lt;u32&gt; {
-        <span class="self">self</span>.db.delete(request).<span class="kw">await
-    </span>}
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>grpc_table_scan(<span class="kw-2">&amp;</span><span class="self">self</span>, plan: TableScanPlan) -&gt; <span class="prelude-ty">Result</span>&lt;RecordBatches&gt; {
         <span class="kw">let </span>logical_plan = <span class="self">self</span>.build_logical_plan(<span class="kw-2">&amp;</span>plan)<span class="question-mark">?</span>;

@@ -320,6 +320,17 @@
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -346,14 +357,14 @@
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
 <span class="kw">use </span>store_api::storage::{RegionId, RegionNumber};
 <span class="kw">use </span>table::metadata::TableId;
-<span class="kw">use </span>table::requests::InsertRequest;
+<span class="kw">use </span>table::requests::{DeleteRequest, InsertRequest};
 
 <span class="kw">use </span><span class="kw">crate</span>::columns::RangeColumnsPartitionRule;
 <span class="kw">use </span><span class="kw">crate</span>::error::{FindLeaderSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::partition::{PartitionBound, PartitionDef, PartitionExpr};
 <span class="kw">use </span><span class="kw">crate</span>::range::RangePartitionRule;
 <span class="kw">use </span><span class="kw">crate</span>::route::TableRoutes;
-<span class="kw">use </span><span class="kw">crate</span>::splitter::{InsertRequestSplit, WriteSplitter};
+<span class="kw">use </span><span class="kw">crate</span>::splitter::{DeleteRequestSplit, InsertRequestSplit, WriteSplitter};
 <span class="kw">use crate</span>::{error, PartitionRuleRef};
 
 <span class="attr">#[async_trait::async_trait]
@@ -564,9 +575,20 @@
         req: InsertRequest,
         schema: <span class="kw-2">&amp;</span>Schema,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InsertRequestSplit&gt; {
-        <span class="kw">let </span>partition_rule = <span class="self">self</span>.find_table_partition_rule(table).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>partition_rule = <span class="self">self</span>.find_table_partition_rule(table).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>splitter = WriteSplitter::with_partition_rule(partition_rule);
         splitter.split_insert(req, schema)
+    }
+
+    <span class="kw">pub async fn </span>split_delete_request(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table: TableId,
+        req: DeleteRequest,
+        primary_key_column_names: Vec&lt;<span class="kw-2">&amp;</span>String&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;DeleteRequestSplit&gt; {
+        <span class="kw">let </span>partition_rule = <span class="self">self</span>.find_table_partition_rule(table).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>splitter = WriteSplitter::with_partition_rule(partition_rule);
+        splitter.split_delete(req, primary_key_column_names)
     }
 }
 

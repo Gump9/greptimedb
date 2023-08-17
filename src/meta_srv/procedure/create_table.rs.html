@@ -238,67 +238,6 @@
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
 <a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -313,16 +252,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>api::v1::meta::TableRouteValue;
-<span class="kw">use </span>async_trait::async_trait;
+</span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>client::Database;
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
 <span class="kw">use </span>common_meta::key::table_name::TableNameKey;
-<span class="kw">use </span>common_meta::key::TableRouteKey;
-<span class="kw">use </span>common_meta::kv_backend::txn::{Compare, CompareOp, Txn, TxnOp};
 <span class="kw">use </span>common_meta::rpc::ddl::CreateTableTask;
-<span class="kw">use </span>common_meta::rpc::router::TableRoute;
+<span class="kw">use </span>common_meta::rpc::router::{find_leader_regions, find_leaders, RegionRoute};
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>common_procedure::error::{FromJsonSnafu, <span class="prelude-ty">Result </span><span class="kw">as </span>ProcedureResult, ToJsonSnafu};
 <span class="kw">use </span>common_procedure::{Context <span class="kw">as </span>ProcedureContext, LockKey, Procedure, Status};
@@ -331,12 +267,11 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ensure, ResultExt};
 <span class="kw">use </span>table::engine::TableReference;
-<span class="kw">use </span>table::metadata::TableId;
+<span class="kw">use </span>table::metadata::{RawTableInfo, TableId};
 
 <span class="kw">use </span><span class="kw">super</span>::utils::{handle_request_datanode_error, handle_retry_error};
 <span class="kw">use </span><span class="kw">crate</span>::ddl::DdlContext;
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, TableMetadataManagerSnafu};
-<span class="kw">use </span><span class="kw">crate</span>::service::router::create_region_distribution;
 
 <span class="kw">pub struct </span>CreateTableProcedure {
     context: DdlContext,
@@ -349,12 +284,12 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
         cluster_id: u64,
         task: CreateTableTask,
-        table_route: TableRoute,
+        region_routes: Vec&lt;RegionRoute&gt;,
         context: DdlContext,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             context,
-            creator: TableCreator::new(cluster_id, task, table_route),
+            creator: TableCreator::new(cluster_id, task, region_routes),
         }
     }
 
@@ -370,21 +305,30 @@
         <span class="self">self</span>.creator.data.task.table_name()
     }
 
+    <span class="kw">pub fn </span>table_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>RawTableInfo {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.creator.data.task.table_info
+    }
+
+    <span class="kw">pub fn </span>region_routes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;RegionRoute&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.creator.data.region_routes
+    }
+
     <span class="doccomment">/// Checks whether the table exists.
     </span><span class="kw">async fn </span>on_prepare(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Status&gt; {
         <span class="kw">let </span>expr = <span class="kw-2">&amp;</span><span class="self">self</span>.creator.data.task.create_table;
-        <span class="kw">let </span>value = <span class="self">self
+        <span class="kw">let </span>exist = <span class="self">self
             </span>.context
             .table_metadata_manager
             .table_name_manager()
-            .get(TableNameKey::new(
+            .exists(TableNameKey::new(
                 <span class="kw-2">&amp;</span>expr.catalog_name,
                 <span class="kw-2">&amp;</span>expr.schema_name,
                 <span class="kw-2">&amp;</span>expr.table_name,
             ))
             .<span class="kw">await
             </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
-        <span class="kw">if </span>value.is_some() {
+
+        <span class="kw">if </span>exist {
             <span class="macro">ensure!</span>(
                 <span class="self">self</span>.creator.data.task.create_table.create_if_not_exists,
                 error::TableAlreadyExistsSnafu {
@@ -404,85 +348,20 @@
         <span class="kw">let </span>_timer = <span class="macro">common_telemetry::timer!</span>(
             <span class="kw">crate</span>::metrics::METRIC_META_CREATE_TABLE_PROCEDURE_CREATE_META
         );
-        <span class="kw">let </span>table_name = <span class="self">self</span>.table_name();
 
-        <span class="kw">let </span>table_id = <span class="self">self</span>.creator.data.table_route.table.id <span class="kw">as </span>TableId;
-
-        <span class="kw">let </span>table_route_key = TableRouteKey::with_table_name(table_id, <span class="kw-2">&amp;</span>table_name.clone().into())
-            .to_string()
-            .into_bytes();
-
-        <span class="kw">let </span>(peers, table_route) = <span class="self">self
-            </span>.creator
-            .data
-            .table_route
-            .clone()
-            .try_into_raw()
-            .context(error::ConvertProtoDataSnafu)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>table_route_value = TableRouteValue {
-            peers,
-            table_route: <span class="prelude-val">Some</span>(table_route),
-        };
+        <span class="kw">let </span>table_id = <span class="self">self</span>.table_info().ident.table_id <span class="kw">as </span>TableId;
 
         <span class="kw">let </span>manager = <span class="kw-2">&amp;</span><span class="self">self</span>.context.table_metadata_manager;
 
-        <span class="kw">let </span>region_distribution = create_region_distribution(<span class="kw-2">&amp;</span>table_route_value)<span class="question-mark">?</span>;
-        manager
-            .table_region_manager()
-            .create(table_id, <span class="kw-2">&amp;</span>region_distribution)
-            .<span class="kw">await
-            </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;Created TableRegionValue for table {table_id}&quot;</span>);
+        <span class="kw">let </span>raw_table_info = <span class="self">self</span>.table_info().clone();
+        <span class="kw">let </span>region_routes = <span class="self">self</span>.region_routes().clone();
 
         manager
-            .table_info_manager()
-            .create(table_id, <span class="kw-2">&amp;</span><span class="self">self</span>.creator.data.task.table_info)
+            .create_table_metadata(raw_table_info, region_routes)
             .<span class="kw">await
             </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;Created TableInfoValue for table {table_id}&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">&quot;Created table metadata for table {table_id}&quot;</span>);
 
-        <span class="kw">for </span>(datanode_id, regions) <span class="kw">in </span>region_distribution {
-            manager
-                .datanode_table_manager()
-                .create(datanode_id, table_id, regions)
-                .<span class="kw">await
-                </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
-            <span class="macro">info!</span>(<span class="string">&quot;Create DatanodeTableValue for table {table_id}&quot;</span>);
-        }
-
-        <span class="kw">let </span>txn = Txn::new()
-            .when(<span class="macro">vec!</span>[Compare::with_not_exist_value(
-                table_route_key.clone(),
-                CompareOp::Equal,
-            )])
-            .and_then(<span class="macro">vec!</span>[TxnOp::Put(table_route_key, table_route_value.into())]);
-
-        <span class="kw">let </span>resp = <span class="self">self</span>.context.kv_store.txn(txn).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="macro">ensure!</span>(
-            resp.succeeded,
-            error::TxnSnafu {
-                msg: <span class="string">&quot;table_route_key or table_global_key exists&quot;
-            </span>}
-        );
-        <span class="macro">info!</span>(<span class="string">&quot;Created TableRouteValue for table {table_id}&quot;</span>);
-
-        <span class="comment">// Create TableNameValue at last, because we use it to check whether the table exists at
-        // the beginning of the procedure.
-        </span>manager
-            .table_name_manager()
-            .create(
-                <span class="kw-2">&amp;</span>TableNameKey::new(
-                    <span class="kw-2">&amp;</span>table_name.catalog_name,
-                    <span class="kw-2">&amp;</span>table_name.schema_name,
-                    <span class="kw-2">&amp;</span>table_name.table_name,
-                ),
-                table_id,
-            )
-            .<span class="kw">await
-            </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;Created TableNameValue for table {table_id}&quot;</span>);
         <span class="prelude-val">Ok</span>(Status::Done)
     }
 
@@ -490,22 +369,21 @@
         <span class="kw">let </span>_timer = <span class="macro">common_telemetry::timer!</span>(
             <span class="kw">crate</span>::metrics::METRIC_META_CREATE_TABLE_PROCEDURE_CREATE_TABLE
         );
-        <span class="kw">let </span>table_route = <span class="kw-2">&amp;</span><span class="self">self</span>.creator.data.table_route;
+        <span class="kw">let </span>region_routes = <span class="kw-2">&amp;</span><span class="self">self</span>.creator.data.region_routes;
         <span class="kw">let </span>table_name = <span class="self">self</span>.table_name();
         <span class="kw">let </span>clients = <span class="self">self</span>.context.datanode_clients.clone();
-        <span class="kw">let </span>leaders = table_route.find_leaders();
+        <span class="kw">let </span>leaders = find_leaders(region_routes);
         <span class="kw">let </span><span class="kw-2">mut </span>joins = Vec::with_capacity(leaders.len());
+        <span class="kw">let </span>table_id = <span class="self">self</span>.table_info().ident.table_id;
 
         <span class="kw">for </span>datanode <span class="kw">in </span>leaders {
             <span class="kw">let </span>client = clients.get_client(<span class="kw-2">&amp;</span>datanode).<span class="kw">await</span>;
             <span class="kw">let </span>client = Database::new(<span class="kw-2">&amp;</span>table_name.catalog_name, <span class="kw-2">&amp;</span>table_name.schema_name, client);
 
-            <span class="kw">let </span>regions = table_route.find_leader_regions(<span class="kw-2">&amp;</span>datanode);
+            <span class="kw">let </span>regions = find_leader_regions(region_routes, <span class="kw-2">&amp;</span>datanode);
             <span class="kw">let </span><span class="kw-2">mut </span>create_expr_for_region = <span class="self">self</span>.creator.data.task.create_table.clone();
             create_expr_for_region.region_numbers = regions;
-            create_expr_for_region.table_id = <span class="prelude-val">Some</span>(api::v1::TableId {
-                id: table_route.table.id <span class="kw">as </span>u32,
-            });
+            create_expr_for_region.table_id = <span class="prelude-val">Some</span>(api::v1::TableId { id: table_id });
 
             joins.push(common_runtime::spawn_bg(<span class="kw">async move </span>{
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = client.create(create_expr_for_region).<span class="kw">await </span>{
@@ -565,13 +443,13 @@
 }
 
 <span class="kw">impl </span>TableCreator {
-    <span class="kw">pub fn </span>new(cluster_id: u64, task: CreateTableTask, table_route: TableRoute) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(cluster_id: u64, task: CreateTableTask, region_routes: Vec&lt;RegionRoute&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             data: CreateTableData {
                 state: CreateTableState::Prepare,
                 cluster_id,
                 task,
-                table_route,
+                region_routes,
             },
         }
     }
@@ -591,7 +469,7 @@
 </span><span class="kw">pub struct </span>CreateTableData {
     state: CreateTableState,
     task: CreateTableTask,
-    table_route: TableRoute,
+    region_routes: Vec&lt;RegionRoute&gt;,
     cluster_id: u64,
 }
 

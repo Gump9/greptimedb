@@ -354,9 +354,6 @@
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -536,7 +533,6 @@
             <span class="kw-2">&amp;</span>options,
             datanode_clients,
             <span class="kw-2">&amp;</span>procedure_manager,
-            <span class="kw-2">&amp;</span>kv_store,
             <span class="kw-2">&amp;</span>mailbox,
             <span class="kw-2">&amp;</span>table_metadata_manager,
         );
@@ -675,7 +671,6 @@
     options: <span class="kw-2">&amp;</span>MetaSrvOptions,
     datanode_clients: <span class="prelude-ty">Option</span>&lt;Arc&lt;DatanodeClients&gt;&gt;,
     procedure_manager: <span class="kw-2">&amp;</span>ProcedureManagerRef,
-    kv_store: <span class="kw-2">&amp;</span>KvStoreRef,
     mailbox: <span class="kw-2">&amp;</span>MailboxRef,
     table_metadata_manager: <span class="kw-2">&amp;</span>TableMetadataManagerRef,
 ) -&gt; DdlManagerRef {
@@ -693,7 +688,6 @@
     <span class="comment">// TODO(weny): considers to modify the default config of procedure manager
     </span>Arc::new(DdlManager::new(
         procedure_manager.clone(),
-        kv_store.clone(),
         datanode_clients,
         mailbox.clone(),
         options.server_addr.clone(),

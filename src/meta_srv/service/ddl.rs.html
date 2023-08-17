@@ -334,26 +334,6 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -369,29 +349,25 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>api::v1::meta::{
-    ddl_task_server, Partition, Region, RegionRoute, SubmitDdlTaskRequest, SubmitDdlTaskResponse,
-    Table, TableId, TableRoute,
+    ddl_task_server, Partition, SubmitDdlTaskRequest, SubmitDdlTaskResponse, TableId,
 };
 <span class="kw">use </span>common_grpc_expr::alter_expr_to_request;
-<span class="kw">use </span>common_meta::key::TableRouteKey;
 <span class="kw">use </span>common_meta::rpc::ddl::{
     AlterTableTask, CreateTableTask, DdlTask, DropTableTask, TruncateTableTask,
 };
-<span class="kw">use </span>common_meta::rpc::router;
+<span class="kw">use </span>common_meta::rpc::router::{Region, RegionRoute};
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>common_telemetry::{info, warn};
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
-<span class="kw">use </span>store_api::storage::MAX_REGION_SEQ;
+<span class="kw">use </span>store_api::storage::{RegionId, MAX_REGION_SEQ};
 <span class="kw">use </span>table::metadata::RawTableInfo;
 <span class="kw">use </span>tonic::{Request, Response};
 
-<span class="kw">use </span><span class="kw">super</span>::store::kv::KvStoreRef;
 <span class="kw">use </span><span class="kw">super</span>::GrpcResult;
 <span class="kw">use </span><span class="kw">crate</span>::ddl::DdlManagerRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, TableMetadataManagerSnafu, TooManyPartitionsSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::metasrv::{MetaSrv, SelectorContext, SelectorRef};
 <span class="kw">use </span><span class="kw">crate</span>::sequence::SequenceRef;
-<span class="kw">use </span><span class="kw">crate</span>::table_routes::get_table_route_value;
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>ddl_task_server::DdlTask <span class="kw">for </span>MetaSrv {
@@ -433,7 +409,6 @@
                 handle_drop_table_task(
                     header.cluster_id,
                     drop_table_task,
-                    <span class="self">self</span>.kv_store().clone(),
                     <span class="self">self</span>.ddl_manager().clone(),
                 )
                 .<span class="kw">await</span><span class="question-mark">?
@@ -450,7 +425,6 @@
                 handle_truncate_table_task(
                     header.cluster_id,
                     truncate_table_task,
-                    <span class="self">self</span>.kv_store().clone(),
                     <span class="self">self</span>.ddl_manager().clone(),
                 )
                 .<span class="kw">await</span><span class="question-mark">?
@@ -488,7 +462,7 @@
         .map(Into::into)
         .collect();
 
-    <span class="kw">let </span>table_route = handle_create_table_route(
+    <span class="kw">let </span>region_routes = handle_create_region_routes(
         cluster_id,
         table_name,
         partitions,
@@ -498,25 +472,25 @@
         table_id_sequence,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="kw">let </span>table_id = table_route.table.id;
 
-    <span class="kw">let </span>id = ddl_manager
-        .submit_create_table_task(cluster_id, create_table_task, table_route)
+    <span class="kw">let </span>table_id = create_table_task.table_info.ident.table_id;
+
+    <span class="comment">// TODO(weny): refactor the table route.
+    </span><span class="kw">let </span>id = ddl_manager
+        .submit_create_table_task(cluster_id, create_table_task, region_routes)
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="macro">info!</span>(<span class="string">&quot;Table: {table_id} is dropped via procedure_id {id:?}&quot;</span>);
 
     <span class="prelude-val">Ok</span>(SubmitDdlTaskResponse {
         key: id.to_string().into(),
-        table_id: <span class="prelude-val">Some</span>(TableId {
-            id: table_id <span class="kw">as </span>u32,
-        }),
+        table_id: <span class="prelude-val">Some</span>(TableId { id: table_id }),
         ..Default::default()
     })
 }
 
 <span class="doccomment">/// pre-calculates create table task&#39;s metadata.
-</span><span class="kw">async fn </span>handle_create_table_route(
+</span><span class="kw">async fn </span>handle_create_region_routes(
     cluster_id: u64,
     table_name: TableName,
     partitions: Vec&lt;Partition&gt;,
@@ -524,7 +498,7 @@
     ctx: SelectorContext,
     selector: SelectorRef,
     table_id_sequence: SequenceRef,
-) -&gt; <span class="prelude-ty">Result</span>&lt;router::TableRoute&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;RegionRoute&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>peers = selector.select(cluster_id, <span class="kw-2">&amp;</span>ctx).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="kw">if </span>peers.len() &lt; partitions.len() {
@@ -543,70 +517,61 @@
     <span class="kw">let </span>id = table_id_sequence.next().<span class="kw">await</span><span class="question-mark">?</span>;
     table_info.ident.table_id = id <span class="kw">as </span>u32;
 
-    <span class="kw">let </span>table = Table {
-        id,
-        table_name: <span class="prelude-val">Some</span>(table_name.into()),
-        ..Default::default()
-    };
-
     <span class="macro">ensure!</span>(
         partitions.len() &lt;= MAX_REGION_SEQ <span class="kw">as </span>usize,
         TooManyPartitionsSnafu
     );
+
     <span class="kw">let </span>region_routes = partitions
         .into_iter()
         .enumerate()
         .map(|(i, partition)| {
             <span class="kw">let </span>region = Region {
-                id: i <span class="kw">as </span>u64,
-                partition: <span class="prelude-val">Some</span>(partition),
+                id: RegionId::from_u64(i <span class="kw">as </span>u64),
+                partition: <span class="prelude-val">Some</span>(partition.into()),
                 ..Default::default()
             };
+            <span class="kw">let </span>peer = peers[i % peers.len()].clone();
             RegionRoute {
-                region: <span class="prelude-val">Some</span>(region),
-                leader_peer_index: (i % peers.len()) <span class="kw">as </span>u64,
-                follower_peer_indexes: <span class="macro">vec!</span>[], <span class="comment">// follower_peers is not supported at the moment
+                region,
+                leader_peer: <span class="prelude-val">Some</span>(peer.into()),
+                follower_peers: <span class="macro">vec!</span>[], <span class="comment">// follower_peers is not supported at the moment
             </span>}
         })
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-    <span class="kw">let </span>table_route = TableRoute {
-        table: <span class="prelude-val">Some</span>(table),
-        region_routes,
-    };
-
-    router::TableRoute::try_from_raw(<span class="kw-2">&amp;</span>peers, table_route).context(error::TableRouteConversionSnafu)
+    <span class="prelude-val">Ok</span>(region_routes)
 }
 
 <span class="kw">async fn </span>handle_drop_table_task(
     cluster_id: u64,
     drop_table_task: DropTableTask,
-    kv_store: KvStoreRef,
     ddl_manager: DdlManagerRef,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SubmitDdlTaskResponse&gt; {
     <span class="kw">let </span>table_id = drop_table_task.table_id;
+    <span class="kw">let </span>table_metadata_manager = <span class="kw-2">&amp;</span>ddl_manager.table_metadata_manager;
+    <span class="kw">let </span>table_ref = drop_table_task.table_ref();
 
-    <span class="kw">let </span>table_route_key = TableRouteKey {
-        table_id,
-        catalog_name: <span class="kw-2">&amp;</span>drop_table_task.catalog,
-        schema_name: <span class="kw-2">&amp;</span>drop_table_task.schema,
-        table_name: <span class="kw-2">&amp;</span>drop_table_task.table,
-    };
+    <span class="kw">let </span>(table_info_value, table_route_value) = table_metadata_manager
+        .get_full_table_info(table_id)
+        .<span class="kw">await
+        </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>table_route_value = get_table_route_value(<span class="kw-2">&amp;</span>kv_store, <span class="kw-2">&amp;</span>table_route_key).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>table_info_value = table_info_value.with_context(|| error::TableInfoNotFoundSnafu {
+        table_name: table_ref.to_string(),
+    })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>table_route = router::TableRoute::try_from_raw(
-        <span class="kw-2">&amp;</span>table_route_value.peers,
-        table_route_value
-            .table_route
-            .context(error::UnexpectedSnafu {
-                violated: <span class="string">&quot;expected table_route&quot;</span>,
-            })<span class="question-mark">?</span>,
-    )
-    .context(error::TableRouteConversionSnafu)<span class="question-mark">?</span>;
+    <span class="kw">let </span>table_route_value = table_route_value.with_context(|| error::TableRouteNotFoundSnafu {
+        table_name: table_ref.to_string(),
+    })<span class="question-mark">?</span>;
 
     <span class="kw">let </span>id = ddl_manager
-        .submit_drop_table_task(cluster_id, drop_table_task, table_route)
+        .submit_drop_table_task(
+            cluster_id,
+            drop_table_task,
+            table_info_value,
+            table_route_value,
+        )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(SubmitDdlTaskResponse {
@@ -641,10 +606,11 @@
         .get(table_id)
         .<span class="kw">await
         </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?
-        </span>.with_context(|| error::TableNotFoundSnafu {
-            name: table_ref.to_string(),
+        </span>.with_context(|| error::TableInfoNotFoundSnafu {
+            table_name: table_ref.to_string(),
         })<span class="question-mark">?</span>;
-    <span class="kw">let </span>table_info = table_info_value.table_info;
+
+    <span class="kw">let </span>table_info = <span class="kw-2">&amp;</span>table_info_value.table_info;
 
     <span class="comment">// Sets alter_table&#39;s table_version
     </span>alter_table_task.alter_table.table_version = table_info.ident.version;
@@ -655,7 +621,7 @@
             cluster_id,
             alter_table_task,
             alter_table_request,
-            table_info,
+            table_info_value,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -670,7 +636,6 @@
 <span class="kw">async fn </span>handle_truncate_table_task(
     cluster_id: u64,
     truncate_table_task: TruncateTableTask,
-    kv_store: KvStoreRef,
     ddl_manager: DdlManagerRef,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SubmitDdlTaskResponse&gt; {
     <span class="kw">let </span>truncate_table = <span class="kw-2">&amp;</span>truncate_table_task.truncate_table;
@@ -682,24 +647,19 @@
         })<span class="question-mark">?
         </span>.id;
 
-    <span class="kw">let </span>table_route_key = TableRouteKey {
-        table_id,
-        catalog_name: <span class="kw-2">&amp;</span>truncate_table.catalog_name,
-        schema_name: <span class="kw-2">&amp;</span>truncate_table.schema_name,
-        table_name: <span class="kw-2">&amp;</span>truncate_table.table_name,
-    };
+    <span class="kw">let </span>table_ref = truncate_table_task.table_ref();
 
-    <span class="kw">let </span>table_route_value = get_table_route_value(<span class="kw-2">&amp;</span>kv_store, <span class="kw-2">&amp;</span>table_route_key).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>table_route_value = ddl_manager
+        .table_metadata_manager
+        .table_route_manager()
+        .get(table_id)
+        .<span class="kw">await
+        </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?
+        </span>.with_context(|| error::TableRouteNotFoundSnafu {
+            table_name: table_ref.to_string(),
+        })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>table_route = router::TableRoute::try_from_raw(
-        <span class="kw-2">&amp;</span>table_route_value.peers,
-        table_route_value
-            .table_route
-            .context(error::UnexpectedSnafu {
-                violated: <span class="string">&quot;expected table_route&quot;</span>,
-            })<span class="question-mark">?</span>,
-    )
-    .context(error::TableRouteConversionSnafu)<span class="question-mark">?</span>;
+    <span class="kw">let </span>table_route = table_route_value.region_routes;
 
     <span class="kw">let </span>id = ddl_manager
         .submit_truncate_table_task(cluster_id, truncate_table_task, table_route)

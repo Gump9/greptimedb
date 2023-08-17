@@ -359,13 +359,13 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(table_id) = table_id {
             <span class="kw">let </span>table_region_value = <span class="self">self
                 </span>.table_metadata_manager
-                .table_region_manager()
+                .table_route_manager()
                 .get(table_id)
                 .<span class="kw">await
                 </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?
                 </span>.map(|x| <span class="macro">format!</span>(<span class="string">&quot;{x:?}&quot;</span>))
                 .unwrap_or_else(|| <span class="string">&quot;Not Found&quot;</span>.to_string());
-            result.insert(<span class="string">&quot;table_region_value&quot;</span>, table_region_value);
+            result.insert(<span class="string">&quot;table_route_value&quot;</span>, table_region_value);
         }
 
         http::Response::builder()

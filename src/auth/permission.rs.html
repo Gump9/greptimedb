@@ -58,6 +58,10 @@
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -77,7 +81,7 @@
 <span class="kw">use </span>api::v1::greptime_request::Request;
 <span class="kw">use </span>sql::statements::statement::Statement;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::Result;
+<span class="kw">use </span><span class="kw">crate</span>::error::{PermissionDeniedSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use crate</span>::{PermissionCheckerRef, UserInfoRef};
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -113,7 +117,11 @@
         req: PermissionReq,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PermissionResp&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="prelude-val">Some</span>(checker) =&gt; checker.check_permission(user_info, req),
+            <span class="prelude-val">Some</span>(checker) =&gt; <span class="kw">match </span>checker.check_permission(user_info, req) {
+                <span class="prelude-val">Ok</span>(PermissionResp::Reject) =&gt; PermissionDeniedSnafu.fail(),
+                <span class="prelude-val">Ok</span>(PermissionResp::Allow) =&gt; <span class="prelude-val">Ok</span>(PermissionResp::Allow),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
+            },
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(PermissionResp::Allow),
         }
     }

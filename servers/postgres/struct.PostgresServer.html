@@ -6,7 +6,7 @@
     query_handler: <a class="type" href="../query_handler/sql/type.ServerSqlQueryHandlerRef.html" title="type servers::query_handler::sql::ServerSqlQueryHandlerRef">ServerSqlQueryHandlerRef</a>,
     tls: <a class="struct" href="../tls/struct.TlsOption.html" title="struct servers::tls::TlsOption">TlsOption</a>,
     io_runtime: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../../common_runtime/runtime/struct.Runtime.html" title="struct common_runtime::runtime::Runtime">Runtime</a>&gt;,
-    user_provider: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;UserProviderRef&gt;
+    user_provider: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../../auth/type.UserProviderRef.html" title="type auth::UserProviderRef">UserProviderRef</a>&gt;
 ) -&gt; <a class="struct" href="server/struct.PostgresServer.html" title="struct servers::postgres::server::PostgresServer">PostgresServer</a></h4></section></summary><div class="docblock"><p>Creates a new Postgres server with provided query_handler and async runtime</p>
 </div></details><section id="method.accept" class="method"><a class="src rightside" href="../../src/servers/postgres/server.rs.html#64-109">source</a><h4 class="code-header">fn <a href="#method.accept" class="fn">accept</a>(
     &amp;self,

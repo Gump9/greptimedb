@@ -163,13 +163,13 @@
 <span class="kw">use </span>object_store::util::join_dir;
 <span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>snafu::{ensure, OptionExt};
+<span class="kw">use </span>store_api::metadata::RegionMetadata;
 <span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::MitoConfig;
 <span class="kw">use </span><span class="kw">crate</span>::error::{RegionCorruptedSnafu, RegionNotFoundSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::manifest::manager::{RegionManifestManager, RegionManifestOptions};
 <span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableBuilderRef;
-<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadata;
 <span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionBuilder, VersionControl};
 <span class="kw">use </span><span class="kw">crate</span>::region::MitoRegion;
 

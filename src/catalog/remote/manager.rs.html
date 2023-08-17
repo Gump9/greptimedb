@@ -415,6 +415,8 @@
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -440,6 +442,7 @@
 <span class="kw">use </span>common_meta::key::schema_name::SchemaNameKey;
 <span class="kw">use </span>common_meta::key::TableMetadataManagerRef;
 <span class="kw">use </span>common_telemetry::{error, info, warn};
+<span class="kw">use </span>futures_util::TryStreamExt;
 <span class="kw">use </span>metrics::increment_gauge;
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
 <span class="kw">use </span>table::engine::manager::TableEngineManagerRef;
@@ -491,6 +494,7 @@
             </span>.table_metadata_manager
             .datanode_table_manager()
             .tables(<span class="self">self</span>.node_id)
+            .try_collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             .<span class="kw">await
             </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 

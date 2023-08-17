@@ -416,6 +416,10 @@
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -440,8 +444,10 @@
     <span class="kw">use </span>common_base::Plugins;
     <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
     <span class="kw">use </span>common_meta::key::table_name::TableNameKey;
+    <span class="kw">use </span>common_meta::rpc::router::region_distribution;
     <span class="kw">use </span>common_query::Output;
     <span class="kw">use </span>common_recordbatch::RecordBatches;
+    <span class="kw">use </span>common_telemetry::debug;
     <span class="kw">use </span>frontend::error::{<span class="self">self</span>, Error, <span class="prelude-ty">Result</span>};
     <span class="kw">use </span>frontend::instance::Instance;
     <span class="kw">use </span>query::parser::QueryLanguageParser;
@@ -613,15 +619,17 @@
             </span>.unwrap()
             .unwrap()
             .table_id();
+        <span class="macro">debug!</span>(<span class="string">&quot;Reading table {table_id}&quot;</span>);
 
-        <span class="kw">let </span>table_region_value = manager
-            .table_region_manager()
+        <span class="kw">let </span>table_route_value = manager
+            .table_route_manager()
             .get(table_id)
             .<span class="kw">await
             </span>.unwrap()
             .unwrap();
-        <span class="kw">let </span>region_to_dn_map = table_region_value
-            .region_distribution
+
+        <span class="kw">let </span>region_to_dn_map = region_distribution(<span class="kw-2">&amp;</span>table_route_value.region_routes)
+            .unwrap()
             .iter()
             .map(|(k, v)| (v[<span class="number">0</span>], <span class="kw-2">*</span>k))
             .collect::&lt;HashMap&lt;u32, u64&gt;&gt;();

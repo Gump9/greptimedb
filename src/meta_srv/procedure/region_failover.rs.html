@@ -681,19 +681,6 @@
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -897,8 +884,8 @@
         <span class="kw">let </span>table_ident = <span class="kw-2">&amp;</span>failed_region.table_ident;
         <span class="prelude-val">Ok</span>(<span class="self">self
             </span>.table_metadata_manager
-            .table_region_manager()
-            .get(table_ident.table_id)
+            .table_route_manager()
+            .get_region_distribution(table_ident.table_id)
             .<span class="kw">await
             </span>.context(TableMetadataManagerSnafu)<span class="question-mark">?
             </span>.is_some())
@@ -1106,16 +1093,15 @@
 
     <span class="kw">impl </span>TestingEnv {
         <span class="kw">pub async fn </span>failed_region(<span class="kw-2">&amp;</span><span class="self">self</span>, region_number: u32) -&gt; RegionIdent {
-            <span class="kw">let </span>value = <span class="self">self
+            <span class="kw">let </span>region_distribution = <span class="self">self
                 </span>.context
                 .table_metadata_manager
-                .table_region_manager()
-                .get(<span class="number">1</span>)
+                .table_route_manager()
+                .get_region_distribution(<span class="number">1</span>)
                 .<span class="kw">await
                 </span>.unwrap()
                 .unwrap();
-            <span class="kw">let </span>failed_datanode = value
-                .region_distribution
+            <span class="kw">let </span>failed_datanode = region_distribution
                 .iter()
                 .find_map(|(<span class="kw-2">&amp;</span>datanode_id, regions)| {
                     <span class="kw">if </span>regions.contains(<span class="kw-2">&amp;</span>region_number) {
@@ -1149,12 +1135,6 @@
             <span class="self">Self </span>{ selector: <span class="prelude-val">None </span>}
         }
 
-        <span class="attr">#[allow(unused)]
-        </span><span class="kw">pub fn </span>with_selector(<span class="kw-2">mut </span><span class="self">self</span>, selector: SelectorRef) -&gt; <span class="self">Self </span>{
-            <span class="self">self</span>.selector = <span class="prelude-val">Some</span>(selector);
-            <span class="self">self
-        </span>}
-
         <span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; TestingEnv {
             <span class="kw">let </span>in_memory = Arc::new(MemStore::new());
             <span class="kw">let </span>kv_store: KvStoreRef = Arc::new(MemStore::new());
@@ -1175,14 +1155,12 @@
                 table,
             )
             .<span class="kw">await</span>;
-            <span class="kw">let </span>table_region_value = table_metadata_manager
-                .table_region_manager()
-                .get(<span class="number">1</span>)
+            <span class="kw">let </span>region_distribution = table_metadata_manager
+                .table_route_manager()
+                .get_region_distribution(<span class="number">1</span>)
                 .<span class="kw">await
                 </span>.unwrap()
                 .unwrap();
-
-            <span class="kw">let _ </span>= table_routes::tests::prepare_table_route_value(<span class="kw-2">&amp;</span>kv_store, table).<span class="kw">await</span>;
 
             <span class="kw">let </span>pushers = Pushers::default();
             <span class="kw">let </span><span class="kw-2">mut </span>heartbeat_receivers = HashMap::with_capacity(<span class="number">3</span>);
@@ -1201,7 +1179,7 @@
             <span class="kw">let </span>mailbox = HeartbeatMailbox::create(pushers.clone(), mailbox_sequence);
 
             <span class="kw">let </span>selector = <span class="self">self</span>.selector.unwrap_or_else(|| {
-                <span class="kw">let </span>nodes = (<span class="number">1</span>..=table_region_value.region_distribution.len())
+                <span class="kw">let </span>nodes = (<span class="number">1</span>..=region_distribution.len())
                     .map(|id| Peer {
                         id: id <span class="kw">as </span>u64,
                         addr: <span class="string">&quot;&quot;</span>.to_string(),
@@ -1341,23 +1319,19 @@
         </span>);
 
         <span class="comment">// Verifies that the failed region (region 1) is moved from failed datanode (datanode 1) to the candidate datanode.
-        </span><span class="kw">let </span>value = env
+        </span><span class="kw">let </span>region_distribution = env
             .context
             .table_metadata_manager
-            .table_region_manager()
-            .get(<span class="number">1</span>)
+            .table_route_manager()
+            .get_region_distribution(<span class="number">1</span>)
             .<span class="kw">await
             </span>.unwrap()
             .unwrap();
         <span class="macro">assert_eq!</span>(
-            value
-                .region_distribution
-                .get(<span class="kw-2">&amp;</span>failed_region.datanode_id)
-                .unwrap(),
+            region_distribution.get(<span class="kw-2">&amp;</span>failed_region.datanode_id).unwrap(),
             <span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">2</span>]
         );
-        <span class="macro">assert!</span>(value
-            .region_distribution
+        <span class="macro">assert!</span>(region_distribution
             .get(<span class="kw-2">&amp;</span>candidate_rx.recv().<span class="kw">await</span>.unwrap())
             .unwrap()
             .contains(<span class="kw-2">&amp;</span><span class="number">1</span>));

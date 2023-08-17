@@ -433,9 +433,9 @@
 <span class="kw">use </span>common_meta::key::schema_name::{SchemaNameKey, SchemaNameValue};
 <span class="kw">use </span>common_meta::key::table_info::{TableInfoKey, TableInfoValue};
 <span class="kw">use </span>common_meta::key::table_name::{TableNameKey, TableNameValue};
-<span class="kw">use </span>common_meta::key::table_region::{RegionDistribution, TableRegionKey, TableRegionValue};
+<span class="kw">use </span>common_meta::key::table_region::{TableRegionKey, TableRegionValue};
 <span class="kw">use </span>common_meta::key::table_route::{NextTableRouteKey, TableRouteValue <span class="kw">as </span>NextTableRouteValue};
-<span class="kw">use </span>common_meta::key::TableMetaKey;
+<span class="kw">use </span>common_meta::key::{RegionDistribution, TableMetaKey};
 <span class="kw">use </span>common_meta::range_stream::PaginationStream;
 <span class="kw">use </span>common_meta::rpc::router::TableRoute;
 <span class="kw">use </span>common_meta::rpc::store::{BatchDeleteRequest, BatchPutRequest, PutRequest, RangeRequest};

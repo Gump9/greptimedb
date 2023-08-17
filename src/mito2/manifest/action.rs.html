@@ -272,10 +272,10 @@
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 <span class="kw">use </span>store_api::manifest::action::{ProtocolAction, ProtocolVersion};
 <span class="kw">use </span>store_api::manifest::ManifestVersion;
+<span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 <span class="kw">use </span>store_api::storage::{RegionId, SequenceNumber};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{RegionMetadataNotFoundSnafu, <span class="prelude-ty">Result</span>, SerdeJsonSnafu, Utf8Snafu};
-<span class="kw">use </span><span class="kw">crate</span>::metadata::RegionMetadataRef;
 <span class="kw">use </span><span class="kw">crate</span>::sst::file::{FileId, FileMeta};
 
 <span class="doccomment">/// Actions that can be applied to region manifest.

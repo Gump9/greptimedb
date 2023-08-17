@@ -705,6 +705,12 @@
 <a href="#705" id="705">705</a>
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -853,6 +859,9 @@
         table: <span class="kw-2">&amp;</span>TableRef,
         column_vectors: HashMap&lt;String, VectorRef&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="kw">let </span>catalog_name = table_name.catalog.to_string();
+        <span class="kw">let </span>schema_name = table_name.schema.to_string();
+        <span class="kw">let </span>table_name = table_name.table.to_string();
         <span class="kw">let </span>table_schema = table.schema();
         <span class="kw">let </span>ts_column = table_schema
             .timestamp_column()
@@ -872,6 +881,9 @@
             .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
         <span class="kw">let </span>request = DeleteRequest {
+            catalog_name,
+            schema_name,
+            table_name,
             key_column_values: column_vectors,
         };
 

@@ -212,6 +212,7 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -229,13 +230,14 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>client::client_manager::DatanodeClients;
+<span class="kw">use </span>common_meta::key::table_info::TableInfoValue;
+<span class="kw">use </span>common_meta::key::table_route::TableRouteValue;
 <span class="kw">use </span>common_meta::key::TableMetadataManagerRef;
 <span class="kw">use </span>common_meta::rpc::ddl::{AlterTableTask, CreateTableTask, DropTableTask, TruncateTableTask};
-<span class="kw">use </span>common_meta::rpc::router::TableRoute;
+<span class="kw">use </span>common_meta::rpc::router::RegionRoute;
 <span class="kw">use </span>common_procedure::{watcher, ProcedureId, ProcedureManagerRef, ProcedureWithId};
 <span class="kw">use </span>common_telemetry::error;
 <span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>table::metadata::RawTableInfo;
 <span class="kw">use </span>table::requests::AlterTableRequest;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
@@ -246,13 +248,11 @@
 <span class="kw">use </span><span class="kw">crate</span>::procedure::create_table::CreateTableProcedure;
 <span class="kw">use </span><span class="kw">crate</span>::procedure::drop_table::DropTableProcedure;
 <span class="kw">use </span><span class="kw">crate</span>::service::mailbox::MailboxRef;
-<span class="kw">use </span><span class="kw">crate</span>::service::store::kv::KvStoreRef;
 
 <span class="kw">pub type </span>DdlManagerRef = Arc&lt;DdlManager&gt;;
 
 <span class="kw">pub struct </span>DdlManager {
     procedure_manager: ProcedureManagerRef,
-    kv_store: KvStoreRef,
     datanode_clients: Arc&lt;DatanodeClients&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) mailbox: MailboxRef,
     <span class="kw">pub</span>(<span class="kw">crate</span>) server_addr: String,
@@ -261,18 +261,15 @@
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DdlContext {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) kv_store: KvStoreRef,
     <span class="kw">pub</span>(<span class="kw">crate</span>) datanode_clients: Arc&lt;DatanodeClients&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) mailbox: MailboxRef,
     <span class="kw">pub</span>(<span class="kw">crate</span>) server_addr: String,
-    <span class="attr">#[allow(unused)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) table_metadata_manager: TableMetadataManagerRef,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) table_metadata_manager: TableMetadataManagerRef,
 }
 
 <span class="kw">impl </span>DdlManager {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
         procedure_manager: ProcedureManagerRef,
-        kv_store: KvStoreRef,
         datanode_clients: Arc&lt;DatanodeClients&gt;,
         mailbox: MailboxRef,
         server_addr: String,
@@ -280,7 +277,6 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             procedure_manager,
-            kv_store,
             datanode_clients,
             mailbox,
             server_addr,
@@ -290,7 +286,6 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DdlContext {
         DdlContext {
-            kv_store: <span class="self">self</span>.kv_store.clone(),
             datanode_clients: <span class="self">self</span>.datanode_clients.clone(),
             mailbox: <span class="self">self</span>.mailbox.clone(),
             server_addr: <span class="self">self</span>.server_addr.clone(),
@@ -347,7 +342,7 @@
         cluster_id: u64,
         alter_table_task: AlterTableTask,
         alter_table_request: AlterTableRequest,
-        table_info: RawTableInfo,
+        table_info_value: TableInfoValue,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ProcedureId&gt; {
         <span class="kw">let </span>context = <span class="self">self</span>.create_context();
 
@@ -355,7 +350,7 @@
             cluster_id,
             alter_table_task,
             alter_table_request,
-            table_info,
+            table_info_value,
             context,
         );
 
@@ -368,12 +363,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cluster_id: u64,
         create_table_task: CreateTableTask,
-        table_route: TableRoute,
+        region_routes: Vec&lt;RegionRoute&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ProcedureId&gt; {
         <span class="kw">let </span>context = <span class="self">self</span>.create_context();
 
         <span class="kw">let </span>procedure =
-            CreateTableProcedure::new(cluster_id, create_table_task, table_route, context);
+            CreateTableProcedure::new(cluster_id, create_table_task, region_routes, context);
 
         <span class="kw">let </span>procedure_with_id = ProcedureWithId::with_random_id(Box::new(procedure));
 
@@ -384,11 +379,18 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cluster_id: u64,
         drop_table_task: DropTableTask,
-        table_route: TableRoute,
+        table_info_value: TableInfoValue,
+        table_route_value: TableRouteValue,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ProcedureId&gt; {
         <span class="kw">let </span>context = <span class="self">self</span>.create_context();
 
-        <span class="kw">let </span>procedure = DropTableProcedure::new(cluster_id, drop_table_task, table_route, context);
+        <span class="kw">let </span>procedure = DropTableProcedure::new(
+            cluster_id,
+            drop_table_task,
+            table_route_value,
+            table_info_value,
+            context,
+        );
 
         <span class="kw">let </span>procedure_with_id = ProcedureWithId::with_random_id(Box::new(procedure));
 
@@ -399,10 +401,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cluster_id: u64,
         truncate_table_task: TruncateTableTask,
-        table_route: TableRoute,
+        region_routes: Vec&lt;RegionRoute&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ProcedureId&gt; {
-        <span class="macro">error!</span>(<span class="string">&quot;truncate table procedure is not supported, cluster_id = {}, truncate_table_task = {:?}, table_route = {:?}&quot;</span>,
-            cluster_id, truncate_table_task, table_route);
+        <span class="macro">error!</span>(<span class="string">&quot;truncate table procedure is not supported, cluster_id = {}, truncate_table_task = {:?}, region_routes = {:?}&quot;</span>,
+            cluster_id, truncate_table_task, region_routes);
 
         UnsupportedSnafu {
             operation: <span class="string">&quot;TRUNCATE TABLE&quot;</span>,

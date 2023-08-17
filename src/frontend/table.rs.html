@@ -701,83 +701,6 @@
 <a href="#701" id="701">701</a>
 <a href="#702" id="702">702</a>
 <a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -793,7 +716,6 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>std::any::Any;
-<span class="kw">use </span>std::iter;
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -804,7 +726,6 @@
 <span class="kw">use </span>common_query::error::Result <span class="kw">as </span>QueryResult;
 <span class="kw">use </span>common_query::logical_plan::Expr;
 <span class="kw">use </span>common_query::physical_plan::{PhysicalPlan, PhysicalPlanRef};
-<span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_recordbatch::adapter::AsyncRecordBatchStreamAdapter;
 <span class="kw">use </span>common_recordbatch::error::{
     InitRecordbatchStreamSnafu, PollStreamSnafu, <span class="prelude-ty">Result </span><span class="kw">as </span>RecordBatchResult,
@@ -819,9 +740,8 @@
 <span class="kw">use </span>datafusion_common::DataFusionError;
 <span class="kw">use </span>datatypes::schema::{ColumnSchema, Schema, SchemaRef};
 <span class="kw">use </span>futures_util::{Stream, StreamExt};
-<span class="kw">use </span>partition::splitter::WriteSplitter;
 <span class="kw">use </span>snafu::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>store_api::storage::{RegionNumber, ScanRequest};
+<span class="kw">use </span>store_api::storage::ScanRequest;
 <span class="kw">use </span>table::error::TableOperationSnafu;
 <span class="kw">use </span>table::metadata::{FilterPushDownType, TableInfoRef, TableType};
 <span class="kw">use </span>table::requests::{DeleteRequest, InsertRequest};
@@ -829,12 +749,12 @@
 <span class="kw">use </span>tokio::sync::RwLock;
 
 <span class="kw">use </span><span class="kw">crate</span>::catalog::FrontendCatalogManager;
-<span class="kw">use </span><span class="kw">crate</span>::error::{FindDatanodeSnafu, FindTableRouteSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::Result;
+<span class="kw">use </span><span class="kw">crate</span>::instance::distributed::deleter::DistDeleter;
 <span class="kw">use </span><span class="kw">crate</span>::instance::distributed::inserter::DistInserter;
-<span class="kw">use </span><span class="kw">crate</span>::table::delete::to_grpc_delete_request;
 <span class="kw">use </span><span class="kw">crate</span>::table::scan::{DatanodeInstance, TableScanPlan};
 
-<span class="kw">mod </span>delete;
+<span class="kw">pub mod </span>delete;
 <span class="kw">pub mod </span>insert;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>scan;
 
@@ -954,58 +874,17 @@
     }
 
     <span class="kw">async fn </span>delete(<span class="kw-2">&amp;</span><span class="self">self</span>, request: DeleteRequest) -&gt; table::Result&lt;usize&gt; {
-        <span class="kw">let </span>partition_manager = <span class="self">self</span>.catalog_manager.partition_manager();
-
-        <span class="kw">let </span>table_id = <span class="self">self</span>.table_info.table_id();
-        <span class="kw">let </span>partition_rule = partition_manager
-            .find_table_partition_rule(table_id)
+        <span class="kw">let </span>deleter = DistDeleter::new(
+            request.catalog_name.clone(),
+            request.schema_name.clone(),
+            <span class="self">self</span>.catalog_manager.clone(),
+        );
+        <span class="kw">let </span>affected_rows = deleter
+            .delete(<span class="macro">vec!</span>[request])
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
             .context(TableOperationSnafu)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>schema = <span class="self">self</span>.schema();
-        <span class="kw">let </span>time_index = <span class="kw-2">&amp;</span>schema
-            .timestamp_column()
-            .with_context(|| table::error::MissingTimeIndexColumnSnafu {
-                table_name: <span class="self">self</span>.table_name.to_string(),
-            })<span class="question-mark">?
-            </span>.name;
-
-        <span class="kw">let </span>table_info = <span class="self">self</span>.table_info();
-        <span class="kw">let </span>key_column_names = table_info
-            .meta
-            .row_key_column_names()
-            .chain(iter::once(time_index))
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-        <span class="kw">let </span>requests = WriteSplitter::with_partition_rule(partition_rule)
-            .split_delete(request, key_column_names)
-            .map_err(BoxedError::new)
-            .and_then(|requests| {
-                requests
-                    .into_iter()
-                    .map(|(region_number, request)| {
-                        to_grpc_delete_request(
-                            <span class="kw-2">&amp;</span>table_info.meta,
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.table_name,
-                            region_number,
-                            request,
-                        )
-                    })
-                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()
-                    .map_err(BoxedError::new)
-            })
-            .context(TableOperationSnafu)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>output = <span class="self">self
-            </span>.dist_delete(requests)
-            .<span class="kw">await
-            </span>.map_err(BoxedError::new)
-            .context(TableOperationSnafu)<span class="question-mark">?</span>;
-        <span class="kw">let </span>Output::AffectedRows(rows) = output <span class="kw">else </span>{
-            <span class="macro">unreachable!</span>()
-        };
-        <span class="prelude-val">Ok</span>(rows)
+        <span class="prelude-val">Ok</span>(affected_rows)
     }
 }
 
@@ -1020,39 +899,6 @@
             table_info,
             catalog_manager,
         }
-    }
-
-    <span class="kw">async fn </span>find_datanode_instances(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        regions: <span class="kw-2">&amp;</span>[RegionNumber],
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;DatanodeInstance&gt;&gt; {
-        <span class="kw">let </span>table_name = <span class="kw-2">&amp;</span><span class="self">self</span>.table_name;
-        <span class="kw">let </span>route = <span class="self">self
-            </span>.catalog_manager
-            .partition_manager()
-            .find_table_route(<span class="self">self</span>.table_info.table_id())
-            .<span class="kw">await
-            </span>.with_context(|<span class="kw">_</span>| FindTableRouteSnafu {
-                table_name: table_name.to_string(),
-            })<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>datanodes = regions
-            .iter()
-            .map(|<span class="kw-2">&amp;</span>n| {
-                route
-                    .find_region_leader(n)
-                    .context(FindDatanodeSnafu { region: n })
-            })
-            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>datanode_clients = <span class="self">self</span>.catalog_manager.datanode_clients();
-        <span class="kw">let </span><span class="kw-2">mut </span>instances = Vec::with_capacity(datanodes.len());
-        <span class="kw">for </span>datanode <span class="kw">in </span>datanodes {
-            <span class="kw">let </span>client = datanode_clients.get_client(datanode).<span class="kw">await</span>;
-            <span class="kw">let </span>db = Database::new(<span class="kw-2">&amp;</span>table_name.catalog_name, <span class="kw-2">&amp;</span>table_name.schema_name, client);
-            instances.push(DatanodeInstance::new(Arc::new(<span class="self">self</span>.clone()) <span class="kw">as _</span>, db));
-        }
-        <span class="prelude-val">Ok</span>(instances)
     }
 }
 
