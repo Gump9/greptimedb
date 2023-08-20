@@ -505,6 +505,36 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -529,14 +559,11 @@
 <span class="kw">use </span>catalog;
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
-<span class="kw">use </span>common_error::{GREPTIME_ERROR_CODE, GREPTIME_ERROR_MSG};
 <span class="kw">use </span>common_telemetry::logging;
 <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
 <span class="kw">use </span>query::parser::PromQuery;
 <span class="kw">use </span>serde_json::json;
-<span class="kw">use </span>snafu::{ErrorCompat, Location, Snafu};
-<span class="kw">use </span>tonic::codegen::http::{HeaderMap, HeaderValue};
-<span class="kw">use </span>tonic::metadata::MetadataMap;
+<span class="kw">use </span>snafu::{Location, Snafu};
 <span class="kw">use </span>tonic::Code;
 
 <span class="attr">#[derive(Debug, Snafu)]
@@ -838,6 +865,21 @@
         actual: opensrv_mysql::ColumnType,
         location: Location,
     },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Column: {}, {} incompatible, expected: {}, actual: {}&quot;</span>,
+        column_name,
+        datatype,
+        expected,
+        actual
+    ))]
+    </span>IncompatibleSchema {
+        column_name: String,
+        datatype: String,
+        expected: i32,
+        actual: i32,
+        location: Location,
+    },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -881,7 +923,8 @@
             | InvalidPrepareStatement { .. }
             | DataFrame { .. }
             | PreparedStmtTypeMismatch { .. }
-            | TimePrecision { .. } =&gt; StatusCode::InvalidArguments,
+            | TimePrecision { .. }
+            | IncompatibleSchema { .. } =&gt; StatusCode::InvalidArguments,
 
             InfluxdbLinesWrite { source, .. }
             | PromSeriesWrite { source, .. }
@@ -936,7 +979,7 @@
 }
 
 <span class="doccomment">/// Returns the tonic [Code] of a [StatusCode].
-</span><span class="kw">fn </span>status_to_tonic_code(status_code: StatusCode) -&gt; Code {
+</span><span class="kw">pub fn </span>status_to_tonic_code(status_code: StatusCode) -&gt; Code {
     <span class="kw">match </span>status_code {
         StatusCode::Success =&gt; Code::Ok,
         StatusCode::Unknown =&gt; Code::Unknown,
@@ -962,23 +1005,40 @@
     }
 }
 
-<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>tonic::Status {
-    <span class="kw">fn </span>from(err: Error) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::&lt;HeaderValue&gt;::with_capacity(<span class="number">2</span>);
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules! </span>define_into_tonic_status {
+    (<span class="macro-nonterminal">$Error</span>: ty) =&gt; {
+        <span class="kw">impl </span>From&lt;<span class="macro-nonterminal">$Error</span>&gt; <span class="kw">for </span>tonic::Status {
+            <span class="kw">fn </span>from(err: <span class="macro-nonterminal">$Error</span>) -&gt; <span class="self">Self </span>{
+                <span class="kw">use </span>common_error::{GREPTIME_ERROR_CODE, GREPTIME_ERROR_MSG};
+                <span class="kw">use </span>snafu::ErrorCompat;
+                <span class="kw">use </span>tonic::codegen::http::{HeaderMap, HeaderValue};
+                <span class="kw">use </span>tonic::metadata::MetadataMap;
 
-        <span class="comment">// If either of the status_code or error msg cannot convert to valid HTTP header value
-        // (which is a very rare case), just ignore. Client will use Tonic status code and message.
-        </span><span class="kw">let </span>status_code = err.status_code();
-        headers.insert(GREPTIME_ERROR_CODE, HeaderValue::from(status_code <span class="kw">as </span>u32));
-        <span class="kw">let </span>root_error = err.iter_chain().last().unwrap();
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(err_msg) = HeaderValue::from_bytes(root_error.to_string().as_bytes()) {
-            <span class="kw">let _ </span>= headers.insert(GREPTIME_ERROR_MSG, err_msg);
+                <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::&lt;HeaderValue&gt;::with_capacity(<span class="number">2</span>);
+
+                <span class="comment">// If either of the status_code or error msg cannot convert to valid HTTP header value
+                // (which is a very rare case), just ignore. Client will use Tonic status code and message.
+                </span><span class="kw">let </span>status_code = err.status_code();
+                headers.insert(GREPTIME_ERROR_CODE, HeaderValue::from(status_code <span class="kw">as </span>u32));
+                <span class="kw">let </span>root_error = err.iter_chain().last().unwrap();
+
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(err_msg) = HeaderValue::from_bytes(root_error.to_string().as_bytes()) {
+                    <span class="kw">let _ </span>= headers.insert(GREPTIME_ERROR_MSG, err_msg);
+                }
+
+                <span class="kw">let </span>metadata = MetadataMap::from_headers(headers);
+                tonic::Status::with_metadata(
+                    <span class="macro-nonterminal">$crate::error::status_to_tonic_code</span>(status_code),
+                    err.to_string(),
+                    metadata,
+                )
+            }
         }
-
-        <span class="kw">let </span>metadata = MetadataMap::from_headers(headers);
-        tonic::Status::with_metadata(status_to_tonic_code(status_code), err.to_string(), metadata)
-    }
+    };
 }
+
+<span class="macro">define_into_tonic_status!</span>(Error);
 
 <span class="kw">impl </span>From&lt;std::io::Error&gt; <span class="kw">for </span>Error {
     <span class="kw">fn </span>from(e: std::io::Error) -&gt; <span class="self">Self </span>{

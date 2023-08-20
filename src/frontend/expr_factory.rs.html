@@ -351,7 +351,6 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -367,7 +366,6 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>api::helper::ColumnDataTypeWrapper;
 <span class="kw">use </span>api::v1::alter_expr::Kind;
@@ -376,6 +374,7 @@
     DropColumns, RenameTable,
 };
 <span class="kw">use </span>common_error::ext::BoxedError;
+<span class="kw">use </span>common_grpc_expr::util::ColumnExpr;
 <span class="kw">use </span>datanode::instance::sql::table_idents_to_full_name;
 <span class="kw">use </span>datatypes::schema::ColumnSchema;
 <span class="kw">use </span>file_table_engine::table::immutable::ImmutableFileTableOptions;
@@ -387,49 +386,51 @@
 <span class="kw">use </span>sql::statements::create::{CreateExternalTable, CreateTable, TIME_INDEX};
 <span class="kw">use </span>sql::statements::{column_def_to_schema, sql_column_def_to_grpc_column_def};
 <span class="kw">use </span>sql::util::to_lowercase_options_map;
+<span class="kw">use </span>table::engine::TableReference;
 <span class="kw">use </span>table::requests::{TableOptions, IMMUTABLE_TABLE_META_KEY};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
-    <span class="self">self</span>, BuildCreateExprOnInsertionSnafu, ColumnDataTypeSnafu,
-    ConvertColumnDefaultConstraintSnafu, ExternalSnafu, IllegalPrimaryKeysDefSnafu,
-    InvalidSqlSnafu, ParseSqlSnafu, <span class="prelude-ty">Result</span>,
+    BuildCreateExprOnInsertionSnafu, ColumnDataTypeSnafu, ConvertColumnDefaultConstraintSnafu,
+    EncodeJsonSnafu, ExternalSnafu, IllegalPrimaryKeysDefSnafu, InvalidSqlSnafu, NotSupportedSnafu,
+    ParseSqlSnafu, PrepareImmutableTableSnafu, <span class="prelude-ty">Result</span>, UnrecognizedTableOptionSnafu,
 };
 
-<span class="kw">pub type </span>CreateExprFactoryRef = Arc&lt;<span class="kw">dyn </span>CreateExprFactory + Send + Sync&gt;;
+<span class="attr">#[derive(Debug, Copy, Clone)]
+</span><span class="kw">pub struct </span>CreateExprFactory;
 
-<span class="attr">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>CreateExprFactory {
-    <span class="kw">async fn </span>create_expr_by_columns(
+<span class="kw">impl </span>CreateExprFactory {
+    <span class="kw">pub fn </span>create_table_expr_by_columns(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        catalog_name: <span class="kw-2">&amp;</span>str,
-        schema_name: <span class="kw-2">&amp;</span>str,
-        table_name: <span class="kw-2">&amp;</span>str,
-        columns: <span class="kw-2">&amp;</span>[Column],
-        engine: <span class="kw-2">&amp;</span>str,
-    ) -&gt; <span class="kw">crate</span>::error::Result&lt;CreateTableExpr&gt;;
-}
-
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>DefaultCreateExprFactory;
-
-<span class="attr">#[async_trait::async_trait]
-</span><span class="kw">impl </span>CreateExprFactory <span class="kw">for </span>DefaultCreateExprFactory {
-    <span class="kw">async fn </span>create_expr_by_columns(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        catalog_name: <span class="kw-2">&amp;</span>str,
-        schema_name: <span class="kw-2">&amp;</span>str,
-        table_name: <span class="kw-2">&amp;</span>str,
+        table_name: <span class="kw-2">&amp;</span>TableReference&lt;<span class="lifetime">&#39;_</span>&gt;,
         columns: <span class="kw-2">&amp;</span>[Column],
         engine: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;CreateTableExpr&gt; {
-        <span class="kw">let </span>table_id = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>create_expr = common_grpc_expr::build_create_expr_from_insertion(
-            catalog_name,
-            schema_name,
-            table_id,
+        <span class="kw">let </span>column_exprs = ColumnExpr::from_columns(columns);
+        <span class="kw">let </span>create_expr = common_grpc_expr::util::build_create_table_expr(
+            <span class="prelude-val">None</span>,
             table_name,
-            columns,
+            column_exprs,
             engine,
+            <span class="string">&quot;Created on insertion&quot;</span>,
+        )
+        .context(BuildCreateExprOnInsertionSnafu)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(create_expr)
+    }
+
+    <span class="kw">pub fn </span>create_table_expr_by_column_schemas(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_name: <span class="kw-2">&amp;</span>TableReference&lt;<span class="lifetime">&#39;_</span>&gt;,
+        column_schemas: <span class="kw-2">&amp;</span>[api::v1::ColumnSchema],
+        engine: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;CreateTableExpr&gt; {
+        <span class="kw">let </span>column_exprs = ColumnExpr::from_column_schemas(column_schemas);
+        <span class="kw">let </span>create_expr = common_grpc_expr::util::build_create_table_expr(
+            <span class="prelude-val">None</span>,
+            table_name,
+            column_exprs,
+            engine,
+            <span class="string">&quot;Created on insertion&quot;</span>,
         )
         .context(BuildCreateExprOnInsertionSnafu)<span class="question-mark">?</span>;
 
@@ -444,18 +445,18 @@
     <span class="kw">let </span>(catalog_name, schema_name, table_name) =
         table_idents_to_full_name(<span class="kw-2">&amp;</span>create.name, query_ctx)
             .map_err(BoxedError::new)
-            .context(error::ExternalSnafu)<span class="question-mark">?</span>;
+            .context(ExternalSnafu)<span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>options = create.options;
 
     <span class="kw">let </span>(files, schema) = prepare_immutable_file_table_files_and_schema(<span class="kw-2">&amp;</span>options, <span class="kw-2">&amp;</span>create.columns)
         .<span class="kw">await
-        </span>.context(error::PrepareImmutableTableSnafu)<span class="question-mark">?</span>;
+        </span>.context(PrepareImmutableTableSnafu)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>meta = ImmutableFileTableOptions { files };
     <span class="kw">let _ </span>= options.insert(
         IMMUTABLE_TABLE_META_KEY.to_string(),
-        serde_json::to_string(<span class="kw-2">&amp;</span>meta).context(error::EncodeJsonSnafu)<span class="question-mark">?</span>,
+        serde_json::to_string(<span class="kw-2">&amp;</span>meta).context(EncodeJsonSnafu)<span class="question-mark">?</span>,
     );
 
     <span class="kw">let </span>expr = CreateTableExpr {
@@ -480,12 +481,12 @@
     <span class="kw">let </span>(catalog_name, schema_name, table_name) =
         table_idents_to_full_name(<span class="kw-2">&amp;</span>create.name, query_ctx)
             .map_err(BoxedError::new)
-            .context(error::ExternalSnafu)<span class="question-mark">?</span>;
+            .context(ExternalSnafu)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>time_index = find_time_index(<span class="kw-2">&amp;</span>create.constraints)<span class="question-mark">?</span>;
     <span class="kw">let </span>table_options = HashMap::from(
         <span class="kw-2">&amp;</span>TableOptions::try_from(<span class="kw-2">&amp;</span>to_lowercase_options_map(<span class="kw-2">&amp;</span>create.options))
-            .context(error::UnrecognizedTableOptionSnafu)<span class="question-mark">?</span>,
+            .context(UnrecognizedTableOptionSnafu)<span class="question-mark">?</span>,
     );
     <span class="kw">let </span>expr = CreateTableExpr {
         catalog_name,
@@ -555,7 +556,7 @@
     <span class="prelude-val">Ok</span>(primary_keys)
 }
 
-<span class="kw">pub fn </span>find_time_index(constraints: <span class="kw-2">&amp;</span>[TableConstraint]) -&gt; <span class="kw">crate</span>::error::Result&lt;String&gt; {
+<span class="kw">pub fn </span>find_time_index(constraints: <span class="kw-2">&amp;</span>[TableConstraint]) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
     <span class="kw">let </span>time_index = constraints
         .iter()
         .filter_map(|constraint| <span class="kw">match </span>constraint {
@@ -583,10 +584,7 @@
     <span class="prelude-val">Ok</span>(time_index.first().unwrap().to_string())
 }
 
-<span class="kw">fn </span>columns_to_expr(
-    column_defs: <span class="kw-2">&amp;</span>[ColumnDef],
-    time_index: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="kw">crate</span>::error::Result&lt;Vec&lt;api::v1::ColumnDef&gt;&gt; {
+<span class="kw">fn </span>columns_to_expr(column_defs: <span class="kw-2">&amp;</span>[ColumnDef], time_index: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;api::v1::ColumnDef&gt;&gt; {
     <span class="kw">let </span>column_schemas = column_defs
         .iter()
         .map(|c| column_def_to_schema(c, c.name.to_string() == time_index).context(ParseSqlSnafu))
@@ -640,7 +638,7 @@
 
     <span class="kw">let </span>kind = <span class="kw">match </span>alter_table.alter_operation() {
         AlterTableOperation::AddConstraint(<span class="kw">_</span>) =&gt; {
-            <span class="kw">return </span>error::NotSupportedSnafu {
+            <span class="kw">return </span>NotSupportedSnafu {
                 feat: <span class="string">&quot;ADD CONSTRAINT&quot;</span>,
             }
             .fail();

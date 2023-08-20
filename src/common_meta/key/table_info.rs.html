@@ -455,7 +455,7 @@
             .when(<span class="macro">vec!</span>[Compare::with_value(
                 raw_key.clone(),
                 CompareOp::Equal,
-                raw_value.clone(),
+                raw_value,
             )])
             .and_then(<span class="macro">vec!</span>[TxnOp::Put(
                 raw_key.clone(),
@@ -478,7 +478,7 @@
         <span class="kw">let </span>removed_key = to_removed_key(<span class="kw-2">&amp;</span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>raw_key));
 
         <span class="kw">let </span>txn = Txn::new().and_then(<span class="macro">vec!</span>[
-            TxnOp::Delete(raw_key.clone()),
+            TxnOp::Delete(raw_key),
             TxnOp::Put(removed_key.into_bytes(), raw_value),
         ]);
 
@@ -499,7 +499,7 @@
                 })
                 .flat_map(|r| <span class="kw-2">&amp;</span>r.kvs)
                 .find(|kv| kv.key == raw_key)
-                .map(|kv| TableInfoValue::try_from(<span class="kw-2">&amp;</span>kv.value))
+                .map(|kv| TableInfoValue::try_from_raw_value(<span class="kw-2">&amp;</span>kv.value))
                 .transpose()
         }
     }
@@ -511,7 +511,7 @@
         <span class="self">self</span>.kv_backend
             .get(<span class="kw-2">&amp;</span>removed_key)
             .<span class="kw">await</span><span class="question-mark">?
-            </span>.map(|x| TableInfoValue::try_from_raw_value(x.value))
+            </span>.map(|x| TableInfoValue::try_from_raw_value(<span class="kw-2">&amp;</span>x.value))
             .transpose()
     }
 
@@ -521,7 +521,7 @@
         <span class="self">self</span>.kv_backend
             .get(<span class="kw-2">&amp;</span>raw_key)
             .<span class="kw">await</span><span class="question-mark">?
-            </span>.map(|x| TableInfoValue::try_from_raw_value(x.value))
+            </span>.map(|x| TableInfoValue::try_from_raw_value(<span class="kw-2">&amp;</span>x.value))
             .transpose()
     }
 }
@@ -538,7 +538,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_deserialization_compatibility() {
         <span class="kw">let </span>s = <span class="string">r#&quot;{&quot;version&quot;:1,&quot;table_info&quot;:{&quot;ident&quot;:{&quot;table_id&quot;:8714,&quot;version&quot;:0},&quot;name&quot;:&quot;go_gc_duration_seconds&quot;,&quot;desc&quot;:&quot;Created on insertion&quot;,&quot;catalog_name&quot;:&quot;e87lehzy63d4cloud_docs_test&quot;,&quot;schema_name&quot;:&quot;public&quot;,&quot;meta&quot;:{&quot;schema&quot;:{&quot;column_schemas&quot;:[{&quot;name&quot;:&quot;instance&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;job&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;quantile&quot;,&quot;data_type&quot;:{&quot;String&quot;:null},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;greptime_timestamp&quot;,&quot;data_type&quot;:{&quot;Timestamp&quot;:{&quot;Millisecond&quot;:null}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:true,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{&quot;greptime:time_index&quot;:&quot;true&quot;}},{&quot;name&quot;:&quot;greptime_value&quot;,&quot;data_type&quot;:{&quot;Float64&quot;:{}},&quot;is_nullable&quot;:true,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}}],&quot;timestamp_index&quot;:3,&quot;version&quot;:0},&quot;primary_key_indices&quot;:[0,1,2],&quot;value_indices&quot;:[],&quot;engine&quot;:&quot;mito&quot;,&quot;next_column_id&quot;:5,&quot;region_numbers&quot;:[],&quot;engine_options&quot;:{},&quot;options&quot;:{&quot;write_buffer_size&quot;:null,&quot;ttl&quot;:null,&quot;extra_options&quot;:{}},&quot;created_on&quot;:&quot;1970-01-01T00:00:00Z&quot;},&quot;table_type&quot;:&quot;Base&quot;}}&quot;#</span>;
-        <span class="kw">let </span>v = TableInfoValue::try_from_raw_value(s.as_bytes().to_vec()).unwrap();
+        <span class="kw">let </span>v = TableInfoValue::try_from_raw_value(s.as_bytes()).unwrap();
         <span class="macro">assert!</span>(v.table_info.meta.partition_key_indices.is_empty());
     }
 
@@ -556,7 +556,7 @@
             version: <span class="number">1</span>,
         };
         <span class="kw">let </span>serialized = value.try_as_raw_value().unwrap();
-        <span class="kw">let </span>deserialized = TableInfoValue::try_from_raw_value(serialized).unwrap();
+        <span class="kw">let </span>deserialized = TableInfoValue::try_from_raw_value(<span class="kw-2">&amp;</span>serialized).unwrap();
         <span class="macro">assert_eq!</span>(value, deserialized);
     }
 

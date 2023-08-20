@@ -372,7 +372,7 @@
 
 <span class="doccomment">/// Decodes `KeyValue` to ((),`DatanodeTableValue`)
 </span><span class="kw">pub fn </span>datanode_table_value_decoder(kv: KeyValue) -&gt; <span class="prelude-ty">Result</span>&lt;((), DatanodeTableValue)&gt; {
-    <span class="kw">let </span>value = DatanodeTableValue::try_from(<span class="kw-2">&amp;</span>kv.value)<span class="question-mark">?</span>;
+    <span class="kw">let </span>value = DatanodeTableValue::try_from_raw_value(<span class="kw-2">&amp;</span>kv.value)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(((), value))
 }
@@ -390,7 +390,7 @@
         <span class="self">self</span>.kv_backend
             .get(<span class="kw-2">&amp;</span>key.as_raw_key())
             .<span class="kw">await</span><span class="question-mark">?
-            </span>.map(|kv| DatanodeTableValue::try_from_raw_value(kv.value))
+            </span>.map(|kv| DatanodeTableValue::try_from_raw_value(<span class="kw-2">&amp;</span>kv.value))
             .transpose()
     }
 
@@ -518,7 +518,7 @@
         <span class="kw">let </span>raw_value = value.try_as_raw_value().unwrap();
         <span class="macro">assert_eq!</span>(raw_value, literal);
 
-        <span class="kw">let </span>actual = DatanodeTableValue::try_from_raw_value(literal.to_vec()).unwrap();
+        <span class="kw">let </span>actual = DatanodeTableValue::try_from_raw_value(literal).unwrap();
         <span class="macro">assert_eq!</span>(actual, value);
     }
 

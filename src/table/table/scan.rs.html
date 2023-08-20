@@ -220,7 +220,7 @@
 <span class="kw">use </span>futures::{Stream, StreamExt};
 <span class="kw">use </span>snafu::OptionExt;
 
-<span class="doccomment">/// Adapt greptime&#39;s [SendableRecordBatchStream] to DataFusion&#39;s [PhysicalPlan].
+<span class="doccomment">/// Adapt greptime&#39;s [SendableRecordBatchStream] to GreptimeDB&#39;s [PhysicalPlan].
 </span><span class="kw">pub struct </span>StreamScanAdapter {
     stream: Mutex&lt;<span class="prelude-ty">Option</span>&lt;SendableRecordBatchStream&gt;&gt;,
     schema: SchemaRef,

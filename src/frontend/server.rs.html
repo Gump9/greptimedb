@@ -393,7 +393,7 @@
 
             <span class="kw">let </span>http_server = http_server_builder
                 .with_metrics_handler(MetricsHandler)
-                .with_script_handler(instance.clone())
+                .with_script_handler(instance)
                 .with_configurator(plugins.get::&lt;ConfiguratorRef&gt;())
                 .with_greptime_config_options(opts.to_toml_string())
                 .build();

@@ -916,6 +916,37 @@
 <a href="#916" id="916">916</a>
 <a href="#917" id="917">917</a>
 <a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -947,7 +978,9 @@
 <span class="kw">use </span>api::v1::ddl_request::Expr <span class="kw">as </span>DdlExpr;
 <span class="kw">use </span>api::v1::greptime_request::Request;
 <span class="kw">use </span>api::v1::meta::Role;
-<span class="kw">use </span>api::v1::{AddColumns, AlterExpr, Column, DdlRequest, InsertRequest, InsertRequests};
+<span class="kw">use </span>api::v1::{
+    AddColumns, AlterExpr, Column, DdlRequest, InsertRequest, InsertRequests, RowInsertRequests,
+};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>auth::{PermissionChecker, PermissionCheckerRef, PermissionReq};
 <span class="kw">use </span>catalog::remote::CachedMetaKvBackend;
@@ -994,6 +1027,7 @@
 <span class="kw">use </span>sql::statements::copy::CopyTable;
 <span class="kw">use </span>sql::statements::statement::Statement;
 <span class="kw">use </span>sqlparser::ast::ObjectName;
+<span class="kw">use </span>table::engine::TableReference;
 
 <span class="kw">use </span><span class="kw">crate</span>::catalog::FrontendCatalogManager;
 <span class="kw">use </span><span class="kw">crate</span>::error::{
@@ -1001,12 +1035,13 @@
     InvalidInsertRequestSnafu, MissingMetasrvOptsSnafu, ParseSqlSnafu, PermissionSnafu,
     PlanStatementSnafu, <span class="prelude-ty">Result</span>, SqlExecInterceptedSnafu,
 };
-<span class="kw">use </span><span class="kw">crate</span>::expr_factory::{CreateExprFactoryRef, DefaultCreateExprFactory};
+<span class="kw">use </span><span class="kw">crate</span>::expr_factory::CreateExprFactory;
 <span class="kw">use </span><span class="kw">crate</span>::frontend::FrontendOptions;
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::handler::invalidate_table_cache::InvalidateTableCacheHandler;
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::HeartbeatTask;
 <span class="kw">use </span><span class="kw">crate</span>::instance::standalone::StandaloneGrpcQueryHandler;
 <span class="kw">use </span><span class="kw">crate</span>::metrics;
+<span class="kw">use </span><span class="kw">crate</span>::row_inserter::RowInserter;
 <span class="kw">use </span><span class="kw">crate</span>::script::ScriptExecutor;
 <span class="kw">use </span><span class="kw">crate</span>::server::{start_server, ServerHandlers, Services};
 <span class="kw">use </span><span class="kw">crate</span>::statement::StatementExecutor;
@@ -1038,16 +1073,13 @@
     statement_executor: Arc&lt;StatementExecutor&gt;,
     query_engine: QueryEngineRef,
     grpc_query_handler: GrpcQueryHandlerRef&lt;Error&gt;,
-
-    create_expr_factory: CreateExprFactoryRef,
-
+    create_expr_factory: CreateExprFactory,
     <span class="doccomment">/// plugins: this map holds extensions to customize query or auth
     /// behaviours.
     </span>plugins: Arc&lt;Plugins&gt;,
-
     servers: Arc&lt;ServerHandlers&gt;,
-
     heartbeat_task: <span class="prelude-ty">Option</span>&lt;HeartbeatTask&gt;,
+    row_inserter: Arc&lt;RowInserter&gt;,
 }
 
 <span class="kw">impl </span>Instance {
@@ -1127,16 +1159,26 @@
 
         common_telemetry::init_node_id(opts.node_id.clone());
 
+        <span class="kw">let </span>create_expr_factory = CreateExprFactory;
+
+        <span class="kw">let </span>row_inserter = Arc::new(RowInserter::new(
+            MITO_ENGINE.to_string(),
+            catalog_manager.clone(),
+            create_expr_factory,
+            dist_instance.clone(),
+        ));
+
         <span class="prelude-val">Ok</span>(Instance {
             catalog_manager,
             script_executor,
-            create_expr_factory: Arc::new(DefaultCreateExprFactory),
+            create_expr_factory,
             statement_executor,
             query_engine,
             grpc_query_handler: dist_instance,
             plugins: plugins.clone(),
             servers: Arc::new(HashMap::new()),
             heartbeat_task,
+            row_inserter,
         })
     }
 
@@ -1189,16 +1231,27 @@
             dn_instance.clone(),
         ));
 
+        <span class="kw">let </span>create_expr_factory = CreateExprFactory;
+        <span class="kw">let </span>grpc_query_handler = StandaloneGrpcQueryHandler::arc(dn_instance.clone());
+
+        <span class="kw">let </span>row_inserter = Arc::new(RowInserter::new(
+            MITO_ENGINE.to_string(),
+            catalog_manager.clone(),
+            create_expr_factory,
+            grpc_query_handler.clone(),
+        ));
+
         <span class="prelude-val">Ok</span>(Instance {
             catalog_manager: catalog_manager.clone(),
             script_executor,
-            create_expr_factory: Arc::new(DefaultCreateExprFactory),
+            create_expr_factory,
             statement_executor,
             query_engine,
-            grpc_query_handler: StandaloneGrpcQueryHandler::arc(dn_instance.clone()),
+            grpc_query_handler,
             plugins: Default::default(),
             servers: Arc::new(HashMap::new()),
             heartbeat_task: <span class="prelude-val">None</span>,
+            row_inserter,
         })
     }
 
@@ -1212,6 +1265,15 @@
     <span class="kw">pub fn </span>catalog_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CatalogManagerRef {
         <span class="kw-2">&amp;</span><span class="self">self</span>.catalog_manager
     }
+
+    <span class="comment">// Handle batch inserts with row-format
+    </span><span class="kw">pub async fn </span>handle_row_inserts(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        requests: RowInsertRequests,
+        ctx: QueryContextRef,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
+        <span class="self">self</span>.row_inserter.handle_inserts(requests, ctx).<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// Handle batch inserts
     </span><span class="kw">pub async fn </span>handle_inserts(
@@ -1297,10 +1359,10 @@
         <span class="kw">let </span>schema_name = ctx.current_schema();
 
         <span class="comment">// Create table automatically, build schema from data.
-        </span><span class="kw">let </span>create_expr = <span class="self">self
-            </span>.create_expr_factory
-            .create_expr_by_columns(catalog_name, schema_name, table_name, columns, engine)
-            .<span class="kw">await</span><span class="question-mark">?</span>;
+        </span><span class="kw">let </span>table_name = TableReference::full(catalog_name, schema_name, table_name);
+        <span class="kw">let </span>create_expr =
+            <span class="self">self</span>.create_expr_factory
+                .create_table_expr_by_columns(<span class="kw-2">&amp;</span>table_name, columns, engine)<span class="question-mark">?</span>;
 
         <span class="macro">info!</span>(
             <span class="string">&quot;Try to create table: {} automatically with request: {:?}&quot;</span>,

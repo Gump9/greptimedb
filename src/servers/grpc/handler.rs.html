@@ -277,7 +277,7 @@
 
         <span class="kw">let </span>header = request.header.as_ref();
         <span class="kw">let </span>query_ctx = create_query_context(header);
-        <span class="kw">let </span>user_info = <span class="self">self</span>.auth(header, <span class="kw-2">&amp;</span>query_ctx).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>user_info = auth(<span class="self">self</span>.user_provider.clone(), header, <span class="kw-2">&amp;</span>query_ctx).<span class="kw">await</span><span class="question-mark">?</span>;
         query_ctx.set_current_user(user_info);
 
         <span class="kw">let </span>handler = <span class="self">self</span>.handler.clone();
@@ -309,48 +309,48 @@
             e
         })<span class="question-mark">?
     </span>}
+}
 
-    <span class="kw">async fn </span>auth(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        header: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RequestHeader&gt;,
-        query_ctx: <span class="kw-2">&amp;</span>QueryContextRef,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;UserInfoRef&gt;&gt; {
-        <span class="kw">let </span><span class="prelude-val">Some</span>(user_provider) = <span class="self">self</span>.user_provider.as_ref() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
-        };
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>auth(
+    user_provider: <span class="prelude-ty">Option</span>&lt;UserProviderRef&gt;,
+    header: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RequestHeader&gt;,
+    query_ctx: <span class="kw-2">&amp;</span>QueryContextRef,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;UserInfoRef&gt;&gt; {
+    <span class="kw">let </span><span class="prelude-val">Some</span>(user_provider) = user_provider <span class="kw">else </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+    };
 
-        <span class="kw">let </span>auth_scheme = header
-            .and_then(|header| {
-                header
-                    .authorization
-                    .as_ref()
-                    .and_then(|x| x.auth_scheme.clone())
-            })
-            .context(NotFoundAuthHeaderSnafu)<span class="question-mark">?</span>;
-
-        <span class="kw">match </span>auth_scheme {
-            AuthScheme::Basic(Basic { username, password }) =&gt; user_provider
-                .auth(
-                    Identity::UserId(<span class="kw-2">&amp;</span>username, <span class="prelude-val">None</span>),
-                    Password::PlainText(password.into()),
-                    query_ctx.current_catalog(),
-                    query_ctx.current_schema(),
-                )
-                .<span class="kw">await
-                </span>.context(AuthSnafu),
-            AuthScheme::Token(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(UnsupportedAuthScheme {
-                name: <span class="string">&quot;Token AuthScheme&quot;</span>.to_string(),
-            }),
-        }
-        .map(<span class="prelude-val">Some</span>)
-        .map_err(|e| {
-            <span class="macro">increment_counter!</span>(
-                METRIC_AUTH_FAILURE,
-                <span class="kw-2">&amp;</span>[(METRIC_CODE_LABEL, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e.status_code()))]
-            );
-            e
+    <span class="kw">let </span>auth_scheme = header
+        .and_then(|header| {
+            header
+                .authorization
+                .as_ref()
+                .and_then(|x| x.auth_scheme.clone())
         })
+        .context(NotFoundAuthHeaderSnafu)<span class="question-mark">?</span>;
+
+    <span class="kw">match </span>auth_scheme {
+        AuthScheme::Basic(Basic { username, password }) =&gt; user_provider
+            .auth(
+                Identity::UserId(<span class="kw-2">&amp;</span>username, <span class="prelude-val">None</span>),
+                Password::PlainText(password.into()),
+                query_ctx.current_catalog(),
+                query_ctx.current_schema(),
+            )
+            .<span class="kw">await
+            </span>.context(AuthSnafu),
+        AuthScheme::Token(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(UnsupportedAuthScheme {
+            name: <span class="string">&quot;Token AuthScheme&quot;</span>.to_string(),
+        }),
     }
+    .map(<span class="prelude-val">Some</span>)
+    .map_err(|e| {
+        <span class="macro">increment_counter!</span>(
+            METRIC_AUTH_FAILURE,
+            <span class="kw-2">&amp;</span>[(METRIC_CODE_LABEL, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e.status_code()))]
+        );
+        e
+    })
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_query_context(header: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RequestHeader&gt;) -&gt; QueryContextRef {

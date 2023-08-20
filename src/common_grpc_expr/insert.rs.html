@@ -531,6 +531,7 @@
 <span class="kw">use </span>datatypes::prelude::VectorRef;
 <span class="kw">use </span>datatypes::schema::SchemaRef;
 <span class="kw">use </span>snafu::{ensure, ResultExt};
+<span class="kw">use </span>table::engine::TableReference;
 <span class="kw">use </span>table::metadata::TableId;
 <span class="kw">use </span>table::requests::InsertRequest;
 
@@ -555,12 +556,11 @@
     columns: <span class="kw-2">&amp;</span>[Column],
     engine: <span class="kw-2">&amp;</span>str,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;CreateTableExpr&gt; {
+    <span class="kw">let </span>table_name = TableReference::full(catalog_name, schema_name, table_name);
     <span class="kw">let </span>column_exprs = ColumnExpr::from_columns(columns);
     util::build_create_table_expr(
-        catalog_name,
-        schema_name,
         table_id,
-        table_name,
+        <span class="kw-2">&amp;</span>table_name,
         column_exprs,
         engine,
         <span class="string">&quot;Created on insertion&quot;</span>,

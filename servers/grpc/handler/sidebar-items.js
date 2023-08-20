@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_query_context"],"struct":["GreptimeRequestHandler","RequestTimer"]};
+window.SIDEBAR_ITEMS = {"fn":["auth","create_query_context"],"struct":["GreptimeRequestHandler","RequestTimer"]};

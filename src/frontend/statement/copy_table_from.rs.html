@@ -615,6 +615,10 @@
 <a href="#615" id="615">615</a>
 <a href="#616" id="616">616</a>
 <a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -831,7 +835,11 @@
                     .build()
                     .context(error::BuildParquetRecordBatchStreamSnafu)<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Ok</span>(Box::pin(ParquetRecordBatchStreamAdapter::new(upstream)))
+                <span class="prelude-val">Ok</span>(Box::pin(ParquetRecordBatchStreamAdapter::new(
+                    schema,
+                    upstream,
+                    <span class="prelude-val">Some</span>(projection),
+                )))
             }
             Format::Orc(<span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>reader = object_store

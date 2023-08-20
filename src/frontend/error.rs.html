@@ -739,6 +739,7 @@
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -761,6 +762,7 @@
 <span class="kw">use </span>datafusion::parquet;
 <span class="kw">use </span>datatypes::arrow::error::ArrowError;
 <span class="kw">use </span>datatypes::value::Value;
+<span class="kw">use </span>servers::define_into_tonic_status;
 <span class="kw">use </span>snafu::{Location, Snafu};
 <span class="kw">use </span>store_api::storage::RegionNumber;
 
@@ -1337,6 +1339,9 @@
         source: auth::error::Error,
         location: Location,
     },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Empty data: {}&quot;</span>, msg))]
+    </span>EmptyData { msg: String, location: Location },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -1358,7 +1363,8 @@
             | Error::PrepareImmutableTable { .. }
             | Error::BuildCsvConfig { .. }
             | Error::ProjectSchema { .. }
-            | Error::UnsupportedFormat { .. } =&gt; StatusCode::InvalidArguments,
+            | Error::UnsupportedFormat { .. }
+            | Error::EmptyData { .. } =&gt; StatusCode::InvalidArguments,
 
             Error::NotSupported { .. } =&gt; StatusCode::Unsupported,
 
@@ -1475,9 +1481,5 @@
     </span>}
 }
 
-<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>tonic::Status {
-    <span class="kw">fn </span>from(err: Error) -&gt; <span class="self">Self </span>{
-        tonic::Status::new(tonic::Code::Internal, err.to_string())
-    }
-}
+<span class="macro">define_into_tonic_status!</span>(Error);
 </code></pre></div></section></main></body></html>

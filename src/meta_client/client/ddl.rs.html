@@ -294,7 +294,7 @@
                 <span class="kw">let </span>res = client
                     .submit_ddl_task(req.clone())
                     .<span class="kw">await
-                    </span>.context(error::TonicStatusSnafu)<span class="question-mark">?</span>;
+                    </span>.map_err(error::Error::from)<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>res = res.into_inner();
 

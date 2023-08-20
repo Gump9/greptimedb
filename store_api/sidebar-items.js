@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["logstore","manifest","metadata","region_engine","region_request","storage"]};
+window.SIDEBAR_ITEMS = {"mod":["data_source","logstore","manifest","metadata","region_engine","region_request","storage"]};

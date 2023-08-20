@@ -202,6 +202,11 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -259,6 +264,7 @@
 <span class="kw">pub struct </span>GrpcServer {
     shutdown_tx: Mutex&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;()&gt;&gt;&gt;,
     request_handler: Arc&lt;GreptimeRequestHandler&gt;,
+    user_provider: <span class="prelude-ty">Option</span>&lt;UserProviderRef&gt;,
     <span class="doccomment">/// Handler for Prometheus-compatible PromQL queries. Only present for frontend server.
     </span>prometheus_handler: <span class="prelude-ty">Option</span>&lt;PrometheusHandlerRef&gt;,
 
@@ -276,12 +282,13 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>request_handler = Arc::new(GreptimeRequestHandler::new(
             query_handler,
-            user_provider,
+            user_provider.clone(),
             runtime,
         ));
         <span class="self">Self </span>{
             shutdown_tx: Mutex::new(<span class="prelude-val">None</span>),
             request_handler,
+            user_provider,
             prometheus_handler,
             serve_state: Mutex::new(<span class="prelude-val">None</span>),
         }
@@ -303,7 +310,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         handler: PrometheusHandlerRef,
     ) -&gt; PrometheusGatewayServer&lt;<span class="kw">impl </span>PrometheusGateway&gt; {
-        PrometheusGatewayServer::new(PrometheusGatewayService::new(handler))
+        PrometheusGatewayServer::new(PrometheusGatewayService::new(
+            handler,
+            <span class="self">self</span>.user_provider.clone(),
+        ))
     }
 
     <span class="kw">pub async fn </span>wait_for_serve(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {

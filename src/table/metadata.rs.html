@@ -990,7 +990,7 @@
 
 <span class="doccomment">/// Indicates whether and how a filter expression can be handled by a
 /// Table for table scans.
-</span><span class="attr">#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>FilterPushDownType {
     <span class="doccomment">/// The expression cannot be used by the provider.
     </span>Unsupported,

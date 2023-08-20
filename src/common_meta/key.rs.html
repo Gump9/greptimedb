@@ -875,28 +875,6 @@
 <a href="#875" id="875">875</a>
 <a href="#876" id="876">876</a>
 <a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -969,7 +947,7 @@
 <span class="kw">use </span><span class="self">self</span>::catalog_name::{CatalogManager, CatalogNameValue};
 <span class="kw">use </span><span class="self">self</span>::schema_name::{SchemaManager, SchemaNameValue};
 <span class="kw">use </span><span class="self">self</span>::table_route::{TableRouteManager, TableRouteValue};
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, InvalidTableMetadataSnafu, <span class="prelude-ty">Result</span>, SerdeJsonSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, SerdeJsonSnafu};
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::key::table_route::{TableRouteKey, TABLE_ROUTE_PREFIX};
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::txn::Txn;
@@ -1376,15 +1354,8 @@
     ($(<span class="macro-nonterminal">$val_ty</span>: ty), <span class="kw-2">*</span>) =&gt; {
         $(
             <span class="kw">impl </span><span class="macro-nonterminal">$val_ty </span>{
-                <span class="kw">pub fn </span>try_from_raw_value_ref(raw_value: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+                <span class="kw">pub fn </span>try_from_raw_value(raw_value: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
                     serde_json::from_slice(raw_value).context(SerdeJsonSnafu)
-                }
-
-                <span class="kw">pub fn </span>try_from_raw_value(raw_value: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-                    <span class="kw">let </span>raw_value = String::from_utf8(raw_value).map_err(|e| {
-                        InvalidTableMetadataSnafu { err_msg: e.to_string() }.build()
-                    })<span class="question-mark">?</span>;
-                    serde_json::from_str(<span class="kw-2">&amp;</span>raw_value).context(SerdeJsonSnafu)
                 }
 
                 <span class="kw">pub fn </span>try_as_raw_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
@@ -1394,21 +1365,6 @@
         )*
     }
 }
-
-<span class="macro">macro_rules! </span>impl_try_from {
-    ($(<span class="macro-nonterminal">$val_ty</span>: ty), <span class="kw-2">*</span>) =&gt; {
-        $(
-            <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;u8&gt;&gt; <span class="kw">for </span><span class="macro-nonterminal">$val_ty </span>{
-                <span class="kw">type </span>Error = Error;
-                <span class="kw">fn </span>try_from(value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-                    serde_json::from_slice(value).context(SerdeJsonSnafu)
-                }
-            }
-        )*
-    };
-}
-
-<span class="macro">impl_try_from! </span>{TableInfoValue, TableRouteValue, DatanodeTableValue}
 
 <span class="macro">impl_table_meta_value! </span>{
     CatalogNameValue,

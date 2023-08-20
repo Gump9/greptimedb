@@ -372,7 +372,7 @@
     <span class="doccomment">/// Fetch the next message from this stream.
     </span><span class="attr">#[inline]
     </span><span class="kw">pub async fn </span>message(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;HeartbeatResponse&gt;&gt; {
-        <span class="kw">let </span>res = <span class="self">self</span>.stream.message().<span class="kw">await</span>.context(error::TonicStatusSnafu);
+        <span class="kw">let </span>res = <span class="self">self</span>.stream.message().<span class="kw">await</span>.map_err(error::Error::from);
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(heartbeat)) = <span class="kw-2">&amp;</span>res {
             util::check_response_header(heartbeat.header.as_ref())
                 .context(InvalidResponseHeaderSnafu)<span class="question-mark">?</span>;
@@ -508,13 +508,13 @@
         <span class="kw">let </span><span class="kw-2">mut </span>stream = leader
             .heartbeat(receiver)
             .<span class="kw">await
-            </span>.context(error::TonicStatusSnafu)<span class="question-mark">?
+            </span>.map_err(error::Error::from)<span class="question-mark">?
             </span>.into_inner();
 
         <span class="kw">let </span>res = stream
             .message()
             .<span class="kw">await
-            </span>.context(error::TonicStatusSnafu)<span class="question-mark">?
+            </span>.map_err(error::Error::from)<span class="question-mark">?
             </span>.context(error::CreateHeartbeatStreamSnafu)<span class="question-mark">?</span>;
         <span class="macro">info!</span>(<span class="string">&quot;Success to create heartbeat stream to server: {:#?}&quot;</span>, res);
 

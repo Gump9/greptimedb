@@ -631,7 +631,6 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -775,13 +774,12 @@
         <span class="self">self</span>.catalogs.register_table(register_table_req).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// Add numbers table for test
-        </span><span class="kw">let </span>numbers_table = Arc::new(NumbersTable::default());
-        <span class="kw">let </span>register_number_table_req = RegisterTableRequest {
+        </span><span class="kw">let </span>register_number_table_req = RegisterTableRequest {
             catalog: DEFAULT_CATALOG_NAME.to_string(),
             schema: DEFAULT_SCHEMA_NAME.to_string(),
             table_name: NUMBERS_TABLE_NAME.to_string(),
             table_id: NUMBERS_TABLE_ID,
-            table: numbers_table,
+            table: NumbersTable::table(NUMBERS_TABLE_ID),
         };
 
         <span class="self">self</span>.catalogs

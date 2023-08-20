@@ -446,7 +446,7 @@
             .when(<span class="macro">vec!</span>[Compare::with_value(
                 raw_key.clone(),
                 CompareOp::Equal,
-                raw_value.clone(),
+                raw_value,
             )])
             .and_then(<span class="macro">vec!</span>[TxnOp::Put(raw_key.clone(), new_raw_value)])
             .or_else(<span class="macro">vec!</span>[TxnOp::Get(raw_key.clone())]);
@@ -488,7 +488,7 @@
                 })
                 .flat_map(|r| <span class="kw-2">&amp;</span>r.kvs)
                 .find(|kv| kv.key == raw_key)
-                .map(|kv| TableRouteValue::try_from(<span class="kw-2">&amp;</span>kv.value))
+                .map(|kv| TableRouteValue::try_from_raw_value(<span class="kw-2">&amp;</span>kv.value))
                 .transpose()
         }
     }
@@ -498,7 +498,7 @@
         <span class="self">self</span>.kv_backend
             .get(<span class="kw-2">&amp;</span>key.as_raw_key())
             .<span class="kw">await</span><span class="question-mark">?
-            </span>.map(|kv| TableRouteValue::try_from_raw_value(kv.value))
+            </span>.map(|kv| TableRouteValue::try_from_raw_value(<span class="kw-2">&amp;</span>kv.value))
             .transpose()
     }
 
@@ -509,7 +509,7 @@
         <span class="self">self</span>.kv_backend
             .get(<span class="kw-2">&amp;</span>removed_key)
             .<span class="kw">await</span><span class="question-mark">?
-            </span>.map(|x| TableRouteValue::try_from_raw_value(x.value))
+            </span>.map(|x| TableRouteValue::try_from_raw_value(<span class="kw-2">&amp;</span>x.value))
             .transpose()
     }
 

@@ -1030,6 +1030,15 @@
 <a href="#1030" id="1030">1030</a>
 <a href="#1031" id="1031">1031</a>
 <a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1050,7 +1059,7 @@
 <span class="kw">use </span>api::v1::ddl_request::Expr <span class="kw">as </span>DdlExpr;
 <span class="kw">use </span>api::v1::greptime_request::Request;
 <span class="kw">use </span>api::v1::query_request::Query;
-<span class="kw">use </span>api::v1::{CreateDatabaseExpr, DdlRequest, DeleteRequests, InsertRequests};
+<span class="kw">use </span>api::v1::{CreateDatabaseExpr, DdlRequest, DeleteRequests, InsertRequests, RowInsertRequests};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>catalog::CatalogManagerRef;
 <span class="kw">use </span>common_grpc_expr::insert::to_table_insert_request;
@@ -1161,7 +1170,7 @@
     <span class="kw">pub async fn </span>handle_inserts(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         requests: InsertRequests,
-        ctx: <span class="kw-2">&amp;</span>QueryContextRef,
+        ctx: QueryContextRef,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
         <span class="kw">let </span>results = future::try_join_all(requests.inserts.into_iter().map(|insert| {
             <span class="kw">let </span>catalog_manager = <span class="self">self</span>.catalog_manager.clone();
@@ -1195,6 +1204,14 @@
         <span class="kw">let </span>affected_rows = results.into_iter().sum::&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Output::AffectedRows(affected_rows))
     }
+
+    <span class="kw">pub async fn </span>handle_row_inserts(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        requests: RowInsertRequests,
+        ctx: QueryContextRef,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
+        <span class="self">self</span>.row_inserter.handle_inserts(requests, ctx).<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>handle_deletes(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1253,7 +1270,7 @@
 
     <span class="kw">async fn </span>do_query(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request, ctx: QueryContextRef) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
         <span class="kw">match </span>request {
-            Request::Inserts(requests) =&gt; <span class="self">self</span>.handle_inserts(requests, <span class="kw-2">&amp;</span>ctx).<span class="kw">await</span>,
+            Request::Inserts(requests) =&gt; <span class="self">self</span>.handle_inserts(requests, ctx).<span class="kw">await</span>,
             Request::Deletes(request) =&gt; <span class="self">self</span>.handle_deletes(request, ctx).<span class="kw">await</span>,
             Request::Query(query_request) =&gt; {
                 <span class="kw">let </span>query = query_request
@@ -1264,8 +1281,9 @@
                 <span class="self">self</span>.handle_query(query, ctx).<span class="kw">await
             </span>}
             Request::Ddl(request) =&gt; <span class="self">self</span>.handle_ddl(request, ctx).<span class="kw">await</span>,
-            Request::RowInserts(<span class="kw">_</span>) | Request::RowDeletes(<span class="kw">_</span>) =&gt; UnsupportedGrpcRequestSnafu {
-                kind: <span class="string">&quot;row insert/delete&quot;</span>,
+            Request::RowInserts(requests) =&gt; <span class="self">self</span>.handle_row_inserts(requests, ctx).<span class="kw">await</span>,
+            Request::RowDeletes(<span class="kw">_</span>) =&gt; UnsupportedGrpcRequestSnafu {
+                kind: <span class="string">&quot;row deletes&quot;</span>,
             }
             .fail(),
         }

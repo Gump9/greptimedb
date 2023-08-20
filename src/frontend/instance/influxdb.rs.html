@@ -74,7 +74,7 @@
 </span><span class="kw">impl </span>InfluxdbLineProtocolHandler <span class="kw">for </span>Instance {
     <span class="kw">async fn </span>exec(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        request: <span class="kw-2">&amp;</span>InfluxdbRequest,
+        request: InfluxdbRequest,
         ctx: QueryContextRef,
     ) -&gt; servers::error::Result&lt;()&gt; {
         <span class="self">self</span>.plugins

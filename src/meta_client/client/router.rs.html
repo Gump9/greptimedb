@@ -271,7 +271,7 @@
     <span class="kw">async fn </span>route(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>req: RouteRequest) -&gt; <span class="prelude-ty">Result</span>&lt;RouteResponse&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>client = <span class="self">self</span>.random_client()<span class="question-mark">?</span>;
         req.set_header(<span class="self">self</span>.id, <span class="self">self</span>.role);
-        <span class="kw">let </span>res = client.route(req).<span class="kw">await</span>.context(error::TonicStatusSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>res = client.route(req).<span class="kw">await</span>.map_err(error::Error::from)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(res.into_inner())
     }

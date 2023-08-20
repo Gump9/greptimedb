@@ -184,7 +184,7 @@ monitor1,host=host2 memory=1027&quot;</span>;
             precision: <span class="prelude-val">None</span>,
             lines: lines.to_string(),
         };
-        <span class="macro">assert!</span>(instance.exec(<span class="kw-2">&amp;</span>request, QueryContext::arc()).<span class="kw">await</span>.is_ok());
+        <span class="macro">assert!</span>(instance.exec(request, QueryContext::arc()).<span class="kw">await</span>.is_ok());
 
         <span class="kw">let </span><span class="kw-2">mut </span>output = instance
             .do_query(
@@ -213,7 +213,7 @@ monitor1,host=host2 memory=1027 1663840496400340001&quot;</span>;
             precision: <span class="prelude-val">None</span>,
             lines: lines.to_string(),
         };
-        instance.exec(<span class="kw-2">&amp;</span>request, QueryContext::arc()).<span class="kw">await</span>.unwrap();
+        instance.exec(request, QueryContext::arc()).<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>output = instance
             .do_query(

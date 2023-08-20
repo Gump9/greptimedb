@@ -149,17 +149,6 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -174,11 +163,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::any::Any;
-<span class="kw">use </span>std::pin::Pin;
+</span><span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, NUMBERS_TABLE_ID};
+<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
+<span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_recordbatch::error::Result <span class="kw">as </span>RecordBatchResult;
 <span class="kw">use </span>common_recordbatch::{RecordBatch, RecordBatchStream, SendableRecordBatchStream};
 <span class="kw">use </span>datafusion::arrow::record_batch::RecordBatch <span class="kw">as </span>DfRecordBatch;
@@ -187,11 +176,14 @@
 <span class="kw">use </span>datatypes::schema::{ColumnSchema, SchemaBuilder, SchemaRef};
 <span class="kw">use </span>futures::task::{Context, Poll};
 <span class="kw">use </span>futures::Stream;
-<span class="kw">use </span>store_api::storage::{RegionNumber, ScanRequest};
+<span class="kw">use </span>store_api::data_source::DataSource;
+<span class="kw">use </span>store_api::storage::ScanRequest;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::Result;
-<span class="kw">use </span><span class="kw">crate</span>::metadata::{TableId, TableInfoBuilder, TableInfoRef, TableMetaBuilder, TableType};
-<span class="kw">use </span><span class="kw">crate</span>::table::Table;
+<span class="kw">use </span><span class="kw">crate</span>::metadata::{
+    FilterPushDownType, TableId, TableInfoBuilder, TableInfoRef, TableMetaBuilder, TableType,
+};
+<span class="kw">use </span><span class="kw">crate</span>::thin_table::{ThinTable, ThinTableAdapter};
+<span class="kw">use </span><span class="kw">crate</span>::TableRef;
 
 <span class="kw">const </span>NUMBER_COLUMN: <span class="kw-2">&amp;</span>str = <span class="string">&quot;number&quot;</span>;
 
@@ -199,92 +191,78 @@
 
 <span class="doccomment">/// numbers table for test
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>NumbersTable {
-    table_id: TableId,
-    schema: SchemaRef,
-    name: String,
-    engine: String,
-}
+</span><span class="kw">pub struct </span>NumbersTable;
 
 <span class="kw">impl </span>NumbersTable {
-    <span class="kw">pub fn </span>new(table_id: TableId) -&gt; <span class="self">Self </span>{
-        NumbersTable::with_name(table_id, NUMBERS_TABLE_NAME.to_string())
+    <span class="kw">pub fn </span>table(table_id: TableId) -&gt; TableRef {
+        <span class="self">Self</span>::table_with_name(table_id, NUMBERS_TABLE_NAME.to_string())
     }
 
-    <span class="kw">pub fn </span>with_name(table_id: TableId, name: String) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>table_with_name(table_id: TableId, name: String) -&gt; TableRef {
+        <span class="kw">let </span>schema = <span class="self">Self</span>::schema();
+        <span class="kw">let </span>thin_table = ThinTable::new(
+            schema.clone(),
+            <span class="self">Self</span>::table_info(table_id, name, <span class="string">&quot;test_engine&quot;</span>.to_string()),
+            TableType::Temporary,
+            FilterPushDownType::Unsupported,
+        );
+        <span class="kw">let </span>data_source = Arc::new(NumbersDataSource::new(schema));
+        Arc::new(ThinTableAdapter::new(thin_table, data_source))
+    }
+
+    <span class="kw">pub fn </span>schema() -&gt; SchemaRef {
         <span class="kw">let </span>column_schemas = <span class="macro">vec!</span>[ColumnSchema::new(
             NUMBER_COLUMN,
             ConcreteDataType::uint32_datatype(),
             <span class="bool-val">false</span>,
         )];
-        <span class="self">Self </span>{
-            table_id,
-            name,
-            engine: <span class="string">&quot;test_engine&quot;</span>.to_string(),
-            schema: Arc::new(
-                SchemaBuilder::try_from_columns(column_schemas)
-                    .unwrap()
-                    .build()
-                    .unwrap(),
-            ),
-        }
+        <span class="kw">let </span>schema = SchemaBuilder::try_from_columns(column_schemas)
+            .unwrap()
+            .build()
+            .unwrap();
+        Arc::new(schema)
+    }
+
+    <span class="kw">pub fn </span>table_info(table_id: TableId, name: String, engine: String) -&gt; TableInfoRef {
+        <span class="kw">let </span>table_meta = TableMetaBuilder::default()
+            .schema(<span class="self">Self</span>::schema())
+            .region_numbers(<span class="macro">vec!</span>[<span class="number">0</span>])
+            .primary_key_indices(<span class="macro">vec!</span>[<span class="number">0</span>])
+            .next_column_id(<span class="number">1</span>)
+            .engine(engine)
+            .build()
+            .unwrap();
+        <span class="kw">let </span>table_info = TableInfoBuilder::default()
+            .table_id(table_id)
+            .name(name)
+            .catalog_name(DEFAULT_CATALOG_NAME)
+            .schema_name(DEFAULT_SCHEMA_NAME)
+            .table_version(<span class="number">0</span>)
+            .table_type(TableType::Temporary)
+            .meta(table_meta)
+            .build()
+            .unwrap();
+        Arc::new(table_info)
     }
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>NumbersTable {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        NumbersTable::new(NUMBERS_TABLE_ID)
+<span class="kw">struct </span>NumbersDataSource {
+    schema: SchemaRef,
+}
+
+<span class="kw">impl </span>NumbersDataSource {
+    <span class="kw">pub fn </span>new(schema: SchemaRef) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ schema }
     }
 }
 
-<span class="attr">#[async_trait::async_trait]
-</span><span class="kw">impl </span>Table <span class="kw">for </span>NumbersTable {
-    <span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Any {
-        <span class="self">self
-    </span>}
-
-    <span class="kw">fn </span>schema(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SchemaRef {
-        <span class="self">self</span>.schema.clone()
-    }
-
-    <span class="kw">fn </span>table_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableInfoRef {
-        Arc::new(
-            TableInfoBuilder::default()
-                .table_id(<span class="self">self</span>.table_id)
-                .name(<span class="kw-2">&amp;</span><span class="self">self</span>.name)
-                .catalog_name(DEFAULT_CATALOG_NAME)
-                .schema_name(DEFAULT_SCHEMA_NAME)
-                .table_version(<span class="number">0</span>)
-                .table_type(TableType::Temporary)
-                .meta(
-                    TableMetaBuilder::default()
-                        .schema(<span class="self">self</span>.schema.clone())
-                        .region_numbers(<span class="macro">vec!</span>[<span class="number">0</span>])
-                        .primary_key_indices(<span class="macro">vec!</span>[<span class="number">0</span>])
-                        .next_column_id(<span class="number">1</span>)
-                        .engine(<span class="kw-2">&amp;</span><span class="self">self</span>.engine)
-                        .build()
-                        .unwrap(),
-                )
-                .build()
-                .unwrap(),
-        )
-    }
-
-    <span class="kw">fn </span>table_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableType {
-        TableType::Temporary
-    }
-
-    <span class="kw">async fn </span>scan_to_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, request: ScanRequest) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
+<span class="kw">impl </span>DataSource <span class="kw">for </span>NumbersDataSource {
+    <span class="kw">fn </span>get_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, request: ScanRequest) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream, BoxedError&gt; {
         <span class="prelude-val">Ok</span>(Box::pin(NumbersStream {
             limit: request.limit.unwrap_or(<span class="number">100</span>) <span class="kw">as </span>u32,
             schema: <span class="self">self</span>.schema.clone(),
             already_run: <span class="bool-val">false</span>,
         }))
-    }
-
-    <span class="kw">async fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>, _region_number: <span class="prelude-ty">Option</span>&lt;RegionNumber&gt;, _wait: <span class="prelude-ty">Option</span>&lt;bool&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="prelude-val">Ok</span>(())
     }
 }
 

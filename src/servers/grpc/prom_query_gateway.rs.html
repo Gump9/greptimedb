@@ -131,6 +131,15 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -154,6 +163,7 @@
 <span class="kw">use </span>api::v1::promql_request::Promql;
 <span class="kw">use </span>api::v1::{PromqlRequest, PromqlResponse, ResponseHeader};
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>auth::UserProviderRef;
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
 <span class="kw">use </span>common_telemetry::timer;
@@ -165,7 +175,7 @@
 <span class="kw">use </span>tonic::{Request, Response};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::InvalidQuerySnafu;
-<span class="kw">use </span><span class="kw">crate</span>::grpc::handler::create_query_context;
+<span class="kw">use </span><span class="kw">crate</span>::grpc::handler::{auth, create_query_context};
 <span class="kw">use </span><span class="kw">crate</span>::grpc::TonicResult;
 <span class="kw">use </span><span class="kw">crate</span>::prometheus::{
     retrieve_metric_name_and_result_type, PrometheusHandlerRef, PrometheusJsonResponse,
@@ -173,6 +183,7 @@
 
 <span class="kw">pub struct </span>PrometheusGatewayService {
     handler: PrometheusHandlerRef,
+    user_provider: <span class="prelude-ty">Option</span>&lt;UserProviderRef&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -207,9 +218,13 @@
             }
         };
 
-        <span class="kw">let </span>query_context = create_query_context(inner.header.as_ref());
+        <span class="kw">let </span>header = inner.header.as_ref();
+        <span class="kw">let </span>query_ctx = create_query_context(header);
+        <span class="kw">let </span>user_info = auth(<span class="self">self</span>.user_provider.clone(), header, <span class="kw-2">&amp;</span>query_ctx).<span class="kw">await</span><span class="question-mark">?</span>;
+        query_ctx.set_current_user(user_info);
+
         <span class="kw">let </span>json_response = <span class="self">self
-            </span>.handle_inner(prom_query, query_context, is_range_query)
+            </span>.handle_inner(prom_query, query_ctx, is_range_query)
             .<span class="kw">await</span>;
         <span class="kw">let </span>json_bytes = serde_json::to_string(<span class="kw-2">&amp;</span>json_response).unwrap().into_bytes();
 
@@ -227,8 +242,11 @@
 }
 
 <span class="kw">impl </span>PrometheusGatewayService {
-    <span class="kw">pub fn </span>new(handler: PrometheusHandlerRef) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ handler }
+    <span class="kw">pub fn </span>new(handler: PrometheusHandlerRef, user_provider: <span class="prelude-ty">Option</span>&lt;UserProviderRef&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            handler,
+            user_provider,
+        }
     }
 
     <span class="kw">async fn </span>handle_inner(

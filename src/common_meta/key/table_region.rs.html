@@ -115,7 +115,7 @@
 <span class="kw">use </span>table::metadata::TableId;
 
 <span class="kw">use </span><span class="kw">super</span>::TABLE_REGION_KEY_PREFIX;
-<span class="kw">use </span><span class="kw">crate</span>::error::{InvalidTableMetadataSnafu, <span class="prelude-ty">Result</span>, SerdeJsonSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="prelude-ty">Result</span>, SerdeJsonSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::key::TableMetaKey;
 <span class="kw">use crate</span>::{impl_table_meta_key, impl_table_meta_value, DatanodeId};
 
@@ -183,7 +183,7 @@
 
         <span class="macro">assert_eq!</span>(value.try_as_raw_value().unwrap(), literal);
         <span class="macro">assert_eq!</span>(
-            TableRegionValue::try_from_raw_value(literal.to_vec()).unwrap(),
+            TableRegionValue::try_from_raw_value(literal).unwrap(),
             value,
         );
     }

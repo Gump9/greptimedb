@@ -994,7 +994,7 @@
             schema: DEFAULT_SCHEMA_NAME.to_string(),
             table_name: NUMBERS_TABLE_NAME.to_string(),
             table_id: NUMBERS_TABLE_ID,
-            table: Arc::new(NumbersTable::default()),
+            table: NumbersTable::table(NUMBERS_TABLE_ID),
         };
 
         <span class="kw">let _ </span>= catalog_list.register_table(register_request).<span class="kw">await</span>.unwrap();
@@ -1029,7 +1029,7 @@
             schema: DEFAULT_SCHEMA_NAME.to_string(),
             table_name: table_name.to_string(),
             table_id,
-            table: Arc::new(NumbersTable::new(table_id)),
+            table: NumbersTable::table(table_id),
         };
         <span class="macro">assert!</span>(catalog.register_table(register_request).<span class="kw">await</span>.unwrap());
         <span class="macro">assert!</span>(catalog
@@ -1071,7 +1071,7 @@
             schema: DEFAULT_SCHEMA_NAME.to_string(),
             table_name: new_table_name.to_string(),
             table_id: table_id + <span class="number">1</span>,
-            table: Arc::new(NumbersTable::new(table_id + <span class="number">1</span>)),
+            table: NumbersTable::table(table_id + <span class="number">1</span>),
         };
         <span class="kw">let </span>result = catalog.register_table(dup_register_request).<span class="kw">await</span>;
         <span class="kw">let </span>err = result.err().unwrap();
@@ -1083,7 +1083,7 @@
         <span class="kw">let </span>catalog = MemoryCatalogManager::with_default_setup();
         <span class="kw">let </span>table_name = <span class="string">&quot;num&quot;</span>;
         <span class="kw">let </span>table_id = <span class="number">2333</span>;
-        <span class="kw">let </span>table: TableRef = Arc::new(NumbersTable::new(table_id));
+        <span class="kw">let </span>table = NumbersTable::table(table_id);
 
         <span class="comment">// register table
         </span><span class="kw">let </span>register_table_req = RegisterTableRequest {
@@ -1146,7 +1146,7 @@
             schema: DEFAULT_SCHEMA_NAME.to_string(),
             table_name: table_name.to_string(),
             table_id: <span class="number">2333</span>,
-            table: Arc::new(NumbersTable::default()),
+            table: NumbersTable::table(<span class="number">2333</span>),
         };
         <span class="kw">let _ </span>= catalog.register_table(register_table_req).<span class="kw">await</span>.unwrap();
         <span class="macro">assert!</span>(catalog
@@ -1188,7 +1188,7 @@
             schema: schema_name.clone(),
             table_name,
             table_id: <span class="number">0</span>,
-            table: Arc::new(NumbersTable::default()),
+            table: NumbersTable::table(<span class="number">0</span>),
         };
         catalog
             .clone()

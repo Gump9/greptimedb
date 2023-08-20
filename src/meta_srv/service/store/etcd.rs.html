@@ -1109,7 +1109,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;RangeRequest&gt; <span class="kw">for </span>Get {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: RangeRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>RangeRequest {
@@ -1146,7 +1146,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;PutRequest&gt; <span class="kw">for </span>Put {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: PutRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>PutRequest {
@@ -1174,7 +1174,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;BatchGetRequest&gt; <span class="kw">for </span>BatchGet {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: BatchGetRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>BatchGetRequest { keys } = req;
@@ -1194,7 +1194,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;BatchPutRequest&gt; <span class="kw">for </span>BatchPut {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: BatchPutRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>BatchPutRequest { kvs, prev_kv } = req;
@@ -1217,7 +1217,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;BatchDeleteRequest&gt; <span class="kw">for </span>BatchDelete {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: BatchDeleteRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>BatchDeleteRequest { keys, prev_kv } = req;
@@ -1242,7 +1242,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;CompareAndPutRequest&gt; <span class="kw">for </span>CompareAndPut {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: CompareAndPutRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>CompareAndPutRequest { key, expect, value } = req;
@@ -1262,7 +1262,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;DeleteRangeRequest&gt; <span class="kw">for </span>Delete {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: DeleteRangeRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>DeleteRangeRequest {
@@ -1295,7 +1295,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;MoveValueRequest&gt; <span class="kw">for </span>MoveValue {
-    <span class="kw">type </span>Error = error::Error;
+    <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(req: MoveValueRequest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>MoveValueRequest { from_key, to_key } = req;

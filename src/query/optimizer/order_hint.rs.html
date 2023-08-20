@@ -303,7 +303,7 @@
     <span class="attr">#[test]
     #[allow(clippy::bool_assert_comparison)]
     </span><span class="kw">fn </span>set_order_hint() {
-        <span class="kw">let </span>numbers_table = Arc::new(NumbersTable::new(<span class="number">0</span>)) <span class="kw">as _</span>;
+        <span class="kw">let </span>numbers_table = NumbersTable::table(<span class="number">0</span>);
         <span class="kw">let </span>adapter = Arc::new(DfTableProviderAdapter::new(numbers_table));
         <span class="kw">let </span>table_source = Arc::new(DefaultTableSource::new(adapter.clone()));
 

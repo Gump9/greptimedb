@@ -161,7 +161,7 @@
 </span><span class="kw">pub trait </span>InfluxdbLineProtocolHandler {
     <span class="doccomment">/// A successful request will not return a response.
     /// Only on error will the socket return a line of data.
-    </span><span class="kw">async fn </span>exec(<span class="kw-2">&amp;</span><span class="self">self</span>, request: <span class="kw-2">&amp;</span>InfluxdbRequest, ctx: QueryContextRef) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">async fn </span>exec(<span class="kw-2">&amp;</span><span class="self">self</span>, request: InfluxdbRequest, ctx: QueryContextRef) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
 
 <span class="attr">#[async_trait]

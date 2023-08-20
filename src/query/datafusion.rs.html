@@ -1226,7 +1226,7 @@
             schema: DEFAULT_SCHEMA_NAME.to_string(),
             table_name: NUMBERS_TABLE_NAME.to_string(),
             table_id: NUMBERS_TABLE_ID,
-            table: Arc::new(NumbersTable::default()),
+            table: NumbersTable::table(NUMBERS_TABLE_ID),
         };
         <span class="kw">let _ </span>= catalog_manager.register_table(req).<span class="kw">await</span>.unwrap();
 

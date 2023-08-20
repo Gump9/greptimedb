@@ -252,6 +252,15 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -284,13 +293,14 @@
 <span class="kw">use </span>datatypes::schema::{ColumnSchema, Schema, SchemaRef};
 <span class="kw">use </span>datatypes::vectors::{StringVectorBuilder, UInt32VectorBuilder};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
+<span class="kw">use </span>store_api::storage::TableId;
 <span class="kw">use </span>table::metadata::TableType;
 
 <span class="kw">use super</span>::{COLUMNS, TABLES};
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     CreateRecordBatchSnafu, InternalSnafu, <span class="prelude-ty">Result</span>, UpgradeWeakCatalogManagerRefSnafu,
 };
-<span class="kw">use </span><span class="kw">crate</span>::information_schema::InformationStreamBuilder;
+<span class="kw">use </span><span class="kw">crate</span>::information_schema::InformationTable;
 <span class="kw">use </span><span class="kw">crate</span>::CatalogManager;
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>InformationSchemaTables {
@@ -328,7 +338,15 @@
     }
 }
 
-<span class="kw">impl </span>InformationStreamBuilder <span class="kw">for </span>InformationSchemaTables {
+<span class="kw">impl </span>InformationTable <span class="kw">for </span>InformationSchemaTables {
+    <span class="kw">fn </span>table_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableId {
+        INFORMATION_SCHEMA_TABLES_TABLE_ID
+    }
+
+    <span class="kw">fn </span>table_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+        TABLES
+    }
+
     <span class="kw">fn </span>schema(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SchemaRef {
         <span class="self">self</span>.schema.clone()
     }

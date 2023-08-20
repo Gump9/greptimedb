@@ -182,6 +182,10 @@
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -203,39 +207,45 @@
 };
 <span class="kw">use </span>datatypes::schema::Schema;
 <span class="kw">use </span>snafu::{ensure, OptionExt};
+<span class="kw">use </span>table::engine::TableReference;
 <span class="kw">use </span>table::metadata::TableId;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     DuplicatedColumnNameSnafu, DuplicatedTimestampColumnSnafu, MissingTimestampColumnSnafu, <span class="prelude-ty">Result</span>,
 };
 
-<span class="kw">pub struct </span>ColumnExpr {
-    <span class="kw">pub </span>column_name: String,
+<span class="kw">pub struct </span>ColumnExpr&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub </span>column_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
     <span class="kw">pub </span>datatype: i32,
     <span class="kw">pub </span>semantic_type: i32,
 }
 
-<span class="kw">impl </span>ColumnExpr {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ColumnExpr&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>from_columns(columns: <span class="kw-2">&amp;</span>[Column]) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
+    </span><span class="kw">pub fn </span>from_columns(columns: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[Column]) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         columns.iter().map(<span class="self">Self</span>::from).collect()
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>from_column_schemas(schemas: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ColumnSchema]) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
+        schemas.iter().map(<span class="self">Self</span>::from).collect()
     }
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>Column&gt; <span class="kw">for </span>ColumnExpr {
-    <span class="kw">fn </span>from(column: <span class="kw-2">&amp;</span>Column) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Column&gt; <span class="kw">for </span>ColumnExpr&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>from(column: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Column) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            column_name: column.column_name.clone(),
+            column_name: <span class="kw-2">&amp;</span>column.column_name,
             datatype: column.datatype,
             semantic_type: column.semantic_type,
         }
     }
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>ColumnSchema&gt; <span class="kw">for </span>ColumnExpr {
-    <span class="kw">fn </span>from(schema: <span class="kw-2">&amp;</span>ColumnSchema) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ColumnSchema&gt; <span class="kw">for </span>ColumnExpr&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>from(schema: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ColumnSchema) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            column_name: schema.column_name.clone(),
+            column_name: <span class="kw-2">&amp;</span>schema.column_name,
             datatype: schema.datatype,
             semantic_type: schema.semantic_type,
         }
@@ -243,10 +253,8 @@
 }
 
 <span class="kw">pub fn </span>build_create_table_expr(
-    catalog_name: <span class="kw-2">&amp;</span>str,
-    schema_name: <span class="kw-2">&amp;</span>str,
     table_id: <span class="prelude-ty">Option</span>&lt;TableId&gt;,
-    table_name: <span class="kw-2">&amp;</span>str,
+    table_name: <span class="kw-2">&amp;</span>TableReference&lt;<span class="lifetime">&#39;_</span>&gt;,
     column_exprs: Vec&lt;ColumnExpr&gt;,
     engine: <span class="kw-2">&amp;</span>str,
     desc: <span class="kw-2">&amp;</span>str,
@@ -261,8 +269,8 @@
     </span><span class="kw">let </span><span class="kw-2">mut </span>distinct_names = HashSet::with_capacity(column_exprs.len());
     <span class="kw">for </span>ColumnExpr { column_name, .. } <span class="kw">in </span><span class="kw-2">&amp;</span>column_exprs {
         <span class="macro">ensure!</span>(
-            distinct_names.insert(column_name),
-            DuplicatedColumnNameSnafu { name: column_name }
+            distinct_names.insert(<span class="kw-2">*</span>column_name),
+            DuplicatedColumnNameSnafu { name: <span class="kw-2">*</span>column_name }
         );
     }
 
@@ -278,16 +286,16 @@
     {
         <span class="kw">let </span><span class="kw-2">mut </span>is_nullable = <span class="bool-val">true</span>;
         <span class="kw">match </span>semantic_type {
-            v <span class="kw">if </span>v == SemanticType::Tag <span class="kw">as </span>i32 =&gt; primary_keys.push(column_name.clone()),
+            v <span class="kw">if </span>v == SemanticType::Tag <span class="kw">as </span>i32 =&gt; primary_keys.push(column_name.to_string()),
             v <span class="kw">if </span>v == SemanticType::Timestamp <span class="kw">as </span>i32 =&gt; {
                 <span class="macro">ensure!</span>(
                     time_index.is_none(),
                     DuplicatedTimestampColumnSnafu {
                         exists: time_index.unwrap(),
-                        duplicated: <span class="kw-2">&amp;</span>column_name,
+                        duplicated: column_name,
                     }
                 );
-                time_index = <span class="prelude-val">Some</span>(column_name.clone());
+                time_index = <span class="prelude-val">Some</span>(column_name.to_string());
                 <span class="comment">// Timestamp column must not be null.
                 </span>is_nullable = <span class="bool-val">false</span>;
             }
@@ -295,7 +303,7 @@
         }
 
         <span class="kw">let </span>column_def = ColumnDef {
-            name: column_name,
+            name: column_name.to_string(),
             datatype,
             is_nullable,
             default_constraint: <span class="macro">vec!</span>[],
@@ -304,13 +312,13 @@
     }
 
     <span class="kw">let </span>time_index = time_index.context(MissingTimestampColumnSnafu {
-        msg: <span class="macro">format!</span>(<span class="string">&quot;table is {}&quot;</span>, table_name),
+        msg: <span class="macro">format!</span>(<span class="string">&quot;table is {}&quot;</span>, table_name.table),
     })<span class="question-mark">?</span>;
 
     <span class="kw">let </span>expr = CreateTableExpr {
-        catalog_name: catalog_name.to_string(),
-        schema_name: schema_name.to_string(),
-        table_name: table_name.to_string(),
+        catalog_name: table_name.catalog.to_string(),
+        schema_name: table_name.schema.to_string(),
+        table_name: table_name.table.to_string(),
         desc: desc.to_string(),
         column_defs,
         time_index,
@@ -332,11 +340,11 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;AddColumns&gt;&gt; {
     <span class="kw">let </span>columns_to_add = column_exprs
         .into_iter()
-        .filter(|expr| schema.column_schema_by_name(<span class="kw-2">&amp;</span>expr.column_name).is_none())
+        .filter(|expr| schema.column_schema_by_name(expr.column_name).is_none())
         .map(|expr| {
             <span class="kw">let </span>is_key = expr.semantic_type == SemanticType::Tag <span class="kw">as </span>i32;
             <span class="kw">let </span>column_def = <span class="prelude-val">Some</span>(ColumnDef {
-                name: expr.column_name,
+                name: expr.column_name.to_string(),
                 datatype: expr.datatype,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
@@ -354,7 +362,7 @@
     } <span class="kw">else </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>distinct_names = HashSet::with_capacity(columns_to_add.len());
         <span class="kw">for </span>add_column <span class="kw">in </span><span class="kw-2">&amp;</span>columns_to_add {
-            <span class="kw">let </span>name = <span class="kw-2">&amp;</span>add_column.column_def.as_ref().unwrap().name;
+            <span class="kw">let </span>name = add_column.column_def.as_ref().unwrap().name.as_str();
             <span class="macro">ensure!</span>(
                 distinct_names.insert(name),
                 DuplicatedColumnNameSnafu { name }

@@ -427,6 +427,8 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -457,7 +459,9 @@
     RegisterSystemTableRequest, RegisterTableRequest, RenameTableRequest,
 };
 <span class="kw">use </span>client::client_manager::DatanodeClients;
-<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, INFORMATION_SCHEMA_NAME};
+<span class="kw">use </span>common_catalog::consts::{
+    DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, INFORMATION_SCHEMA_NAME, NUMBERS_TABLE_ID,
+};
 <span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_meta::key::catalog_name::CatalogNameKey;
 <span class="kw">use </span>common_meta::key::schema_name::SchemaNameKey;
@@ -797,7 +801,7 @@
             &amp;&amp; schema == DEFAULT_SCHEMA_NAME
             &amp;&amp; table_name == NUMBERS_TABLE_NAME
         {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Arc::new(NumbersTable::default())));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(NumbersTable::table(NUMBERS_TABLE_ID)));
         }
 
         <span class="kw">if </span>schema == INFORMATION_SCHEMA_NAME {
@@ -814,7 +818,7 @@
 
             <span class="kw">let </span>provider =
                 InformationSchemaProvider::new(catalog.to_string(), Arc::downgrade(<span class="kw-2">&amp;</span>manager));
-            <span class="kw">return </span>provider.table(table_name);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(provider.table(table_name));
         }
 
         <span class="kw">let </span>key = TableNameKey::new(catalog, schema, table_name);

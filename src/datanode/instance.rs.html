@@ -511,6 +511,10 @@
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -569,7 +573,6 @@
 <span class="kw">use </span>table::requests::FlushTableRequest;
 <span class="kw">use </span>table::table::numbers::NumbersTable;
 <span class="kw">use </span>table::table::TableIdProviderRef;
-<span class="kw">use </span>table::Table;
 
 <span class="kw">use </span><span class="kw">crate</span>::datanode::{DatanodeOptions, ObjectStoreConfig, ProcedureConfig, WalConfig};
 <span class="kw">use </span><span class="kw">crate</span>::error::{
@@ -581,6 +584,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::handler::close_region::CloseRegionHandler;
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::handler::open_region::OpenRegionHandler;
 <span class="kw">use </span><span class="kw">crate</span>::heartbeat::HeartbeatTask;
+<span class="kw">use </span><span class="kw">crate</span>::row_inserter::RowInserter;
 <span class="kw">use </span><span class="kw">crate</span>::sql::{SqlHandler, SqlRequest};
 <span class="kw">use </span><span class="kw">crate</span>::store;
 
@@ -595,6 +599,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) sql_handler: SqlHandler,
     <span class="kw">pub</span>(<span class="kw">crate</span>) catalog_manager: CatalogManagerRef,
     <span class="kw">pub</span>(<span class="kw">crate</span>) table_id_provider: <span class="prelude-ty">Option</span>&lt;TableIdProviderRef&gt;,
+    row_inserter: RowInserter,
     procedure_manager: ProcedureManagerRef,
     greptimedb_telemetry_task: Arc&lt;GreptimeDBTelemetryTask&gt;,
 }
@@ -725,13 +730,13 @@
             Mode::Standalone =&gt; {
                 <span class="kw">if </span>opts.enable_memory_catalog {
                     <span class="kw">let </span>catalog = catalog::local::MemoryCatalogManager::with_default_setup();
-                    <span class="kw">let </span>table = NumbersTable::new(MIN_USER_TABLE_ID);
+                    <span class="kw">let </span>table = NumbersTable::table(MIN_USER_TABLE_ID);
 
                     <span class="kw">let _ </span>= catalog
                         .register_table(RegisterTableRequest {
                             table_id: MIN_USER_TABLE_ID,
                             table_name: table.table_info().name.to_string(),
-                            table: Arc::new(table),
+                            table,
                             catalog: DEFAULT_CATALOG_NAME.to_string(),
                             schema: DEFAULT_SCHEMA_NAME.to_string(),
                         })
@@ -793,10 +798,14 @@
             plugins,
         );
         <span class="kw">let </span>query_engine = factory.query_engine();
-
         <span class="kw">let </span>procedure_manager =
             create_procedure_manager(opts.node_id.unwrap_or(<span class="number">0</span>), <span class="kw-2">&amp;</span>opts.procedure, object_store)
                 .<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>sql_handler = SqlHandler::new(
+            engine_manager.clone(),
+            catalog_manager.clone(),
+            procedure_manager.clone(),
+        );
         <span class="comment">// Register all procedures.
         // Register procedures of the mito engine.
         </span>mito_engine.register_procedure_loaders(<span class="kw-2">&amp;*</span>procedure_manager);
@@ -809,23 +818,22 @@
             mito_engine.clone(),
             <span class="kw-2">&amp;*</span>procedure_manager,
         );
+        <span class="kw">let </span>row_inserter = RowInserter::new(catalog_manager.clone());
+        <span class="kw">let </span>greptimedb_telemetry_task = get_greptimedb_telemetry_task(
+            <span class="prelude-val">Some</span>(opts.storage.data_home.clone()),
+            <span class="kw-2">&amp;</span>opts.mode,
+            opts.enable_telemetry,
+        )
+        .<span class="kw">await</span>;
 
         <span class="kw">let </span>instance = Arc::new(<span class="self">Self </span>{
             query_engine: query_engine.clone(),
-            sql_handler: SqlHandler::new(
-                engine_manager.clone(),
-                catalog_manager.clone(),
-                procedure_manager.clone(),
-            ),
+            sql_handler,
             catalog_manager: catalog_manager.clone(),
             table_id_provider,
+            row_inserter,
             procedure_manager,
-            greptimedb_telemetry_task: get_greptimedb_telemetry_task(
-                <span class="prelude-val">Some</span>(opts.storage.data_home.clone()),
-                <span class="kw-2">&amp;</span>opts.mode,
-                opts.enable_telemetry,
-            )
-            .<span class="kw">await</span>,
+            greptimedb_telemetry_task,
         });
 
         <span class="kw">let </span>heartbeat_task = Instance::build_heartbeat_task(
