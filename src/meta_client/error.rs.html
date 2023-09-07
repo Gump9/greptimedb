@@ -119,6 +119,10 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -186,6 +190,9 @@
         location: Location,
         source: common_meta::error::Error,
     },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Retry exceeded max times({}), message: {}&quot;</span>, times, msg))]
+    </span>RetryTimesExceeded { times: usize, msg: String },
 }
 
 <span class="attr">#[allow(dead_code)]
@@ -204,7 +211,8 @@
             | Error::NotStarted { .. }
             | Error::SendHeartbeat { .. }
             | Error::CreateHeartbeatStream { .. }
-            | Error::CreateChannel { .. } =&gt; StatusCode::Internal,
+            | Error::CreateChannel { .. }
+            | Error::RetryTimesExceeded { .. } =&gt; StatusCode::Internal,
 
             Error::MetaServer { code, .. } =&gt; <span class="kw-2">*</span>code,
 

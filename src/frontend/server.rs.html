@@ -208,6 +208,10 @@
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -281,6 +285,8 @@
             <span class="kw">let </span>grpc_server = GrpcServer::new(
                 ServerGrpcQueryHandlerAdaptor::arc(instance.clone()),
                 <span class="prelude-val">Some</span>(instance.clone()),
+                <span class="prelude-val">None</span>,
+                <span class="prelude-val">None</span>,
                 user_provider.clone(),
                 grpc_runtime,
             );
@@ -384,7 +390,9 @@
                 opts.prom_store_options,
                 <span class="prelude-val">Some</span>(PromStoreOptions { enable: <span class="bool-val">true </span>})
             ) {
-                <span class="kw">let _ </span>= http_server_builder.with_prom_handler(instance.clone());
+                <span class="kw">let _ </span>= http_server_builder
+                    .with_prom_handler(instance.clone())
+                    .with_prometheus_handler(instance.clone());
             }
 
             <span class="kw">if </span><span class="macro">matches!</span>(opts.otlp_options, <span class="prelude-val">Some</span>(OtlpOptions { enable: <span class="bool-val">true </span>})) {

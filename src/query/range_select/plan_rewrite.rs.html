@@ -474,7 +474,6 @@
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -548,7 +547,9 @@
 <span class="kw">fn </span>parse_str_expr(args: <span class="kw-2">&amp;</span>[Expr], i: usize) -&gt; DFResult&lt;<span class="kw-2">&amp;</span>str&gt; {
     <span class="kw">match </span>args.get(i) {
         <span class="prelude-val">Some</span>(Expr::Literal(ScalarValue::Utf8(<span class="prelude-val">Some</span>(str)))) =&gt; <span class="prelude-val">Ok</span>(str.as_str()),
-        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(DataFusionError::Plan(<span class="string">&quot;Illegal str expr in range_fn&quot;</span>.into())),
+        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(DataFusionError::Plan(
+            <span class="string">&quot;Illegal argument in range select query&quot;</span>.into(),
+        )),
     }
 }
 
@@ -556,8 +557,18 @@
     <span class="kw">let </span><span class="kw-2">mut </span>outs = Vec::with_capacity(len);
     <span class="kw">for </span>i <span class="kw">in </span>start..start + len {
         outs.push(<span class="kw">match </span><span class="kw-2">&amp;</span>args.get(i) {
-            <span class="prelude-val">Some</span>(Expr::Column(<span class="kw">_</span>)) | <span class="prelude-val">Some</span>(Expr::BinaryExpr(<span class="kw">_</span>)) =&gt; args[i].clone(),
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(DataFusionError::Plan(<span class="string">&quot;Illegal expr in range_fn&quot;</span>.into())),
+            <span class="prelude-val">Some</span>(
+                Expr::Column(<span class="kw">_</span>)
+                | Expr::Literal(<span class="kw">_</span>)
+                | Expr::BinaryExpr(<span class="kw">_</span>)
+                | Expr::ScalarFunction(<span class="kw">_</span>)
+                | Expr::ScalarUDF(<span class="kw">_</span>),
+            ) =&gt; args[i].clone(),
+            <span class="kw">_ </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(DataFusionError::Plan(
+                    <span class="string">&quot;Illegal expr argument in range select query&quot;</span>.into(),
+                ))
+            }
         });
     }
     <span class="prelude-val">Ok</span>(outs)
@@ -670,28 +681,18 @@
                 <span class="kw">if </span>range_rewriter.by.is_empty() {
                     range_rewriter.by = default_by;
                 }
+                <span class="kw">let </span>range_select = RangeSelect::try_new(
+                    input.clone(),
+                    range_rewriter.range_fn,
+                    range_rewriter.align,
+                    time_index,
+                    range_rewriter.by,
+                    <span class="kw-2">&amp;</span>new_expr,
+                )<span class="question-mark">?</span>;
+                <span class="kw">let </span>no_additional_project = range_select.schema_project.is_some();
                 <span class="kw">let </span>range_plan = LogicalPlan::Extension(Extension {
-                    node: Arc::new(RangeSelect::try_new(
-                        input.clone(),
-                        range_rewriter.range_fn,
-                        range_rewriter.align,
-                        time_index,
-                        range_rewriter.by,
-                    )<span class="question-mark">?</span>),
+                    node: Arc::new(range_select),
                 });
-                <span class="comment">// If the result of the project plan happens to be the schema of the range plan, no project plan is required
-                // that need project is identical to range plan schema.
-                // 1. all exprs in project must belong to range schema
-                // 2. range schema and project exprs must have same size
-                </span><span class="kw">let </span>all_in_range_schema = new_expr.iter().all(|expr| {
-                    <span class="kw">if let </span>Expr::Column(column) = expr {
-                        range_plan.schema().has_column(column)
-                    } <span class="kw">else </span>{
-                        <span class="bool-val">false
-                    </span>}
-                });
-                <span class="kw">let </span>no_additional_project =
-                    all_in_range_schema &amp;&amp; new_expr.len() == range_plan.schema().fields().len();
                 <span class="kw">if </span>no_additional_project {
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(range_plan))
                 } <span class="kw">else </span>{
@@ -753,10 +754,7 @@
                             table: table_ref.to_string(),
                         })<span class="question-mark">?</span>;
                 <span class="comment">// assert time_index&#39;s datatype is timestamp
-                </span><span class="kw">if let </span>ConcreteDataType::Timestamp(datatypes::types::TimestampType::Millisecond(
-                    <span class="kw">_</span>,
-                )) = time_index_column.data_type
-                {
+                </span><span class="kw">if let </span>ConcreteDataType::Timestamp(<span class="kw">_</span>) = time_index_column.data_type {
                     default_by = table
                         .table_info()
                         .meta
@@ -885,7 +883,7 @@
     </span><span class="kw">async fn </span>range_no_project() {
         <span class="kw">let </span>query = <span class="string">r#&quot;SELECT timestamp, tag_0, tag_1, avg(field_0 + field_1) RANGE &#39;5m&#39; FROM test ALIGN &#39;1h&#39; by (tag_0,tag_1);&quot;#</span>;
         <span class="kw">let </span>expected = String::from(
-            <span class="string">&quot;RangeSelect: range_exprs=[RangeFn { expr:AVG(test.field_0 + test.field_1) range:300s fill: }], align=3600s time_index=timestamp [AVG(test.field_0 + test.field_1):Float64;N, timestamp:Timestamp(Millisecond, None), tag_0:Utf8, tag_1:Utf8]\
+            <span class="string">&quot;RangeSelect: range_exprs=[RangeFn { expr:AVG(test.field_0 + test.field_1) range:300s fill: }], align=3600s time_index=timestamp [timestamp:Timestamp(Millisecond, None), tag_0:Utf8, tag_1:Utf8, AVG(test.field_0 + test.field_1):Float64;N]\
             \n  TableScan: test [tag_0:Utf8, tag_1:Utf8, tag_2:Utf8, tag_3:Utf8, tag_4:Utf8, timestamp:Timestamp(Millisecond, None), field_0:Float64;N, field_1:Float64;N, field_2:Float64;N, field_3:Float64;N, field_4:Float64;N]&quot;
         </span>);
         query_plan_compare(query, expected).<span class="kw">await</span>;

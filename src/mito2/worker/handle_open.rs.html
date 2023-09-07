@@ -54,6 +54,8 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -72,7 +74,9 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_telemetry::info;
+<span class="kw">use </span>store_api::logstore::LogStore;
 <span class="kw">use </span>store_api::region_request::RegionOpenRequest;
 <span class="kw">use </span>store_api::storage::RegionId;
 
@@ -80,14 +84,14 @@
 <span class="kw">use </span><span class="kw">crate</span>::region::opener::RegionOpener;
 <span class="kw">use </span><span class="kw">crate</span>::worker::RegionWorkerLoop;
 
-<span class="kw">impl</span>&lt;S&gt; RegionWorkerLoop&lt;S&gt; {
+<span class="kw">impl</span>&lt;S: LogStore&gt; RegionWorkerLoop&lt;S&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_open_request(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         region_id: RegionId,
         request: RegionOpenRequest,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
         <span class="kw">if </span><span class="self">self</span>.regions.is_region_exists(region_id) {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Output::AffectedRows(<span class="number">0</span>));
         }
 
         <span class="macro">info!</span>(<span class="string">&quot;Try to open region {}&quot;</span>, region_id);
@@ -99,7 +103,7 @@
             <span class="self">self</span>.object_store.clone(),
         )
         .region_dir(<span class="kw-2">&amp;</span>request.region_dir)
-        .open(<span class="kw-2">&amp;</span><span class="self">self</span>.config)
+        .open(<span class="kw-2">&amp;</span><span class="self">self</span>.config, <span class="kw-2">&amp;</span><span class="self">self</span>.wal)
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="macro">info!</span>(<span class="string">&quot;Region {} is opened&quot;</span>, region_id);
@@ -107,7 +111,7 @@
         <span class="comment">// Insert the MitoRegion into the RegionMap.
         </span><span class="self">self</span>.regions.insert_region(Arc::new(region));
 
-        <span class="prelude-val">Ok</span>(())
+        <span class="prelude-val">Ok</span>(Output::AffectedRows(<span class="number">0</span>))
     }
 }
 </code></pre></div></section></main></body></html>

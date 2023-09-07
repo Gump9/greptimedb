@@ -824,6 +824,47 @@
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
 <a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -855,6 +896,7 @@
 <span class="kw">use </span>store_api::storage::RegionNumber;
 <span class="kw">use </span>table::engine::manager::TableEngineManagerRef;
 <span class="kw">use </span>table::engine::{CloseTableResult, EngineContext, TableEngineRef};
+<span class="kw">use </span>table::metadata::TableId;
 <span class="kw">use </span>table::requests::CloseTableRequest;
 <span class="kw">use </span>table::TableRef;
 <span class="kw">use </span>tokio::sync::{mpsc, oneshot, Mutex};
@@ -862,11 +904,13 @@
 <span class="kw">use </span>tokio::time::{Duration, Instant};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="prelude-ty">Result</span>, TableEngineNotFoundSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::local::MemoryCatalogManager;
+<span class="kw">use </span><span class="kw">crate</span>::DeregisterTableRequest;
 
 <span class="doccomment">/// [RegionAliveKeepers] manages all [RegionAliveKeeper] in a scope of tables.
 </span><span class="kw">pub struct </span>RegionAliveKeepers {
     table_engine_manager: TableEngineManagerRef,
-    keepers: Arc&lt;Mutex&lt;HashMap&lt;TableIdent, Arc&lt;RegionAliveKeeper&gt;&gt;&gt;&gt;,
+    keepers: Arc&lt;Mutex&lt;HashMap&lt;TableId, Arc&lt;RegionAliveKeeper&gt;&gt;&gt;&gt;,
     heartbeat_interval_millis: u64,
     started: AtomicBool,
 
@@ -891,12 +935,18 @@
         }
     }
 
-    <span class="kw">pub async fn </span>find_keeper(<span class="kw-2">&amp;</span><span class="self">self</span>, table_ident: <span class="kw-2">&amp;</span>TableIdent) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;RegionAliveKeeper&gt;&gt; {
-        <span class="self">self</span>.keepers.lock().<span class="kw">await</span>.get(table_ident).cloned()
+    <span class="kw">pub async fn </span>find_keeper(<span class="kw-2">&amp;</span><span class="self">self</span>, table_id: TableId) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;RegionAliveKeeper&gt;&gt; {
+        <span class="self">self</span>.keepers.lock().<span class="kw">await</span>.get(<span class="kw-2">&amp;</span>table_id).cloned()
     }
 
-    <span class="kw">pub async fn </span>register_table(<span class="kw-2">&amp;</span><span class="self">self</span>, table_ident: TableIdent, table: TableRef) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>keeper = <span class="self">self</span>.find_keeper(<span class="kw-2">&amp;</span>table_ident).<span class="kw">await</span>;
+    <span class="kw">pub async fn </span>register_table(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        table_ident: TableIdent,
+        table: TableRef,
+        catalog_manager: Arc&lt;MemoryCatalogManager&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>table_id = table_ident.table_id;
+        <span class="kw">let </span>keeper = <span class="self">self</span>.find_keeper(table_id).<span class="kw">await</span>;
         <span class="kw">if </span>keeper.is_some() {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
@@ -910,6 +960,7 @@
 
         <span class="kw">let </span>keeper = Arc::new(RegionAliveKeeper::new(
             table_engine,
+            catalog_manager,
             table_ident.clone(),
             <span class="self">self</span>.heartbeat_interval_millis,
         ));
@@ -918,7 +969,7 @@
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>keepers = <span class="self">self</span>.keepers.lock().<span class="kw">await</span>;
-        <span class="kw">let _ </span>= keepers.insert(table_ident.clone(), keeper.clone());
+        <span class="kw">let _ </span>= keepers.insert(table_id, keeper.clone());
 
         <span class="kw">if </span><span class="self">self</span>.started.load(Ordering::Relaxed) {
             keeper.start().<span class="kw">await</span>;
@@ -934,15 +985,16 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         table_ident: <span class="kw-2">&amp;</span>TableIdent,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;RegionAliveKeeper&gt;&gt; {
-        <span class="self">self</span>.keepers.lock().<span class="kw">await</span>.remove(table_ident).map(|x| {
+        <span class="kw">let </span>table_id = table_ident.table_id;
+        <span class="self">self</span>.keepers.lock().<span class="kw">await</span>.remove(<span class="kw-2">&amp;</span>table_id).map(|x| {
             <span class="macro">info!</span>(<span class="string">&quot;Deregister RegionAliveKeeper for table {table_ident}&quot;</span>);
             x
         })
     }
 
     <span class="kw">pub async fn </span>register_region(<span class="kw-2">&amp;</span><span class="self">self</span>, region_ident: <span class="kw-2">&amp;</span>RegionIdent) {
-        <span class="kw">let </span>table_ident = <span class="kw-2">&amp;</span>region_ident.table_ident;
-        <span class="kw">let </span><span class="prelude-val">Some</span>(keeper) = <span class="self">self</span>.find_keeper(table_ident).<span class="kw">await else </span>{
+        <span class="kw">let </span>table_id = region_ident.table_ident.table_id;
+        <span class="kw">let </span><span class="prelude-val">Some</span>(keeper) = <span class="self">self</span>.find_keeper(table_id).<span class="kw">await else </span>{
             <span class="comment">// Alive keeper could be affected by lagging msg, just warn and ignore.
             </span><span class="macro">warn!</span>(<span class="string">&quot;Alive keeper for region {region_ident} is not found!&quot;</span>);
             <span class="kw">return</span>;
@@ -951,8 +1003,8 @@
     </span>}
 
     <span class="kw">pub async fn </span>deregister_region(<span class="kw-2">&amp;</span><span class="self">self</span>, region_ident: <span class="kw-2">&amp;</span>RegionIdent) {
-        <span class="kw">let </span>table_ident = <span class="kw-2">&amp;</span>region_ident.table_ident;
-        <span class="kw">let </span><span class="prelude-val">Some</span>(keeper) = <span class="self">self</span>.find_keeper(table_ident).<span class="kw">await else </span>{
+        <span class="kw">let </span>table_id = region_ident.table_ident.table_id;
+        <span class="kw">let </span><span class="prelude-val">Some</span>(keeper) = <span class="self">self</span>.find_keeper(table_id).<span class="kw">await else </span>{
             <span class="comment">// Alive keeper could be affected by lagging msg, just warn and ignore.
             </span><span class="macro">warn!</span>(<span class="string">&quot;Alive keeper for region {region_ident} is not found!&quot;</span>);
             <span class="kw">return</span>;
@@ -1004,7 +1056,8 @@
                 }
             };
 
-            <span class="kw">let </span><span class="prelude-val">Some</span>(keeper) = <span class="self">self</span>.keepers.lock().<span class="kw">await</span>.get(<span class="kw-2">&amp;</span>table_ident).cloned() <span class="kw">else </span>{
+            <span class="kw">let </span>table_id = table_ident.table_id;
+            <span class="kw">let </span><span class="prelude-val">Some</span>(keeper) = <span class="self">self</span>.keepers.lock().<span class="kw">await</span>.get(<span class="kw-2">&amp;</span>table_id).cloned() <span class="kw">else </span>{
                 <span class="comment">// Alive keeper could be affected by lagging msg, just warn and ignore.
                 </span><span class="macro">warn!</span>(<span class="string">&quot;Alive keeper for table {table_ident} is not found!&quot;</span>);
                 <span class="kw">continue</span>;
@@ -1025,6 +1078,7 @@
 /// Datanode, it will &quot;extend&quot; the region&#39;s &quot;lease&quot;, with a deadline for [RegionAliveKeeper] to
 /// countdown.
 </span><span class="kw">pub struct </span>RegionAliveKeeper {
+    catalog_manager: Arc&lt;MemoryCatalogManager&gt;,
     table_engine: TableEngineRef,
     table_ident: TableIdent,
     countdown_task_handles: Arc&lt;Mutex&lt;HashMap&lt;RegionNumber, Arc&lt;CountdownTaskHandle&gt;&gt;&gt;&gt;,
@@ -1035,10 +1089,12 @@
 <span class="kw">impl </span>RegionAliveKeeper {
     <span class="kw">fn </span>new(
         table_engine: TableEngineRef,
+        catalog_manager: Arc&lt;MemoryCatalogManager&gt;,
         table_ident: TableIdent,
         heartbeat_interval_millis: u64,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            catalog_manager,
             table_engine,
             table_ident,
             countdown_task_handles: Arc::new(Mutex::new(HashMap::new())),
@@ -1066,11 +1122,29 @@
                 <span class="kw">let _ </span>= x.lock().<span class="kw">await</span>.remove(<span class="kw-2">&amp;</span>region);
             } <span class="comment">// Else the countdown task handles map could be dropped because the keeper is dropped.
         </span>};
+        <span class="kw">let </span>catalog_manager = <span class="self">self</span>.catalog_manager.clone();
+        <span class="kw">let </span>ident = <span class="self">self</span>.table_ident.clone();
         <span class="kw">let </span>handle = Arc::new(CountdownTaskHandle::new(
             <span class="self">self</span>.table_engine.clone(),
             <span class="self">self</span>.table_ident.clone(),
             region,
-            || on_task_finished,
+            <span class="kw">move </span>|result: <span class="prelude-ty">Option</span>&lt;CloseTableResult&gt;| {
+                <span class="kw">if </span><span class="macro">matches!</span>(result, <span class="prelude-val">Some</span>(CloseTableResult::Released(<span class="kw">_</span>))) {
+                    <span class="kw">let </span>result = catalog_manager.deregister_table_sync(DeregisterTableRequest {
+                        catalog: ident.catalog.to_string(),
+                        schema: ident.schema.to_string(),
+                        table_name: ident.table.to_string(),
+                    });
+
+                    <span class="macro">info!</span>(
+                        <span class="string">&quot;Deregister table: {} after countdown task finished, result: {result:?}&quot;</span>,
+                        ident.table_id
+                    );
+                } <span class="kw">else </span>{
+                    <span class="macro">debug!</span>(<span class="string">&quot;Countdown task returns: {result:?}&quot;</span>);
+                }
+                on_task_finished
+            },
         ));
 
         <span class="kw">let </span><span class="kw-2">mut </span>handles = <span class="self">self</span>.countdown_task_handles.lock().<span class="kw">await</span>;
@@ -1169,7 +1243,7 @@
         table_engine: TableEngineRef,
         table_ident: TableIdent,
         region: RegionNumber,
-        on_task_finished: <span class="kw">impl </span>FnOnce() -&gt; Fut + Send + <span class="lifetime">&#39;static</span>,
+        on_task_finished: <span class="kw">impl </span>FnOnce(<span class="prelude-ty">Option</span>&lt;CloseTableResult&gt;) -&gt; Fut + Send + <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>Fut: Future&lt;Output = ()&gt; + Send,
@@ -1183,8 +1257,8 @@
             rx,
         };
         <span class="kw">let </span>handler = common_runtime::spawn_bg(<span class="kw">async move </span>{
-            countdown_task.run().<span class="kw">await</span>;
-            on_task_finished().<span class="kw">await</span>;
+            <span class="kw">let </span>result = countdown_task.run().<span class="kw">await</span>;
+            on_task_finished(result).<span class="kw">await</span>;
         });
 
         <span class="self">Self </span>{
@@ -1236,7 +1310,8 @@
 }
 
 <span class="kw">impl </span>CountdownTask {
-    <span class="kw">async fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    <span class="comment">// returns true if
+    </span><span class="kw">async fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;CloseTableResult&gt; {
         <span class="comment">// 30 years. See `Instant::far_future`.
         </span><span class="kw">let </span>far_future = Instant::now() + Duration::from_secs(<span class="number">86400 </span>* <span class="number">365 </span>* <span class="number">30</span>);
 
@@ -1290,11 +1365,12 @@
                         <span class="string">&quot;Region {region} of table {table_ident} is closed, result: {result:?}. \
                         RegionAliveKeeper out.&quot;</span>,
                     );
-                    <span class="kw">break</span>;
+                    <span class="kw">return </span><span class="prelude-val">Some</span>(result);
                 }
             }
         }
-    }
+        <span class="prelude-val">None
+    </span>}
 
     <span class="kw">async fn </span>close_region(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CloseTableResult {
         <span class="kw">let </span>ctx = EngineContext::default();
@@ -1369,11 +1445,16 @@
             table_options: TableOptions::default(),
             engine: <span class="string">&quot;MockTableEngine&quot;</span>.to_string(),
         }));
+        <span class="kw">let </span>catalog_manager = MemoryCatalogManager::new_with_table(table.clone());
         keepers
-            .register_table(table_ident.clone(), table)
+            .register_table(table_ident.clone(), table, catalog_manager)
             .<span class="kw">await
             </span>.unwrap();
-        <span class="macro">assert!</span>(keepers.keepers.lock().<span class="kw">await</span>.contains_key(<span class="kw-2">&amp;</span>table_ident));
+        <span class="macro">assert!</span>(keepers
+            .keepers
+            .lock()
+            .<span class="kw">await
+            </span>.contains_key(<span class="kw-2">&amp;</span>table_ident.table_id));
 
         (table_ident, keepers)
     }
@@ -1428,7 +1509,7 @@
             .keepers
             .lock()
             .<span class="kw">await
-            </span>.get(<span class="kw-2">&amp;</span>table_ident)
+            </span>.get(<span class="kw-2">&amp;</span>table_ident.table_id)
             .cloned()
             .unwrap();
 
@@ -1475,7 +1556,7 @@
             })
             .<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>regions = keepers
-            .find_keeper(<span class="kw-2">&amp;</span>table_ident)
+            .find_keeper(table_ident.table_id)
             .<span class="kw">await
             </span>.unwrap()
             .countdown_task_handles
@@ -1502,7 +1583,8 @@
             table_id: <span class="number">1024</span>,
             engine: <span class="string">&quot;mito&quot;</span>.to_string(),
         };
-        <span class="kw">let </span>keeper = RegionAliveKeeper::new(table_engine, table_ident, <span class="number">1000</span>);
+        <span class="kw">let </span>catalog_manager = MemoryCatalogManager::with_default_setup();
+        <span class="kw">let </span>keeper = RegionAliveKeeper::new(table_engine, catalog_manager, table_ident, <span class="number">1000</span>);
 
         <span class="kw">let </span>region = <span class="number">1</span>;
         <span class="macro">assert!</span>(keeper.find_handle(<span class="kw-2">&amp;</span>region).<span class="kw">await</span>.is_none());
@@ -1545,7 +1627,7 @@
             table_engine.clone(),
             table_ident.clone(),
             <span class="number">1</span>,
-            || <span class="kw">async move </span>{ finished_clone.store(<span class="bool-val">true</span>, Ordering::Relaxed) },
+            |<span class="kw">_</span>| <span class="kw">async move </span>{ finished_clone.store(<span class="bool-val">true</span>, Ordering::Relaxed) },
         );
         <span class="kw">let </span>tx = handle.tx.clone();
 
@@ -1567,7 +1649,7 @@
 
         <span class="kw">let </span>finished = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
         <span class="kw">let </span>finished_clone = finished.clone();
-        <span class="kw">let </span>handle = CountdownTaskHandle::new(table_engine, table_ident, <span class="number">1</span>, || <span class="kw">async move </span>{
+        <span class="kw">let </span>handle = CountdownTaskHandle::new(table_engine, table_ident, <span class="number">1</span>, |<span class="kw">_</span>| <span class="kw">async move </span>{
             finished_clone.store(<span class="bool-val">true</span>, Ordering::Relaxed)
         });
         handle.tx.send(CountdownCommand::Start(<span class="number">100</span>)).<span class="kw">await</span>.unwrap();

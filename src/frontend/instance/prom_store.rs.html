@@ -366,9 +366,9 @@
             .as_ref()
             .check_permission(ctx.current_user(), PermissionReq::PromStoreWrite)
             .context(AuthSnafu)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(requests, samples) = prom_store::to_grpc_insert_requests(request)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(requests, samples) = prom_store::to_grpc_row_insert_requests(request)<span class="question-mark">?</span>;
         <span class="kw">let _ </span>= <span class="self">self
-            </span>.handle_inserts(requests, ctx)
+            </span>.handle_row_inserts(requests, ctx)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
             .context(error::ExecuteGrpcQuerySnafu)<span class="question-mark">?</span>;

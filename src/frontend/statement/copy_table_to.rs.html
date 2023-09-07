@@ -117,6 +117,31 @@
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -131,22 +156,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>common_base::readable_size::ReadableSize;
+</span><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>common_base::readable_size::ReadableSize;
 <span class="kw">use </span>common_datasource::file_format::csv::stream_to_csv;
 <span class="kw">use </span>common_datasource::file_format::json::stream_to_json;
 <span class="kw">use </span>common_datasource::file_format::Format;
 <span class="kw">use </span>common_datasource::object_store::{build_backend, parse_url};
+<span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_recordbatch::adapter::DfRecordBatchStreamAdapter;
 <span class="kw">use </span>common_recordbatch::SendableRecordBatchStream;
+<span class="kw">use </span>datafusion::datasource::DefaultTableSource;
+<span class="kw">use </span>datafusion_common::TableReference <span class="kw">as </span>DfTableReference;
+<span class="kw">use </span>datafusion_expr::LogicalPlanBuilder;
 <span class="kw">use </span>object_store::ObjectStore;
+<span class="kw">use </span>query::plan::LogicalPlan;
+<span class="kw">use </span>session::context::QueryContextRef;
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>storage::sst::SstInfo;
 <span class="kw">use </span>storage::{ParquetWriter, Source};
-<span class="kw">use </span>store_api::storage::ScanRequest;
 <span class="kw">use </span>table::engine::TableReference;
 <span class="kw">use </span>table::requests::CopyTableRequest;
+<span class="kw">use </span>table::table::adapter::DfTableProviderAdapter;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, WriteParquetSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::error::{
+    <span class="self">self</span>, BuildDfLogicalPlanSnafu, ExecLogicalPlanSnafu, <span class="prelude-ty">Result</span>, WriteParquetSnafu,
+};
 <span class="kw">use </span><span class="kw">crate</span>::statement::StatementExecutor;
 
 <span class="kw">impl </span>StatementExecutor {
@@ -191,15 +226,17 @@
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>copy_table_to(<span class="kw-2">&amp;</span><span class="self">self</span>, req: CopyTableRequest) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
-        <span class="kw">let </span>table_ref = TableReference {
-            catalog: <span class="kw-2">&amp;</span>req.catalog_name,
-            schema: <span class="kw-2">&amp;</span>req.schema_name,
-            table: <span class="kw-2">&amp;</span>req.table_name,
-        };
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>copy_table_to(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        req: CopyTableRequest,
+        query_ctx: QueryContextRef,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="kw">let </span>table_ref = TableReference::full(<span class="kw-2">&amp;</span>req.catalog_name, <span class="kw-2">&amp;</span>req.schema_name, <span class="kw-2">&amp;</span>req.table_name);
         <span class="kw">let </span>table = <span class="self">self</span>.get_table(<span class="kw-2">&amp;</span>table_ref).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>format = Format::try_from(<span class="kw-2">&amp;</span>req.with).context(error::ParseFileFormatSnafu)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>df_table_ref = DfTableReference::from(table_ref);
 
         <span class="kw">let </span>filters = table
             .schema()
@@ -210,20 +247,33 @@
                     req.timestamp_range.as_ref(),
                 )
             })
+            .map(|filter| filter.df_expr().clone())
             .into_iter()
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">let </span>scan_req = ScanRequest {
+        <span class="kw">let </span>table_provider = Arc::new(DfTableProviderAdapter::new(table));
+        <span class="kw">let </span>table_source = Arc::new(DefaultTableSource::new(table_provider));
+
+        <span class="kw">let </span>plan = LogicalPlanBuilder::scan_with_filters(
+            df_table_ref.to_owned_reference(),
+            table_source,
+            <span class="prelude-val">None</span>,
             filters,
-            ..Default::default()
+        )
+        .context(BuildDfLogicalPlanSnafu)<span class="question-mark">?
+        </span>.build()
+        .context(BuildDfLogicalPlanSnafu)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>output = <span class="self">self
+            </span>.query_engine
+            .execute(LogicalPlan::DfPlan(plan), query_ctx)
+            .<span class="kw">await
+            </span>.context(ExecLogicalPlanSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>stream = <span class="kw">match </span>output {
+            Output::Stream(stream) =&gt; stream,
+            Output::RecordBatches(record_batches) =&gt; record_batches.as_stream(),
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
         };
-        <span class="kw">let </span>stream =
-            table
-                .scan_to_stream(scan_req)
-                .<span class="kw">await
-                </span>.with_context(|<span class="kw">_</span>| error::CopyTableSnafu {
-                    table_name: table_ref.to_string(),
-                })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(_schema, _host, path) = parse_url(<span class="kw-2">&amp;</span>req.location).context(error::ParseUrlSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>object_store =

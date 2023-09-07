@@ -264,6 +264,15 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -280,10 +289,12 @@
 
 </span><span class="kw">use </span>std::ops::Deref;
 
+<span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_query::Output;
-<span class="kw">use </span>common_recordbatch::{util, RecordBatch};
+<span class="kw">use </span>common_recordbatch::{RecordBatch, SendableRecordBatchStream};
 <span class="kw">use </span>datatypes::prelude::{ConcreteDataType, Value};
 <span class="kw">use </span>datatypes::schema::SchemaRef;
+<span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>metrics::increment_counter;
 <span class="kw">use </span>opensrv_mysql::{
     Column, ColumnFlags, ColumnType, ErrorKind, OkResponse, QueryResultWriter, RowWriter,
@@ -292,7 +303,7 @@
 <span class="kw">use </span>snafu::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>tokio::io::AsyncWrite;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, OtherSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::metrics::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Try to write multiple output to the writer if possible.
@@ -316,8 +327,8 @@
 }
 
 <span class="kw">struct </span>QueryResult {
-    recordbatches: Vec&lt;RecordBatch&gt;,
     schema: SchemaRef,
+    stream: SendableRecordBatchStream,
 }
 
 <span class="kw">pub struct </span>MysqlResultWriter&lt;<span class="lifetime">&#39;a</span>, W: AsyncWrite + Unpin&gt; {
@@ -346,20 +357,16 @@
         </span><span class="kw">match </span>output {
             <span class="prelude-val">Ok</span>(output) =&gt; <span class="kw">match </span>output {
                 Output::Stream(stream) =&gt; {
-                    <span class="kw">let </span>schema = stream.schema().clone();
-                    <span class="kw">let </span>recordbatches = util::collect(stream)
-                        .<span class="kw">await
-                        </span>.context(error::CollectRecordbatchSnafu)<span class="question-mark">?</span>;
                     <span class="kw">let </span>query_result = QueryResult {
-                        recordbatches,
-                        schema,
+                        schema: stream.schema(),
+                        stream,
                     };
                     <span class="self">Self</span>::write_query_result(query_result, <span class="self">self</span>.writer, <span class="self">self</span>.query_context).<span class="kw">await</span><span class="question-mark">?</span>;
                 }
                 Output::RecordBatches(recordbatches) =&gt; {
                     <span class="kw">let </span>query_result = QueryResult {
                         schema: recordbatches.schema(),
-                        recordbatches: recordbatches.take(),
+                        stream: recordbatches.as_stream(),
                     };
                     <span class="self">Self</span>::write_query_result(query_result, <span class="self">self</span>.writer, <span class="self">self</span>.query_context).<span class="kw">await</span><span class="question-mark">?</span>;
                 }
@@ -396,7 +403,7 @@
     }
 
     <span class="kw">async fn </span>write_query_result(
-        query_result: QueryResult,
+        <span class="kw-2">mut </span>query_result: QueryResult,
         writer: QueryResultWriter&lt;<span class="lifetime">&#39;a</span>, W&gt;,
         query_context: QueryContextRef,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -405,9 +412,20 @@
                 <span class="comment">// The RowWriter&#39;s lifetime is bound to `column_def` thus we can&#39;t use finish_one()
                 // to return a new QueryResultWriter.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>row_writer = writer.start(<span class="kw-2">&amp;</span>column_def).<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="kw">for </span>recordbatch <span class="kw">in </span><span class="kw-2">&amp;</span>query_result.recordbatches {
-                    <span class="self">Self</span>::write_recordbatch(<span class="kw-2">&amp;mut </span>row_writer, recordbatch, query_context.clone())
-                        .<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">while let </span><span class="prelude-val">Some</span>(record_batch) = query_result.stream.next().<span class="kw">await </span>{
+                    <span class="kw">match </span>record_batch {
+                        <span class="prelude-val">Ok</span>(record_batch) =&gt; {
+                            <span class="self">Self</span>::write_recordbatch(
+                                <span class="kw-2">&amp;mut </span>row_writer,
+                                <span class="kw-2">&amp;</span>record_batch,
+                                query_context.clone(),
+                            )
+                            .<span class="kw">await</span><span class="question-mark">?
+                        </span>}
+                        <span class="prelude-val">Err</span>(e) =&gt; {
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(e).map_err(BoxedError::new).context(OtherSnafu);
+                        }
+                    }
                 }
                 row_writer.finish().<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(())

@@ -535,6 +535,18 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -602,7 +614,12 @@
         source: std::io::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute query: {}, source: {}&quot;</span>, query, source))]
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Failed to execute query, source: {}, query: {}, location: {}&quot;</span>,
+        source,
+        query,
+        location
+    ))]
     </span>ExecuteQuery {
         query: String,
         location: Location,
@@ -617,6 +634,12 @@
 
     <span class="attr">#[snafu(display(<span class="string">&quot;{source}&quot;</span>))]
     </span>ExecuteGrpcQuery {
+        location: Location,
+        source: BoxedError,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;{source}&quot;</span>))]
+    </span>ExecuteGrpcRequest {
         location: Location,
         source: BoxedError,
     },
@@ -906,6 +929,7 @@
             | ExecuteQuery { source, .. }
             | ExecutePlan { source, .. }
             | ExecuteGrpcQuery { source, .. }
+            | ExecuteGrpcRequest { source, .. }
             | CheckDatabaseValidity { source, .. } =&gt; source.status_code(),
 
             NotSupported { .. }

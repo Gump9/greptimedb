@@ -240,7 +240,7 @@
     </span>UnsupportedDefaultValue { column_name: String, expr: Expr },
 
     <span class="comment">// Syntax error from sql parser.
-    </span><span class="attr">#[snafu(display(<span class="string">&quot;Syntax error, sql: {}, source: {}&quot;</span>, sql, source))]
+    </span><span class="attr">#[snafu(display(<span class="string">&quot;Syntax error, source: {}, sql: {}&quot;</span>, source, sql))]
     </span>Syntax { sql: String, source: ParserError },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Missing time index constraint&quot;</span>))]

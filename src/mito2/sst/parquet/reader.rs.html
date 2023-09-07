@@ -320,22 +320,22 @@
     }
 
     <span class="doccomment">/// Attaches the predicate to the builder.
-    </span><span class="kw">pub fn </span>predicate(<span class="kw-2">mut </span><span class="self">self</span>, predicate: Predicate) -&gt; ParquetReaderBuilder {
-        <span class="self">self</span>.predicate = <span class="prelude-val">Some</span>(predicate);
+    </span><span class="kw">pub fn </span>predicate(<span class="kw-2">mut </span><span class="self">self</span>, predicate: <span class="prelude-ty">Option</span>&lt;Predicate&gt;) -&gt; ParquetReaderBuilder {
+        <span class="self">self</span>.predicate = predicate;
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Attaches the time range to the builder.
-    </span><span class="kw">pub fn </span>time_range(<span class="kw-2">mut </span><span class="self">self</span>, time_range: TimestampRange) -&gt; ParquetReaderBuilder {
-        <span class="self">self</span>.time_range = <span class="prelude-val">Some</span>(time_range);
+    </span><span class="kw">pub fn </span>time_range(<span class="kw-2">mut </span><span class="self">self</span>, time_range: <span class="prelude-ty">Option</span>&lt;TimestampRange&gt;) -&gt; ParquetReaderBuilder {
+        <span class="self">self</span>.time_range = time_range;
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Attaches the projection to the builder.
     ///
     /// The reader only applies the projection to fields.
-    </span><span class="kw">pub fn </span>projection(<span class="kw-2">mut </span><span class="self">self</span>, projection: Vec&lt;ColumnId&gt;) -&gt; ParquetReaderBuilder {
-        <span class="self">self</span>.projection = <span class="prelude-val">Some</span>(projection);
+    </span><span class="kw">pub fn </span>projection(<span class="kw-2">mut </span><span class="self">self</span>, projection: <span class="prelude-ty">Option</span>&lt;Vec&lt;ColumnId&gt;&gt;) -&gt; ParquetReaderBuilder {
+        <span class="self">self</span>.projection = projection;
         <span class="self">self
     </span>}
 

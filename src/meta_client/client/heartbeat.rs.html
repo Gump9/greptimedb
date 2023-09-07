@@ -292,6 +292,14 @@
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -387,8 +395,13 @@
 }
 
 <span class="kw">impl </span>Client {
-    <span class="kw">pub fn </span>new(id: Id, role: Role, channel_manager: ChannelManager) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>inner = Arc::new(RwLock::new(Inner::new(id, role, channel_manager)));
+    <span class="kw">pub fn </span>new(id: Id, role: Role, channel_manager: ChannelManager, max_retry: usize) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>inner = Arc::new(RwLock::new(Inner::new(
+            id,
+            role,
+            channel_manager,
+            max_retry,
+        )));
         <span class="self">Self </span>{ inner }
     }
 
@@ -424,15 +437,17 @@
     role: Role,
     channel_manager: ChannelManager,
     ask_leader: <span class="prelude-ty">Option</span>&lt;AskLeader&gt;,
+    max_retry: usize,
 }
 
 <span class="kw">impl </span>Inner {
-    <span class="kw">fn </span>new(id: Id, role: Role, channel_manager: ChannelManager) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>new(id: Id, role: Role, channel_manager: ChannelManager, max_retry: usize) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             id,
             role,
             channel_manager,
             ask_leader: <span class="prelude-val">None</span>,
+            max_retry,
         }
     }
 
@@ -458,6 +473,7 @@
             <span class="self">self</span>.role,
             peers,
             <span class="self">self</span>.channel_manager.clone(),
+            <span class="self">self</span>.max_retry,
         ));
 
         <span class="prelude-val">Ok</span>(())
@@ -545,7 +561,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_start_client() {
-        <span class="kw">let </span><span class="kw-2">mut </span>client = Client::new((<span class="number">0</span>, <span class="number">0</span>), Role::Datanode, ChannelManager::default());
+        <span class="kw">let </span><span class="kw-2">mut </span>client = Client::new((<span class="number">0</span>, <span class="number">0</span>), Role::Datanode, ChannelManager::default(), <span class="number">3</span>);
         <span class="macro">assert!</span>(!client.is_started().<span class="kw">await</span>);
         client
             .start(<span class="kw-2">&amp;</span>[<span class="string">&quot;127.0.0.1:1000&quot;</span>, <span class="string">&quot;127.0.0.1:1001&quot;</span>])
@@ -556,7 +572,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_already_start() {
-        <span class="kw">let </span><span class="kw-2">mut </span>client = Client::new((<span class="number">0</span>, <span class="number">0</span>), Role::Datanode, ChannelManager::default());
+        <span class="kw">let </span><span class="kw-2">mut </span>client = Client::new((<span class="number">0</span>, <span class="number">0</span>), Role::Datanode, ChannelManager::default(), <span class="number">3</span>);
         client
             .start(<span class="kw-2">&amp;</span>[<span class="string">&quot;127.0.0.1:1000&quot;</span>, <span class="string">&quot;127.0.0.1:1001&quot;</span>])
             .<span class="kw">await

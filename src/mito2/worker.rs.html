@@ -438,6 +438,25 @@
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -456,6 +475,7 @@
 
 </span><span class="kw">mod </span>handle_close;
 <span class="kw">mod </span>handle_create;
+<span class="kw">mod </span>handle_flush;
 <span class="kw">mod </span>handle_open;
 <span class="kw">mod </span>handle_write;
 
@@ -470,16 +490,17 @@
 <span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>snafu::{ensure, ResultExt};
 <span class="kw">use </span>store_api::logstore::LogStore;
-<span class="kw">use </span>store_api::region_request::RegionRequest;
 <span class="kw">use </span>store_api::storage::RegionId;
 <span class="kw">use </span>tokio::sync::mpsc::{Receiver, Sender};
 <span class="kw">use </span>tokio::sync::{mpsc, Mutex};
 
 <span class="kw">use </span><span class="kw">crate</span>::config::MitoConfig;
 <span class="kw">use </span><span class="kw">crate</span>::error::{JoinSnafu, <span class="prelude-ty">Result</span>, WorkerStoppedSnafu};
-<span class="kw">use </span><span class="kw">crate</span>::memtable::{DefaultMemtableBuilder, MemtableBuilderRef};
+<span class="kw">use </span><span class="kw">crate</span>::flush::{FlushScheduler, WriteBufferManagerRef};
+<span class="kw">use </span><span class="kw">crate</span>::memtable::time_series::TimeSeriesMemtableBuilder;
+<span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableBuilderRef;
 <span class="kw">use </span><span class="kw">crate</span>::region::{MitoRegionRef, RegionMap, RegionMapRef};
-<span class="kw">use </span><span class="kw">crate</span>::request::{RegionTask, WorkerRequest};
+<span class="kw">use </span><span class="kw">crate</span>::request::{BackgroundNotify, DdlRequest, SenderDdlRequest, WorkerRequest};
 <span class="kw">use </span><span class="kw">crate</span>::wal::Wal;
 
 <span class="doccomment">/// Identifier for a worker.
@@ -535,6 +556,7 @@
         config: MitoConfig,
         log_store: Arc&lt;S&gt;,
         object_store: ObjectStore,
+        write_buffer_manager: WriteBufferManagerRef,
     ) -&gt; WorkerGroup {
         <span class="macro">assert!</span>(config.num_workers.is_power_of_two());
         <span class="kw">let </span>config = Arc::new(config);
@@ -546,6 +568,7 @@
                     config.clone(),
                     log_store.clone(),
                     object_store.clone(),
+                    write_buffer_manager.clone(),
                 )
             })
             .collect();
@@ -563,8 +586,12 @@
     }
 
     <span class="doccomment">/// Submit a request to a worker in the group.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>submit_to_worker(<span class="kw-2">&amp;</span><span class="self">self</span>, task: RegionTask) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.worker(task.region_id).submit_request(task).<span class="kw">await
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>submit_to_worker(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        region_id: RegionId,
+        request: WorkerRequest,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.worker(region_id).submit_request(request).<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Returns true if the specific region exists.
@@ -616,6 +643,7 @@
         config: Arc&lt;MitoConfig&gt;,
         log_store: Arc&lt;S&gt;,
         object_store: ObjectStore,
+        write_buffer_manager: WriteBufferManagerRef,
     ) -&gt; RegionWorker {
         <span class="kw">let </span>regions = Arc::new(RegionMap::default());
         <span class="kw">let </span>(sender, receiver) = mpsc::channel(config.worker_channel_size);
@@ -629,7 +657,9 @@
             wal: Wal::new(log_store),
             object_store,
             running: running.clone(),
-            memtable_builder: Arc::new(DefaultMemtableBuilder::default()),
+            memtable_builder: Arc::new(TimeSeriesMemtableBuilder::default()),
+            write_buffer_manager,
+            flush_scheduler: FlushScheduler::default(),
         };
         <span class="kw">let </span>handle = common_runtime::spawn_write(<span class="kw">async move </span>{
             worker_thread.run().<span class="kw">await</span>;
@@ -645,14 +675,9 @@
     }
 
     <span class="doccomment">/// Submit request to background worker thread.
-    </span><span class="kw">async fn </span>submit_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: RegionTask) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">async fn </span>submit_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: WorkerRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(<span class="self">self</span>.is_running(), WorkerStoppedSnafu { id: <span class="self">self</span>.id });
-        <span class="kw">if </span><span class="self">self
-            </span>.sender
-            .send(WorkerRequest::Region(request))
-            .<span class="kw">await
-            </span>.is_err()
-        {
+        <span class="kw">if </span><span class="self">self</span>.sender.send(request).<span class="kw">await</span>.is_err() {
             <span class="macro">warn!</span>(
                 <span class="string">&quot;Worker {} is already exited but the running flag is still true&quot;</span>,
                 <span class="self">self</span>.id
@@ -734,6 +759,11 @@
     </span>running: Arc&lt;AtomicBool&gt;,
     <span class="doccomment">/// Memtable builder for each region.
     </span>memtable_builder: MemtableBuilderRef,
+
+    <span class="doccomment">/// Engine write buffer manager.
+    </span>write_buffer_manager: WriteBufferManagerRef,
+    <span class="doccomment">/// Schedules background flush requests.
+    </span>flush_scheduler: FlushScheduler,
 }
 
 <span class="kw">impl</span>&lt;S: LogStore&gt; RegionWorkerLoop&lt;S&gt; {
@@ -775,19 +805,19 @@
     ///
     /// `buffer` should be empty.
     </span><span class="kw">async fn </span>handle_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buffer: <span class="kw-2">&amp;mut </span>RequestBuffer) {
-        <span class="kw">let </span>write_requests = Vec::with_capacity(buffer.len());
+        <span class="kw">let </span><span class="kw-2">mut </span>write_requests = Vec::with_capacity(buffer.len());
         <span class="kw">let </span><span class="kw-2">mut </span>ddl_requests = Vec::with_capacity(buffer.len());
         <span class="kw">for </span>worker_req <span class="kw">in </span>buffer.drain(..) {
             <span class="kw">match </span>worker_req {
-                WorkerRequest::Region(task) =&gt; {
-                    <span class="kw">if </span><span class="macro">matches!</span>(task.request, RegionRequest::Write(<span class="kw">_</span>)) {
-                        <span class="comment">// write_requests.push(SenderWriteRequest {
-                        //     sender: task.sender,
-                        //     request: task.request.into_write_request(),
-                        // });
-                    </span>} <span class="kw">else </span>{
-                        ddl_requests.push(task);
-                    }
+                WorkerRequest::Write(sender_req) =&gt; {
+                    write_requests.push(sender_req);
+                }
+                WorkerRequest::Ddl(sender_req) =&gt; {
+                    ddl_requests.push(sender_req);
+                }
+                WorkerRequest::Background { region_id, notify } =&gt; {
+                    <span class="comment">// For background notify, we handle it directly.
+                    </span><span class="self">self</span>.handle_background_notify(region_id, notify).<span class="kw">await</span>;
                 }
                 <span class="comment">// We receive a stop signal, but we still want to process remaining
                 // requests. The worker thread will then check the running flag and
@@ -804,32 +834,40 @@
 
         <span class="self">self</span>.handle_ddl_requests(ddl_requests).<span class="kw">await</span>;
     }
-}
 
-<span class="kw">impl</span>&lt;S&gt; RegionWorkerLoop&lt;S&gt; {
     <span class="doccomment">/// Takes and handles all ddl requests.
-    </span><span class="kw">async fn </span>handle_ddl_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ddl_tasks: Vec&lt;RegionTask&gt;) {
-        <span class="kw">if </span>ddl_tasks.is_empty() {
+    </span><span class="kw">async fn </span>handle_ddl_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ddl_requests: Vec&lt;SenderDdlRequest&gt;) {
+        <span class="kw">if </span>ddl_requests.is_empty() {
             <span class="kw">return</span>;
         }
 
-        <span class="kw">for </span>task <span class="kw">in </span>ddl_tasks {
-            <span class="kw">let </span>res: std::result::Result&lt;(), <span class="kw">crate</span>::error::Error&gt; = <span class="kw">match </span>task.request {
-                RegionRequest::Create(req) =&gt; <span class="self">self</span>.handle_create_request(task.region_id, req).<span class="kw">await</span>,
-                RegionRequest::Open(req) =&gt; <span class="self">self</span>.handle_open_request(task.region_id, req).<span class="kw">await</span>,
-                RegionRequest::Close(<span class="kw">_</span>) =&gt; <span class="self">self</span>.handle_close_request(task.region_id).<span class="kw">await</span>,
-                RegionRequest::Write(<span class="kw">_</span>)
-                | RegionRequest::Delete(<span class="kw">_</span>)
-                | RegionRequest::Drop(<span class="kw">_</span>)
-                | RegionRequest::Alter(<span class="kw">_</span>)
-                | RegionRequest::Flush(<span class="kw">_</span>)
-                | RegionRequest::Compact(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(),
+        <span class="kw">for </span>ddl <span class="kw">in </span>ddl_requests {
+            <span class="kw">let </span>res = <span class="kw">match </span>ddl.request {
+                DdlRequest::Create(req) =&gt; <span class="self">self</span>.handle_create_request(ddl.region_id, req).<span class="kw">await</span>,
+                DdlRequest::Open(req) =&gt; <span class="self">self</span>.handle_open_request(ddl.region_id, req).<span class="kw">await</span>,
+                DdlRequest::Close(<span class="kw">_</span>) =&gt; <span class="self">self</span>.handle_close_request(ddl.region_id).<span class="kw">await</span>,
+                DdlRequest::Alter(<span class="kw">_</span>)
+                | DdlRequest::Drop(<span class="kw">_</span>)
+                | DdlRequest::Flush(<span class="kw">_</span>)
+                | DdlRequest::Compact(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
             };
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = task.sender {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = ddl.sender {
                 <span class="comment">// Ignore send result.
                 </span><span class="kw">let _ </span>= sender.send(res);
             }
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;S&gt; RegionWorkerLoop&lt;S&gt; {
+    <span class="doccomment">/// Handles region background request
+    </span><span class="kw">async fn </span>handle_background_notify(<span class="kw-2">&amp;mut </span><span class="self">self</span>, region_id: RegionId, notify: BackgroundNotify) {
+        <span class="kw">match </span>notify {
+            BackgroundNotify::FlushFinished(req) =&gt; {
+                <span class="self">self</span>.handle_flush_finished(region_id, req).<span class="kw">await
+            </span>}
+            BackgroundNotify::FlushFailed(req) =&gt; <span class="self">self</span>.handle_flush_failed(region_id, req).<span class="kw">await</span>,
         }
     }
 

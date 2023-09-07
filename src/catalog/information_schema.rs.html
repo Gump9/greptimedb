@@ -179,8 +179,6 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -253,11 +251,9 @@
 
     <span class="kw">pub fn </span>table(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;TableRef&gt; {
         <span class="self">self</span>.information_table(name).map(|table| {
-            <span class="kw">let </span>schema = table.schema();
             <span class="kw">let </span>table_info = <span class="self">Self</span>::table_info(<span class="self">self</span>.catalog_name.clone(), <span class="kw-2">&amp;</span>table);
-            <span class="kw">let </span>table_type = table.table_type();
             <span class="kw">let </span>filter_pushdown = FilterPushDownType::Unsupported;
-            <span class="kw">let </span>thin_table = ThinTable::new(schema, table_info, table_type, filter_pushdown);
+            <span class="kw">let </span>thin_table = ThinTable::new(table_info, filter_pushdown);
 
             <span class="kw">let </span>data_source = Arc::new(InformationTableDataSource::new(table));
             Arc::new(ThinTableAdapter::new(thin_table, data_source)) <span class="kw">as _

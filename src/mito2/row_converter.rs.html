@@ -375,7 +375,6 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -400,23 +399,22 @@
 <span class="kw">use </span>memcomparable::{Deserializer, Serializer};
 <span class="kw">use </span>paste::paste;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::{ensure, ResultExt};
+<span class="kw">use </span>snafu::ResultExt;
 
 <span class="kw">use </span><span class="kw">crate</span>::error;
-<span class="kw">use </span><span class="kw">crate</span>::error::{
-    FieldTypeMismatchSnafu, NotSupportedFieldSnafu, <span class="prelude-ty">Result</span>, RowLengthMismatchSnafu,
-    SerializeFieldSnafu,
-};
+<span class="kw">use </span><span class="kw">crate</span>::error::{FieldTypeMismatchSnafu, NotSupportedFieldSnafu, <span class="prelude-ty">Result</span>, SerializeFieldSnafu};
 
 <span class="doccomment">/// Row value encoder/decoder.
 </span><span class="kw">pub trait </span>RowCodec {
     <span class="doccomment">/// Encodes rows to bytes.
-    </span><span class="kw">fn </span>encode&lt;<span class="lifetime">&#39;a</span>, I&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, rows: I) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt;
+    /// # Note
+    /// Ensure the length of row iterator matches the length of fields.
+    </span><span class="kw">fn </span>encode&lt;<span class="lifetime">&#39;a</span>, I&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, row: I) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt;
     <span class="kw">where
-        </span>I: Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ValueRef&lt;<span class="lifetime">&#39;a</span>&gt;]&gt;;
+        </span>I: Iterator&lt;Item = ValueRef&lt;<span class="lifetime">&#39;a</span>&gt;&gt;;
 
     <span class="doccomment">/// Decode row values from bytes.
-    </span><span class="kw">fn </span>decode(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;Value&gt;&gt;&gt;;
+    </span><span class="kw">fn </span>decode(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt;;
 }
 
 <span class="kw">pub struct </span>SortField {
@@ -587,48 +585,37 @@
         <span class="self">Self </span>{ fields }
     }
 
+    <span class="kw">pub fn </span>num_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.fields.len()
+    }
+
     <span class="doccomment">/// Estimated length for encoded bytes.
-    </span><span class="kw">fn </span>estimated_length(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    </span><span class="kw">pub fn </span>estimated_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.fields.iter().map(|f| f.estimated_size()).sum()
     }
 }
 
 <span class="kw">impl </span>RowCodec <span class="kw">for </span>McmpRowCodec {
-    <span class="kw">fn </span>encode&lt;<span class="lifetime">&#39;a</span>, I&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, rows: I) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt;
+    <span class="kw">fn </span>encode&lt;<span class="lifetime">&#39;a</span>, I&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, row: I) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt;
     <span class="kw">where
-        </span>I: Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ValueRef&lt;<span class="lifetime">&#39;a</span>&gt;]&gt;,
+        </span>I: Iterator&lt;Item = ValueRef&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
     {
-        <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::with_capacity(<span class="self">self</span>.estimated_length());
-        <span class="kw">let </span><span class="kw-2">mut </span>serializer = memcomparable::Serializer::new(<span class="kw-2">&amp;mut </span>bytes);
-
-        <span class="kw">for </span>row <span class="kw">in </span>rows {
-            <span class="macro">ensure!</span>(
-                row.len() == <span class="self">self</span>.fields.len(),
-                RowLengthMismatchSnafu {
-                    expect: <span class="self">self</span>.fields.len(),
-                    actual: row.len(),
-                }
-            );
-
-            <span class="kw">for </span>(value, field) <span class="kw">in </span>row.iter().zip(<span class="self">self</span>.fields.iter()) {
-                field.serialize(<span class="kw-2">&amp;mut </span>serializer, value)<span class="question-mark">?</span>;
-            }
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = Vec::with_capacity(<span class="self">self</span>.estimated_size());
+        <span class="kw">let </span><span class="kw-2">mut </span>serializer = Serializer::new(<span class="kw-2">&amp;mut </span>bytes);
+        <span class="kw">for </span>(value, field) <span class="kw">in </span>row.zip(<span class="self">self</span>.fields.iter()) {
+            field.serialize(<span class="kw-2">&amp;mut </span>serializer, <span class="kw-2">&amp;</span>value)<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(bytes)
     }
 
-    <span class="kw">fn </span>decode(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;Value&gt;&gt;&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>deserializer = memcomparable::Deserializer::new(bytes);
-        <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="macro">vec!</span>[];
-        <span class="kw">while </span>deserializer.has_remaining() {
-            <span class="kw">let </span><span class="kw-2">mut </span>values = Vec::with_capacity(<span class="self">self</span>.fields.len());
-            <span class="kw">for </span>f <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.fields {
-                <span class="kw">let </span>value = f.deserialize(<span class="kw-2">&amp;mut </span>deserializer)<span class="question-mark">?</span>;
-                values.push(value);
-            }
-            res.push(values);
+    <span class="kw">fn </span>decode(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>deserializer = Deserializer::new(bytes);
+        <span class="kw">let </span><span class="kw-2">mut </span>values = Vec::with_capacity(<span class="self">self</span>.fields.len());
+        <span class="kw">for </span>f <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.fields {
+            <span class="kw">let </span>value = f.deserialize(<span class="kw-2">&amp;mut </span>deserializer)<span class="question-mark">?</span>;
+            values.push(value);
         }
-        <span class="prelude-val">Ok</span>(res)
+        <span class="prelude-val">Ok</span>(values)
     }
 }
 
@@ -640,7 +627,7 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">fn </span>check_encode_and_decode(data_types: <span class="kw-2">&amp;</span>[ConcreteDataType], rows: <span class="kw-2">&amp;</span>[Vec&lt;Value&gt;]) {
+    <span class="kw">fn </span>check_encode_and_decode(data_types: <span class="kw-2">&amp;</span>[ConcreteDataType], row: Vec&lt;Value&gt;) {
         <span class="kw">let </span>encoder = McmpRowCodec::new(
             data_types
                 .iter()
@@ -648,19 +635,11 @@
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
         );
 
-        <span class="kw">let </span>value_ref = rows
-            .iter()
-            .map(|row| row.iter().map(|v| v.as_value_ref()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;())
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="kw">let </span>result = encoder
-            .encode(value_ref.iter().map(|r| r.as_slice()))
-            .unwrap();
-        <span class="kw">let </span>decoded = encoder.decode(<span class="kw-2">&amp;</span>result).unwrap();
-        <span class="macro">assert_eq!</span>(value_ref.len(), decoded.len());
+        <span class="kw">let </span>value_ref = row.iter().map(|v| v.as_value_ref()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">for </span>(i, row) <span class="kw">in </span>rows.iter().enumerate() {
-            <span class="macro">assert_eq!</span>(row, decoded.get(i).unwrap() <span class="kw">as </span><span class="kw-2">&amp;</span>[Value]);
-        }
+        <span class="kw">let </span>result = encoder.encode(value_ref.iter().cloned()).unwrap();
+        <span class="kw">let </span>decoded = encoder.decode(<span class="kw-2">&amp;</span>result).unwrap();
+        <span class="macro">assert_eq!</span>(decoded, row);
     }
 
     <span class="attr">#[test]
@@ -671,11 +650,10 @@
         ]);
         <span class="kw">let </span>values = [Value::String(<span class="string">&quot;abcdefgh&quot;</span>.into()), Value::Int64(<span class="number">128</span>)];
         <span class="kw">let </span>value_ref = values.iter().map(|v| v.as_value_ref()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="kw">let </span>result = encoder.encode(std::iter::once(<span class="kw-2">&amp;</span>value_ref <span class="kw">as _</span>)).unwrap();
+        <span class="kw">let </span>result = encoder.encode(value_ref.iter().cloned()).unwrap();
 
         <span class="kw">let </span>decoded = encoder.decode(<span class="kw-2">&amp;</span>result).unwrap();
-        <span class="macro">assert_eq!</span>(<span class="number">1</span>, decoded.len());
-        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>values, decoded.get(<span class="number">0</span>).unwrap() <span class="kw">as </span><span class="kw-2">&amp;</span>[Value]);
+        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>values, <span class="kw-2">&amp;</span>decoded <span class="kw">as </span><span class="kw-2">&amp;</span>[Value]);
     }
 
     <span class="attr">#[test]
@@ -685,10 +663,10 @@
                 ConcreteDataType::timestamp_millisecond_datatype(),
                 ConcreteDataType::int64_datatype(),
             ],
-            <span class="kw-2">&amp;</span>[<span class="macro">vec!</span>[
+            <span class="macro">vec!</span>[
                 Value::Timestamp(Timestamp::new_millisecond(<span class="number">42</span>)),
                 Value::Int64(<span class="number">43</span>),
-            ]],
+            ],
         );
     }
 
@@ -699,10 +677,10 @@
                 ConcreteDataType::binary_datatype(),
                 ConcreteDataType::int64_datatype(),
             ],
-            <span class="kw-2">&amp;</span>[<span class="macro">vec!</span>[
+            <span class="macro">vec!</span>[
                 Value::Binary(Bytes::from(<span class="string">&quot;hello&quot;</span>.as_bytes())),
                 Value::Int64(<span class="number">43</span>),
-            ]],
+            ],
         );
     }
 
@@ -710,12 +688,18 @@
     </span><span class="kw">fn </span>test_memcmp_string() {
         check_encode_and_decode(
             <span class="kw-2">&amp;</span>[ConcreteDataType::string_datatype()],
-            <span class="kw-2">&amp;</span>[
-                <span class="macro">vec!</span>[Value::String(StringBytes::from(<span class="string">&quot;hello&quot;</span>))],
-                <span class="macro">vec!</span>[Value::Null],
-                <span class="macro">vec!</span>[Value::String(<span class="string">&quot;&quot;</span>.into())],
-                <span class="macro">vec!</span>[Value::String(<span class="string">&quot;world&quot;</span>.into())],
-            ],
+            <span class="macro">vec!</span>[Value::String(StringBytes::from(<span class="string">&quot;hello&quot;</span>))],
+        );
+
+        check_encode_and_decode(<span class="kw-2">&amp;</span>[ConcreteDataType::string_datatype()], <span class="macro">vec!</span>[Value::Null]);
+
+        check_encode_and_decode(
+            <span class="kw-2">&amp;</span>[ConcreteDataType::string_datatype()],
+            <span class="macro">vec!</span>[Value::String(<span class="string">&quot;&quot;</span>.into())],
+        );
+        check_encode_and_decode(
+            <span class="kw-2">&amp;</span>[ConcreteDataType::string_datatype()],
+            <span class="macro">vec!</span>[Value::String(<span class="string">&quot;world&quot;</span>.into())],
         );
     }
 
@@ -726,7 +710,7 @@
                 ConcreteDataType::string_datatype(),
                 ConcreteDataType::int32_datatype(),
             ],
-            <span class="kw-2">&amp;</span>[<span class="macro">vec!</span>[Value::String(StringBytes::from(<span class="string">&quot;abcd&quot;</span>)), Value::Null]],
+            <span class="macro">vec!</span>[Value::String(StringBytes::from(<span class="string">&quot;abcd&quot;</span>)), Value::Null],
         )
     }
 
@@ -738,19 +722,33 @@
                 ConcreteDataType::int64_datatype(),
                 ConcreteDataType::boolean_datatype(),
             ],
-            <span class="kw-2">&amp;</span>[
-                <span class="macro">vec!</span>[
-                    Value::String(<span class="string">&quot;hello&quot;</span>.into()),
-                    Value::Int64(<span class="number">42</span>),
-                    Value::Boolean(<span class="bool-val">false</span>),
-                ],
-                <span class="macro">vec!</span>[
-                    Value::String(<span class="string">&quot;world&quot;</span>.into()),
-                    Value::Int64(<span class="number">43</span>),
-                    Value::Boolean(<span class="bool-val">true</span>),
-                ],
-                <span class="macro">vec!</span>[Value::Null, Value::Int64(<span class="number">43</span>), Value::Boolean(<span class="bool-val">true</span>)],
+            <span class="macro">vec!</span>[
+                Value::String(<span class="string">&quot;hello&quot;</span>.into()),
+                Value::Int64(<span class="number">42</span>),
+                Value::Boolean(<span class="bool-val">false</span>),
             ],
+        );
+
+        check_encode_and_decode(
+            <span class="kw-2">&amp;</span>[
+                ConcreteDataType::string_datatype(),
+                ConcreteDataType::int64_datatype(),
+                ConcreteDataType::boolean_datatype(),
+            ],
+            <span class="macro">vec!</span>[
+                Value::String(<span class="string">&quot;world&quot;</span>.into()),
+                Value::Int64(<span class="number">43</span>),
+                Value::Boolean(<span class="bool-val">true</span>),
+            ],
+        );
+
+        check_encode_and_decode(
+            <span class="kw-2">&amp;</span>[
+                ConcreteDataType::string_datatype(),
+                ConcreteDataType::int64_datatype(),
+                ConcreteDataType::boolean_datatype(),
+            ],
+            <span class="macro">vec!</span>[Value::Null, Value::Int64(<span class="number">43</span>), Value::Boolean(<span class="bool-val">true</span>)],
         );
     }
 }

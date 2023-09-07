@@ -208,7 +208,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::error;
 
 <span class="attr">#[pin_project(PinnedDrop)]
-</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>FlightRecordBatchStream {
+</span><span class="kw">pub struct </span>FlightRecordBatchStream {
     <span class="attr">#[pin]
     </span>rx: mpsc::Receiver&lt;<span class="prelude-ty">Result</span>&lt;FlightMessage, tonic::Status&gt;&gt;,
     join_handle: JoinHandle&lt;()&gt;,
@@ -217,7 +217,7 @@
 }
 
 <span class="kw">impl </span>FlightRecordBatchStream {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(recordbatches: SendableRecordBatchStream) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(recordbatches: SendableRecordBatchStream) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(tx, rx) = mpsc::channel::&lt;TonicResult&lt;FlightMessage&gt;&gt;(<span class="number">1</span>);
         <span class="kw">let </span>join_handle =
             common_runtime::spawn_read(

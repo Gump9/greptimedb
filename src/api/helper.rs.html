@@ -1521,6 +1521,10 @@
 <a href="#1521" id="1521">1521</a>
 <a href="#1522" id="1522">1522</a>
 <a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1576,6 +1580,10 @@
         <span class="kw">let </span>datatype = ColumnDataType::from_i32(datatype)
             .context(error::UnknownColumnDataTypeSnafu { datatype })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(datatype))
+    }
+
+    <span class="kw">pub fn </span>new(datatype: ColumnDataType) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(datatype)
     }
 
     <span class="kw">pub fn </span>datatype(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ColumnDataType {

@@ -204,6 +204,7 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -223,6 +224,7 @@
 <span class="kw">use </span>api::v1::greptime_database_client::GreptimeDatabaseClient;
 <span class="kw">use </span>api::v1::health_check_client::HealthCheckClient;
 <span class="kw">use </span>api::v1::prometheus_gateway_client::PrometheusGatewayClient;
+<span class="kw">use </span>api::v1::region::region_client::RegionClient <span class="kw">as </span>PbRegionClient;
 <span class="kw">use </span>api::v1::HealthCheckRequest;
 <span class="kw">use </span>arrow_flight::flight_service_client::FlightServiceClient;
 <span class="kw">use </span>common_grpc::channel_manager::ChannelManager;
@@ -286,11 +288,6 @@
 <span class="kw">impl </span>Client {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         Default::default()
-    }
-
-    <span class="kw">pub fn </span>with_manager(channel_manager: ChannelManager) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>inner = Arc::new(Inner::with_manager(channel_manager));
-        <span class="self">Self </span>{ inner }
     }
 
     <span class="kw">pub fn </span>with_urls&lt;U, A&gt;(urls: A) -&gt; <span class="self">Self
@@ -361,6 +358,11 @@
         <span class="prelude-val">Ok</span>(DatabaseClient {
             inner: GreptimeDatabaseClient::new(channel),
         })
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>raw_region_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PbRegionClient&lt;Channel&gt;&gt; {
+        <span class="kw">let </span>(<span class="kw">_</span>, channel) = <span class="self">self</span>.find_channel()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(PbRegionClient::new(channel))
     }
 
     <span class="kw">pub fn </span>make_prometheus_gateway_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PrometheusGatewayClient&lt;Channel&gt;&gt; {

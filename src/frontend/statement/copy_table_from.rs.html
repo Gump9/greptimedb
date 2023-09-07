@@ -612,13 +612,6 @@
 <a href="#612" id="612">612</a>
 <a href="#613" id="613">613</a>
 <a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -931,7 +924,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>pending = <span class="macro">vec!</span>[];
 
             <span class="kw">while let </span><span class="prelude-val">Some</span>(r) = stream.next().<span class="kw">await </span>{
-                <span class="kw">let </span>record_batch = r.context(error::ReadRecordBatchSnafu)<span class="question-mark">?</span>;
+                <span class="kw">let </span>record_batch = r.context(error::ReadDfRecordBatchSnafu)<span class="question-mark">?</span>;
                 <span class="kw">let </span>vectors =
                     Helper::try_into_vectors(record_batch.columns()).context(IntoVectorsSnafu)<span class="question-mark">?</span>;
 
@@ -943,7 +936,7 @@
                     .zip(vectors)
                     .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
-                pending.push(table.insert(InsertRequest {
+                pending.push(<span class="self">self</span>.send_insert_request(InsertRequest {
                     catalog_name: req.catalog_name.to_string(),
                     schema_name: req.schema_name.to_string(),
                     table_name: req.table_name.to_string(),
@@ -953,14 +946,12 @@
                 }));
 
                 <span class="kw">if </span>pending_mem_size <span class="kw">as </span>u64 &gt;= pending_mem_threshold {
-                    rows_inserted +=
-                        batch_insert(<span class="kw-2">&amp;mut </span>pending, <span class="kw-2">&amp;mut </span>pending_mem_size, <span class="kw-2">&amp;</span>req.table_name).<span class="kw">await</span><span class="question-mark">?</span>;
+                    rows_inserted += batch_insert(<span class="kw-2">&amp;mut </span>pending, <span class="kw-2">&amp;mut </span>pending_mem_size).<span class="kw">await</span><span class="question-mark">?</span>;
                 }
             }
 
             <span class="kw">if </span>!pending.is_empty() {
-                rows_inserted +=
-                    batch_insert(<span class="kw-2">&amp;mut </span>pending, <span class="kw-2">&amp;mut </span>pending_mem_size, <span class="kw-2">&amp;</span>req.table_name).<span class="kw">await</span><span class="question-mark">?</span>;
+                rows_inserted += batch_insert(<span class="kw-2">&amp;mut </span>pending, <span class="kw-2">&amp;mut </span>pending_mem_size).<span class="kw">await</span><span class="question-mark">?</span>;
             }
         }
 
@@ -970,16 +961,11 @@
 
 <span class="doccomment">/// Executes all pending inserts all at once, drain pending requests and reset pending bytes.
 </span><span class="kw">async fn </span>batch_insert(
-    pending: <span class="kw-2">&amp;mut </span>Vec&lt;<span class="kw">impl </span>Future&lt;Output = table::error::Result&lt;usize&gt;&gt;&gt;,
+    pending: <span class="kw-2">&amp;mut </span>Vec&lt;<span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;usize&gt;&gt;&gt;,
     pending_bytes: <span class="kw-2">&amp;mut </span>usize,
-    table_name: <span class="kw-2">&amp;</span>str,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
     <span class="kw">let </span>batch = pending.drain(..);
-    <span class="kw">let </span>res: usize = futures::future::try_join_all(batch)
-        .<span class="kw">await
-        </span>.context(error::InsertSnafu { table_name })<span class="question-mark">?
-        </span>.iter()
-        .sum();
+    <span class="kw">let </span>res: usize = futures::future::try_join_all(batch).<span class="kw">await</span><span class="question-mark">?</span>.iter().sum();
     <span class="kw-2">*</span>pending_bytes = <span class="number">0</span>;
     <span class="prelude-val">Ok</span>(res)
 }

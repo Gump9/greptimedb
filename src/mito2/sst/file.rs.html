@@ -210,6 +210,33 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -325,6 +352,11 @@
 }
 
 <span class="kw">impl </span>FileHandle {
+    <span class="kw">pub fn </span>new(meta: FileMeta, file_purger: FilePurgerRef) -&gt; FileHandle {
+        FileHandle {
+            inner: Arc::new(FileHandleInner::new(meta, file_purger)),
+        }
+    }
     <span class="doccomment">/// Returns the file id.
     </span><span class="kw">pub fn </span>file_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FileId {
         <span class="self">self</span>.inner.meta.file_id
@@ -333,6 +365,17 @@
     <span class="doccomment">/// Returns the complete file path of the file.
     </span><span class="kw">pub fn </span>file_path(<span class="kw-2">&amp;</span><span class="self">self</span>, file_dir: <span class="kw-2">&amp;</span>str) -&gt; String {
         join_path(file_dir, <span class="kw-2">&amp;</span><span class="self">self</span>.file_id().as_parquet())
+    }
+
+    <span class="doccomment">/// Returns the time range of the file.
+    </span><span class="kw">pub fn </span>time_range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FileTimeRange {
+        <span class="self">self</span>.inner.meta.time_range
+    }
+
+    <span class="doccomment">/// Mark the file as deleted and will delete it on drop asynchronously
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>mark_deleted(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.inner.deleted.store(<span class="bool-val">true</span>, Ordering::Relaxed);
     }
 }
 
@@ -353,6 +396,17 @@
                 region_id: <span class="self">self</span>.meta.region_id,
                 file_id: <span class="self">self</span>.meta.file_id,
             });
+        }
+    }
+}
+
+<span class="kw">impl </span>FileHandleInner {
+    <span class="kw">fn </span>new(meta: FileMeta, file_purger: FilePurgerRef) -&gt; FileHandleInner {
+        FileHandleInner {
+            meta,
+            compacting: AtomicBool::new(<span class="bool-val">false</span>),
+            deleted: AtomicBool::new(<span class="bool-val">false</span>),
+            file_purger,
         }
     }
 }

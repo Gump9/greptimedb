@@ -170,6 +170,62 @@
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -184,21 +240,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::fmt::Display;
+</span><span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::fmt::Display;
 <span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>futures::stream::BoxStream;
 <span class="kw">use </span>futures::StreamExt;
+<span class="kw">use </span>humantime_serde::re::humantime;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, InvalidTableMetadataSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, InvalidTableMetadataSnafu, ParseOptionSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::key::{TableMetaKey, SCHEMA_NAME_KEY_PATTERN, SCHEMA_NAME_KEY_PREFIX};
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackendRef;
 <span class="kw">use </span><span class="kw">crate</span>::range_stream::{PaginationStream, DEFAULT_PAGE_SIZE};
 <span class="kw">use </span><span class="kw">crate</span>::rpc::store::{PutRequest, RangeRequest};
 <span class="kw">use </span><span class="kw">crate</span>::rpc::KeyValue;
+
+<span class="kw">const </span>OPT_KEY_TTL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;ttl&quot;</span>;
 
 <span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
 </span><span class="kw">pub struct </span>SchemaNameKey&lt;<span class="lifetime">&#39;a</span>&gt; {
@@ -215,8 +276,33 @@
     }
 }
 
-<span class="attr">#[derive(Debug, Serialize, Deserialize)]
-</span><span class="kw">pub struct </span>SchemaNameValue;
+<span class="attr">#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+</span><span class="kw">pub struct </span>SchemaNameValue {
+    <span class="attr">#[serde(default)]
+    #[serde(with = <span class="string">&quot;humantime_serde&quot;</span>)]
+    </span><span class="kw">pub </span>ttl: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+}
+
+<span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;&gt; <span class="kw">for </span>SchemaNameValue {
+    <span class="kw">type </span>Error = Error;
+
+    <span class="kw">fn </span>try_from(value: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="kw">let </span>ttl = value
+            .get(OPT_KEY_TTL)
+            .map(|ttl_str| {
+                ttl_str.parse::&lt;humantime::Duration&gt;().map_err(|<span class="kw">_</span>| {
+                    ParseOptionSnafu {
+                        key: OPT_KEY_TTL,
+                        value: ttl_str.clone(),
+                    }
+                    .build()
+                })
+            })
+            .transpose()<span class="question-mark">?
+            </span>.map(|ttl| ttl.into());
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ ttl })
+    }
+}
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; SchemaNameKey&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">pub fn </span>new(catalog: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, schema: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="self">Self </span>{
@@ -280,11 +366,15 @@
     }
 
     <span class="doccomment">/// Creates `SchemaNameKey`.
-    </span><span class="kw">pub async fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>, schema: SchemaNameKey&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub async fn </span>create(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        schema: SchemaNameKey&lt;<span class="lifetime">&#39;_</span>&gt;,
+        value: <span class="prelude-ty">Option</span>&lt;SchemaNameValue&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>raw_key = schema.as_raw_key();
         <span class="kw">let </span>req = PutRequest::new()
             .with_key(raw_key)
-            .with_value(SchemaNameValue.try_as_raw_value()<span class="question-mark">?</span>);
+            .with_value(value.unwrap_or_default().try_as_raw_value()<span class="question-mark">?</span>);
 
         <span class="self">self</span>.kv_backend.put(req).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -295,6 +385,14 @@
         <span class="kw">let </span>raw_key = schema.as_raw_key();
 
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.kv_backend.get(<span class="kw-2">&amp;</span>raw_key).<span class="kw">await</span><span class="question-mark">?</span>.is_some())
+    }
+
+    <span class="kw">pub async fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, schema: SchemaNameKey&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SchemaNameValue&gt;&gt; {
+        <span class="kw">let </span>raw_key = schema.as_raw_key();
+        <span class="kw">let </span>value = <span class="self">self</span>.kv_backend.get(<span class="kw-2">&amp;</span>raw_key).<span class="kw">await</span><span class="question-mark">?</span>;
+        value
+            .and_then(|v| SchemaNameValue::try_from_raw_value(v.value.as_ref()).transpose())
+            .transpose()
     }
 
     <span class="doccomment">/// Returns a schema stream, it lists all schemas belong to the target `catalog`.
@@ -315,25 +413,39 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::kv_backend::memory::MemoryKvBackend;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_serialization() {
         <span class="kw">let </span>key = SchemaNameKey::new(<span class="string">&quot;my-catalog&quot;</span>, <span class="string">&quot;my-schema&quot;</span>);
-
         <span class="macro">assert_eq!</span>(key.to_string(), <span class="string">&quot;__schema_name/my-catalog/my-schema&quot;</span>);
 
         <span class="kw">let </span>parsed: SchemaNameKey&lt;<span class="lifetime">&#39;_</span>&gt; = <span class="string">&quot;__schema_name/my-catalog/my-schema&quot;</span>.try_into().unwrap();
-
         <span class="macro">assert_eq!</span>(key, parsed);
+
+        <span class="kw">let </span>value = SchemaNameValue {
+            ttl: <span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">10</span>)),
+        };
+        <span class="kw">let </span><span class="kw-2">mut </span>opts: HashMap&lt;String, String&gt; = HashMap::new();
+        opts.insert(<span class="string">&quot;ttl&quot;</span>.to_string(), <span class="string">&quot;10s&quot;</span>.to_string());
+        <span class="kw">let </span>from_value = SchemaNameValue::try_from(<span class="kw-2">&amp;</span>opts).unwrap();
+        <span class="macro">assert_eq!</span>(value, from_value);
+
+        <span class="kw">let </span>parsed = SchemaNameValue::try_from_raw_value(<span class="string">&quot;{\&quot;ttl\&quot;:\&quot;10s\&quot;}&quot;</span>.as_bytes()).unwrap();
+        <span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(value), parsed);
+        <span class="kw">let </span>none = SchemaNameValue::try_from_raw_value(<span class="string">&quot;null&quot;</span>.as_bytes()).unwrap();
+        <span class="macro">assert!</span>(none.is_none());
+        <span class="kw">let </span>err_empty = SchemaNameValue::try_from_raw_value(<span class="string">&quot;&quot;</span>.as_bytes());
+        <span class="macro">assert!</span>(err_empty.is_err());
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_key_exist() {
         <span class="kw">let </span>manager = SchemaManager::new(Arc::new(MemoryKvBackend::default()));
         <span class="kw">let </span>schema_key = SchemaNameKey::new(<span class="string">&quot;my-catalog&quot;</span>, <span class="string">&quot;my-schema&quot;</span>);
-        manager.create(schema_key).<span class="kw">await</span>.unwrap();
+        manager.create(schema_key, <span class="prelude-val">None</span>).<span class="kw">await</span>.unwrap();
 
         <span class="macro">assert!</span>(manager.exist(schema_key).<span class="kw">await</span>.unwrap());
 

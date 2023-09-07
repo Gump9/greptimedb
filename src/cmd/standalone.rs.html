@@ -578,17 +578,6 @@
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -615,7 +604,6 @@
 <span class="kw">use </span>frontend::instance::{FrontendInstance, Instance <span class="kw">as </span>FeInstance};
 <span class="kw">use </span>frontend::service_config::{
     GrpcOptions, InfluxdbOptions, MysqlOptions, OpentsdbOptions, PostgresOptions, PromStoreOptions,
-    PrometheusOptions,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>servers::http::HttpOptions;
@@ -682,7 +670,6 @@
     <span class="kw">pub </span>opentsdb_options: <span class="prelude-ty">Option</span>&lt;OpentsdbOptions&gt;,
     <span class="kw">pub </span>influxdb_options: <span class="prelude-ty">Option</span>&lt;InfluxdbOptions&gt;,
     <span class="kw">pub </span>prom_store_options: <span class="prelude-ty">Option</span>&lt;PromStoreOptions&gt;,
-    <span class="kw">pub </span>prometheus_options: <span class="prelude-ty">Option</span>&lt;PrometheusOptions&gt;,
     <span class="kw">pub </span>wal: WalConfig,
     <span class="kw">pub </span>storage: StorageConfig,
     <span class="kw">pub </span>procedure: ProcedureConfig,
@@ -702,7 +689,6 @@
             opentsdb_options: <span class="prelude-val">Some</span>(OpentsdbOptions::default()),
             influxdb_options: <span class="prelude-val">Some</span>(InfluxdbOptions::default()),
             prom_store_options: <span class="prelude-val">Some</span>(PromStoreOptions::default()),
-            prometheus_options: <span class="prelude-val">Some</span>(PrometheusOptions::default()),
             wal: WalConfig::default(),
             storage: StorageConfig::default(),
             procedure: ProcedureConfig::default(),
@@ -722,7 +708,6 @@
             opentsdb_options: <span class="self">self</span>.opentsdb_options,
             influxdb_options: <span class="self">self</span>.influxdb_options,
             prom_store_options: <span class="self">self</span>.prom_store_options,
-            prometheus_options: <span class="self">self</span>.prometheus_options,
             meta_client_options: <span class="prelude-val">None</span>,
             logging: <span class="self">self</span>.logging,
             ..Default::default()
@@ -783,8 +768,6 @@
     </span>rpc_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
     </span>mysql_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[clap(long)]
-    </span>prom_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
     </span>postgres_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
@@ -860,10 +843,6 @@
                 mysql_opts.addr = addr.clone();
                 mysql_opts.tls = tls_opts.clone();
             }
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(addr) = <span class="kw-2">&amp;</span><span class="self">self</span>.prom_addr {
-            opts.prometheus_options = <span class="prelude-val">Some</span>(PrometheusOptions { addr: addr.clone() })
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(addr) = <span class="kw-2">&amp;</span><span class="self">self</span>.postgres_addr {
@@ -999,7 +978,6 @@
             [storage.manifest]
             checkpoint_margin = 9
             gc_duration = &#39;7s&#39;
-            checkpoint_on_startup = true
 
             [http_options]
             addr = &quot;127.0.0.1:4000&quot;

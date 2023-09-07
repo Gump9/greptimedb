@@ -62,11 +62,6 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -81,39 +76,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>auth::UserInfoRef;
-<span class="kw">use </span>axum::extract::{RawBody, State};
+</span><span class="kw">use </span>axum::extract::{RawBody, State};
 <span class="kw">use </span>axum::http::header;
 <span class="kw">use </span>axum::response::IntoResponse;
-<span class="kw">use </span>axum::{Extension, TypedHeader};
+<span class="kw">use </span>axum::Extension;
 <span class="kw">use </span>common_telemetry::timer;
 <span class="kw">use </span>hyper::Body;
 <span class="kw">use </span>opentelemetry_proto::tonic::collector::metrics::v1::{
     ExportMetricsServiceRequest, ExportMetricsServiceResponse,
 };
 <span class="kw">use </span>prost::Message;
-<span class="kw">use </span>session::context::QueryContext;
+<span class="kw">use </span>session::context::QueryContextRef;
 <span class="kw">use </span>snafu::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span><span class="kw">crate</span>::http::header::GreptimeDbName;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::OpenTelemetryProtocolHandlerRef;
 
 <span class="attr">#[axum_macros::debug_handler]
 </span><span class="kw">pub async fn </span>metrics(
     State(handler): State&lt;OpenTelemetryProtocolHandlerRef&gt;,
-    TypedHeader(db): TypedHeader&lt;GreptimeDbName&gt;,
-    user_info: Extension&lt;UserInfoRef&gt;,
+    Extension(query_ctx): Extension&lt;QueryContextRef&gt;,
     RawBody(body): RawBody,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;OtlpResponse&gt; {
-    <span class="kw">let </span>ctx = QueryContext::with_db_name(db.value());
-    ctx.set_current_user(<span class="prelude-val">Some</span>(user_info.<span class="number">0</span>));
     <span class="kw">let </span>_timer = <span class="macro">timer!</span>(
         <span class="kw">crate</span>::metrics::METRIC_HTTP_OPENTELEMETRY_ELAPSED,
-        <span class="kw-2">&amp;</span>[(<span class="kw">crate</span>::metrics::METRIC_DB_LABEL, ctx.get_db_string())]
+        <span class="kw-2">&amp;</span>[(<span class="kw">crate</span>::metrics::METRIC_DB_LABEL, query_ctx.get_db_string())]
     );
     <span class="kw">let </span>request = parse_body(body).<span class="kw">await</span><span class="question-mark">?</span>;
-    handler.metrics(request, ctx).<span class="kw">await</span>.map(OtlpResponse)
+    handler.metrics(request, query_ctx).<span class="kw">await</span>.map(OtlpResponse)
 }
 
 <span class="kw">async fn </span>parse_body(body: Body) -&gt; <span class="prelude-ty">Result</span>&lt;ExportMetricsServiceRequest&gt; {

@@ -85,8 +85,6 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -110,7 +108,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::service_config::{
     DatanodeOptions, GrpcOptions, InfluxdbOptions, MysqlOptions, OpentsdbOptions, OtlpOptions,
-    PostgresOptions, PromStoreOptions, PrometheusOptions,
+    PostgresOptions, PromStoreOptions,
 };
 
 <span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
@@ -126,7 +124,6 @@
     <span class="kw">pub </span>opentsdb_options: <span class="prelude-ty">Option</span>&lt;OpentsdbOptions&gt;,
     <span class="kw">pub </span>influxdb_options: <span class="prelude-ty">Option</span>&lt;InfluxdbOptions&gt;,
     <span class="kw">pub </span>prom_store_options: <span class="prelude-ty">Option</span>&lt;PromStoreOptions&gt;,
-    <span class="kw">pub </span>prometheus_options: <span class="prelude-ty">Option</span>&lt;PrometheusOptions&gt;,
     <span class="kw">pub </span>otlp_options: <span class="prelude-ty">Option</span>&lt;OtlpOptions&gt;,
     <span class="kw">pub </span>meta_client_options: <span class="prelude-ty">Option</span>&lt;MetaClientOptions&gt;,
     <span class="kw">pub </span>logging: LoggingOptions,
@@ -146,7 +143,6 @@
             opentsdb_options: <span class="prelude-val">Some</span>(OpentsdbOptions::default()),
             influxdb_options: <span class="prelude-val">Some</span>(InfluxdbOptions::default()),
             prom_store_options: <span class="prelude-val">Some</span>(PromStoreOptions::default()),
-            prometheus_options: <span class="prelude-val">Some</span>(PrometheusOptions::default()),
             otlp_options: <span class="prelude-val">Some</span>(OtlpOptions::default()),
             meta_client_options: <span class="prelude-val">None</span>,
             logging: LoggingOptions::default(),

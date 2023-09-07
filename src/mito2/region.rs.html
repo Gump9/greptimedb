@@ -109,6 +109,18 @@
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -137,12 +149,16 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::manifest::manager::RegionManifestManager;
-<span class="kw">use </span><span class="kw">crate</span>::region::version::VersionControlRef;
+<span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionControlRef, VersionRef};
 
 <span class="doccomment">/// Type to store region version.
 </span><span class="kw">pub type </span>VersionNumber = u32;
 
 <span class="doccomment">/// Metadata and runtime status of a region.
+///
+/// Writing and reading a region follow a single-writer-multi-reader rule:
+/// - Only the region worker thread this region belongs to can modify the metadata.
+/// - Multiple reader threads are allowed to read a specific `version` of a region.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MitoRegion {
     <span class="doccomment">/// Id of this region.
@@ -153,6 +169,8 @@
 
     <span class="doccomment">/// Version controller for this region.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) version_control: VersionControlRef,
+    <span class="doccomment">/// Data directory of the region.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) region_dir: String,
     <span class="doccomment">/// Manager to maintain manifest for this region.
     </span>manifest_manager: RegionManifestManager,
 }
@@ -173,6 +191,12 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RegionMetadataRef {
         <span class="kw">let </span>version_data = <span class="self">self</span>.version_control.current();
         version_data.version.metadata.clone()
+    }
+
+    <span class="doccomment">/// Returns current version of the region.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VersionRef {
+        <span class="kw">let </span>version_data = <span class="self">self</span>.version_control.current();
+        version_data.version
     }
 }
 

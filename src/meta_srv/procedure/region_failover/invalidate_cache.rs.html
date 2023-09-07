@@ -139,7 +139,6 @@
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -200,7 +199,7 @@
 #[typetag::serde]
 </span><span class="kw">impl </span>State <span class="kw">for </span>InvalidateCache {
     <span class="kw">async fn </span>next(
-        <span class="kw-2">mut </span><span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         ctx: <span class="kw-2">&amp;</span>RegionFailoverContext,
         failed_region: <span class="kw-2">&amp;</span>RegionIdent,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>State&gt;&gt; {
@@ -250,12 +249,11 @@
             <span class="kw">let _ </span>= heartbeat_receivers.insert(frontend_id, rx);
         }
 
-        <span class="kw">let </span>state = InvalidateCache;
         <span class="kw">let </span>table_ident: TableIdent = failed_region.clone().into();
 
         <span class="comment">// lexicographical order
         // frontend-4,5,6,7
-        </span><span class="kw">let </span>next_state = Box::new(state)
+        </span><span class="kw">let </span>next_state = InvalidateCache
             .next(<span class="kw-2">&amp;</span>context, <span class="kw-2">&amp;</span>failed_region)
             .<span class="kw">await
             </span>.unwrap();

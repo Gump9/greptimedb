@@ -247,7 +247,7 @@
         <span class="kw">if </span>!exist {
             <span class="self">self</span>.table_metadata_manager
                 .schema_manager()
-                .create(schema)
+                .create(schema, <span class="prelude-val">None</span>)
                 .<span class="kw">await
                 </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?</span>;
 

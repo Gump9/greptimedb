@@ -945,8 +945,6 @@
 <a href="#945" id="945">945</a>
 <a href="#946" id="946">946</a>
 <a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -987,7 +985,7 @@
 <span class="kw">use </span>catalog::CatalogManagerRef;
 <span class="kw">use </span>client::client_manager::DatanodeClients;
 <span class="kw">use </span>common_base::Plugins;
-<span class="kw">use </span>common_catalog::consts::MITO_ENGINE;
+<span class="kw">use </span>common_catalog::consts::default_engine;
 <span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_grpc::channel_manager::{ChannelConfig, ChannelManager};
 <span class="kw">use </span>common_meta::heartbeat::handler::parse_mailbox_message::ParseMailboxMessageHandler;
@@ -1013,7 +1011,7 @@
 <span class="kw">use </span>servers::interceptor::{
     PromQueryInterceptor, PromQueryInterceptorRef, SqlQueryInterceptor, SqlQueryInterceptorRef,
 };
-<span class="kw">use </span>servers::prometheus::PrometheusHandler;
+<span class="kw">use </span>servers::prometheus_handler::PrometheusHandler;
 <span class="kw">use </span>servers::query_handler::grpc::{GrpcQueryHandler, GrpcQueryHandlerRef};
 <span class="kw">use </span>servers::query_handler::sql::SqlQueryHandler;
 <span class="kw">use </span>servers::query_handler::{
@@ -1162,7 +1160,6 @@
         <span class="kw">let </span>create_expr_factory = CreateExprFactory;
 
         <span class="kw">let </span>row_inserter = Arc::new(RowInserter::new(
-            MITO_ENGINE.to_string(),
             catalog_manager.clone(),
             create_expr_factory,
             dist_instance.clone(),
@@ -1235,7 +1232,6 @@
         <span class="kw">let </span>grpc_query_handler = StandaloneGrpcQueryHandler::arc(dn_instance.clone());
 
         <span class="kw">let </span>row_inserter = Arc::new(RowInserter::new(
-            MITO_ENGINE.to_string(),
             catalog_manager.clone(),
             create_expr_factory,
             grpc_query_handler.clone(),
@@ -1315,7 +1311,7 @@
                     catalog_name, schema_name, table_name,
                 );
                 <span class="kw">let _ </span>= <span class="self">self
-                    </span>.create_table_by_columns(ctx, table_name, columns, MITO_ENGINE)
+                    </span>.create_table_by_columns(ctx, table_name, columns, default_engine())
                     .<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="macro">info!</span>(
                     <span class="string">&quot;Successfully created table on insertion: {}.{}.{}&quot;</span>,

@@ -156,6 +156,41 @@
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -173,11 +208,13 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>api::v1::meta::ddl_task_client::DdlTaskClient;
-<span class="kw">use </span>api::v1::meta::{ErrorCode, Role, SubmitDdlTaskRequest, SubmitDdlTaskResponse};
+<span class="kw">use </span>api::v1::meta::{ErrorCode, ResponseHeader, Role, SubmitDdlTaskRequest, SubmitDdlTaskResponse};
 <span class="kw">use </span>common_grpc::channel_manager::ChannelManager;
+<span class="kw">use </span>common_telemetry::{info, warn};
 <span class="kw">use </span>snafu::{ensure, ResultExt};
 <span class="kw">use </span>tokio::sync::RwLock;
 <span class="kw">use </span>tonic::transport::Channel;
+<span class="kw">use </span>tonic::{Code, Status};
 
 <span class="kw">use </span><span class="kw">crate</span>::client::ask_leader::AskLeader;
 <span class="kw">use </span><span class="kw">crate</span>::client::Id;
@@ -190,12 +227,13 @@
 }
 
 <span class="kw">impl </span>Client {
-    <span class="kw">pub fn </span>new(id: Id, role: Role, channel_manager: ChannelManager) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(id: Id, role: Role, channel_manager: ChannelManager, max_retry: usize) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>inner = Arc::new(RwLock::new(Inner {
             id,
             role,
             channel_manager,
             ask_leader: <span class="prelude-val">None</span>,
+            max_retry,
         }));
 
         <span class="self">Self </span>{ inner }
@@ -231,6 +269,7 @@
     role: Role,
     channel_manager: ChannelManager,
     ask_leader: <span class="prelude-ty">Option</span>&lt;AskLeader&gt;,
+    max_retry: usize,
 }
 
 <span class="kw">impl </span>Inner {
@@ -256,6 +295,7 @@
             <span class="self">self</span>.role,
             peers,
             <span class="self">self</span>.channel_manager.clone(),
+            <span class="self">self</span>.max_retry,
         ));
 
         <span class="prelude-val">Ok</span>(())
@@ -288,30 +328,60 @@
 
         req.set_header(<span class="self">self</span>.id, <span class="self">self</span>.role);
         <span class="kw">let </span>ask_leader = <span class="self">self</span>.ask_leader.as_ref().unwrap();
-        <span class="kw">loop </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>times = <span class="number">0</span>;
+
+        <span class="kw">while </span>times &lt; <span class="self">self</span>.max_retry {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(leader) = <span class="kw-2">&amp;</span>ask_leader.get_leader() {
                 <span class="kw">let </span><span class="kw-2">mut </span>client = <span class="self">self</span>.make_client(leader)<span class="question-mark">?</span>;
-                <span class="kw">let </span>res = client
-                    .submit_ddl_task(req.clone())
-                    .<span class="kw">await
-                    </span>.map_err(error::Error::from)<span class="question-mark">?</span>;
-
-                <span class="kw">let </span>res = res.into_inner();
-
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(header) = res.header.as_ref() {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(err) = header.error.as_ref() {
-                        <span class="kw">if </span>err.code == ErrorCode::NotLeader <span class="kw">as </span>i32 {
-                            <span class="kw">let _ </span>= ask_leader.ask_leader().<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">match </span>client.submit_ddl_task(req.clone()).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(res) =&gt; {
+                        <span class="kw">let </span>res = res.into_inner();
+                        <span class="kw">if </span>is_not_leader(<span class="kw-2">&amp;</span>res.header) {
+                            <span class="macro">warn!</span>(<span class="string">&quot;Failed to submitting ddl to {leader}, not a leader&quot;</span>);
+                            <span class="kw">let </span>leader = ask_leader.ask_leader().<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="macro">info!</span>(<span class="string">&quot;DDL client updated to new leader addr: {leader}&quot;</span>);
+                            times += <span class="number">1</span>;
                             <span class="kw">continue</span>;
+                        }
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(res);
+                    }
+                    <span class="prelude-val">Err</span>(status) =&gt; {
+                        <span class="comment">// The leader may be unreachable.
+                        </span><span class="kw">if </span>is_unreachable(<span class="kw-2">&amp;</span>status) {
+                            <span class="macro">warn!</span>(<span class="string">&quot;Failed to submitting ddl to {leader}, source: {status}&quot;</span>);
+                            <span class="kw">let </span>leader = ask_leader.ask_leader().<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="macro">info!</span>(<span class="string">&quot;DDL client updated to new leader addr: {leader}&quot;</span>);
+                            times += <span class="number">1</span>;
+                            <span class="kw">continue</span>;
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(error::Error::from(status));
                         }
                     }
                 }
-
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(res);
             } <span class="kw">else if let </span><span class="prelude-val">Err</span>(err) = ask_leader.ask_leader().<span class="kw">await </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(err);
             }
         }
+
+        error::RetryTimesExceededSnafu {
+            msg: <span class="string">&quot;Failed to submit DDL task&quot;</span>,
+            times: <span class="self">self</span>.max_retry,
+        }
+        .fail()
     }
 }
+
+<span class="kw">fn </span>is_unreachable(status: <span class="kw-2">&amp;</span>Status) -&gt; bool {
+    status.code() == Code::Unavailable || status.code() == Code::DeadlineExceeded
+}
+
+<span class="kw">fn </span>is_not_leader(header: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;ResponseHeader&gt;) -&gt; bool {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(header) = header {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(err) = header.error.as_ref() {
+            <span class="kw">return </span>err.code == ErrorCode::NotLeader <span class="kw">as </span>i32;
+        }
+    }
+
+    <span class="bool-val">false
+</span>}
 </code></pre></div></section></main></body></html>

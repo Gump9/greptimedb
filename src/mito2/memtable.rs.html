@@ -89,6 +89,31 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -105,7 +130,9 @@
 
 </span><span class="doccomment">//! Memtables are write buffers for regions.
 
-</span><span class="kw">pub mod </span>key_values;
+</span><span class="kw">pub mod </span>time_series;
+
+<span class="kw">pub mod </span>key_values;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>version;
 
 <span class="kw">use </span>std::fmt;
@@ -113,14 +140,18 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>store_api::metadata::RegionMetadataRef;
+<span class="kw">use </span>store_api::storage::ScanRequest;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">pub use </span><span class="kw">crate</span>::memtable::key_values::KeyValues;
+<span class="kw">use </span><span class="kw">crate</span>::read::Batch;
 
 <span class="doccomment">/// Id for memtables.
 ///
 /// Should be unique under the same region.
 </span><span class="kw">pub type </span>MemtableId = u32;
+
+<span class="kw">pub type </span>BoxedBatchIterator = Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = <span class="prelude-ty">Result</span>&lt;Batch&gt;&gt; + Send + Sync&gt;;
 
 <span class="doccomment">/// In memory write buffer.
 </span><span class="kw">pub trait </span>Memtable: Send + Sync + fmt::Debug {
@@ -129,6 +160,15 @@
 
     <span class="doccomment">/// Write key values into the memtable.
     </span><span class="kw">fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, kvs: <span class="kw-2">&amp;</span>KeyValues) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+
+    <span class="doccomment">/// Scans the memtable for `req`.
+    </span><span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>, req: ScanRequest) -&gt; BoxedBatchIterator;
+
+    <span class="doccomment">/// Returns true if the memtable is empty.
+    </span><span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
+
+    <span class="doccomment">/// Mark the memtable as immutable.
+    </span><span class="kw">fn </span>mark_immutable(<span class="kw-2">&amp;</span><span class="self">self</span>);
 }
 
 <span class="kw">pub type </span>MemtableRef = Arc&lt;<span class="kw">dyn </span>Memtable&gt;;
@@ -164,6 +204,16 @@
     <span class="kw">fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>, _kvs: <span class="kw-2">&amp;</span>KeyValues) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>, _req: ScanRequest) -&gt; BoxedBatchIterator {
+        Box::new(std::iter::empty())
+    }
+
+    <span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">true
+    </span>}
+
+    <span class="kw">fn </span>mark_immutable(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
 }
 
 <span class="doccomment">/// Default memtable builder.

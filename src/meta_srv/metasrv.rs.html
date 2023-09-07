@@ -379,6 +379,10 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -397,6 +401,7 @@
 
 <span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>api::v1::meta::Peer;
 <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
@@ -460,7 +465,10 @@
                 dir: <span class="macro">format!</span>(<span class="string">&quot;{METASRV_HOME}/logs&quot;</span>),
                 ..Default::default()
             },
-            procedure: ProcedureConfig::default(),
+            procedure: ProcedureConfig {
+                max_retry_times: <span class="number">12</span>,
+                retry_delay: Duration::from_millis(<span class="number">500</span>),
+            },
             datanode: DatanodeOptions::default(),
             enable_telemetry: <span class="bool-val">true</span>,
             data_home: METASRV_HOME.to_string(),

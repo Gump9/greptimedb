@@ -392,6 +392,78 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -412,6 +484,7 @@
 <span class="kw">use </span>common_datasource::compression::CompressionType;
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_runtime::JoinError;
 <span class="kw">use </span>datatypes::arrow::error::ArrowError;
 <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
 <span class="kw">use </span>prost::{DecodeError, EncodeError};
@@ -419,6 +492,7 @@
 <span class="kw">use </span>store_api::manifest::ManifestVersion;
 <span class="kw">use </span>store_api::storage::RegionId;
 
+<span class="kw">use </span><span class="kw">crate</span>::sst::file::FileId;
 <span class="kw">use </span><span class="kw">crate</span>::worker::WorkerId;
 
 <span class="attr">#[derive(Debug, Snafu)]
@@ -703,7 +777,12 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid parquet SST file {}, reason: {}&quot;</span>, file, reason))]
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Invalid parquet SST file {}, location: {}, reason: {}&quot;</span>,
+        file,
+        location,
+        reason
+    ))]
     </span>InvalidParquet {
         file: String,
         reason: String,
@@ -725,9 +804,66 @@
         location: Location,
         source: datatypes::error::Error,
     },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Failed to compute arrow arrays, location: {}, source: {}&quot;</span>,
+        location,
+        source
+    ))]
+    </span>ComputeArrow {
+        location: Location,
+        source: datatypes::arrow::error::ArrowError,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to compute vector, location: {}, source: {}&quot;</span>, location, source))]
+    </span>ComputeVector {
+        location: Location,
+        source: datatypes::error::Error,
+    },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Primary key length mismatch, expect: {}, actual: {}, location: {}&quot;</span>,
+        expect,
+        actual,
+        location
+    ))]
+    </span>PrimaryKeyLengthMismatch {
+        expect: usize,
+        actual: usize,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid flume sender, location: {}&quot;</span>, location,))]
+    </span>InvalidFlumeSender { location: Location },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid scheduler state, location: {}&quot;</span>, location))]
+    </span>InvalidSchedulerState { location: Location },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop scheduler, location: {}, source: {}&quot;</span>, location, source))]
+    </span>StopScheduler {
+        source: JoinError,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Failed to build scan predicate, location: {}, source: {}&quot;</span>,
+        location,
+        source
+    ))]
+    </span>BuildPredicate {
+        source: table::error::Error,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete SST file, file id: {}, source: {}&quot;</span>, file_id, source))]
+    </span>DeleteSst {
+        file_id: FileId,
+        source: object_store::Error,
+        location: Location,
+    },
 }
 
-<span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
+<span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T, E = Error&gt; = std::result::Result&lt;T, E&gt;;
 
 <span class="kw">impl </span>Error {
     <span class="doccomment">/// Returns true if we need to fill default value for a region.
@@ -779,6 +915,14 @@
             InvalidBatch { .. } =&gt; StatusCode::InvalidArguments,
             InvalidRecordBatch { .. } =&gt; StatusCode::InvalidArguments,
             ConvertVector { source, .. } =&gt; source.status_code(),
+            ComputeArrow { .. } =&gt; StatusCode::Internal,
+            ComputeVector { .. } =&gt; StatusCode::Internal,
+            PrimaryKeyLengthMismatch { .. } =&gt; StatusCode::InvalidArguments,
+            InvalidFlumeSender { .. } =&gt; StatusCode::InvalidArguments,
+            InvalidSchedulerState { .. } =&gt; StatusCode::InvalidArguments,
+            StopScheduler { .. } =&gt; StatusCode::Internal,
+            BuildPredicate { source, .. } =&gt; source.status_code(),
+            DeleteSst { .. } =&gt; StatusCode::StorageUnavailable,
         }
     }
 

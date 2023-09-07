@@ -133,13 +133,6 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -156,16 +149,14 @@
 
 </span><span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">use </span>auth::UserInfoRef;
 <span class="kw">use </span>axum::extract::{Query, State};
 <span class="kw">use </span>axum::http::StatusCode;
 <span class="kw">use </span>axum::response::IntoResponse;
 <span class="kw">use </span>axum::Extension;
 <span class="kw">use </span>common_catalog::consts::DEFAULT_SCHEMA_NAME;
-<span class="kw">use </span>common_catalog::parse_catalog_and_schema_from_db_string;
 <span class="kw">use </span>common_grpc::writer::Precision;
 <span class="kw">use </span>common_telemetry::timer;
-<span class="kw">use </span>session::context::QueryContext;
+<span class="kw">use </span>session::context::QueryContextRef;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="prelude-ty">Result</span>, TimePrecisionSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::influxdb::InfluxdbRequest;
@@ -187,7 +178,7 @@
 </span><span class="kw">pub async fn </span>influxdb_write_v1(
     State(handler): State&lt;InfluxdbLineProtocolHandlerRef&gt;,
     Query(<span class="kw-2">mut </span>params): Query&lt;HashMap&lt;String, String&gt;&gt;,
-    user_info: Extension&lt;UserInfoRef&gt;,
+    Extension(query_ctx): Extension&lt;QueryContextRef&gt;,
     lines: String,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>IntoResponse&gt; {
     <span class="kw">let </span>db = params
@@ -199,14 +190,14 @@
         .map(|val| parse_time_precision(val))
         .transpose()<span class="question-mark">?</span>;
 
-    influxdb_write(<span class="kw-2">&amp;</span>db, precision, lines, handler, user_info.<span class="number">0</span>).<span class="kw">await
+    influxdb_write(<span class="kw-2">&amp;</span>db, precision, lines, handler, query_ctx).<span class="kw">await
 </span>}
 
 <span class="attr">#[axum_macros::debug_handler]
 </span><span class="kw">pub async fn </span>influxdb_write_v2(
     State(handler): State&lt;InfluxdbLineProtocolHandlerRef&gt;,
     Query(<span class="kw-2">mut </span>params): Query&lt;HashMap&lt;String, String&gt;&gt;,
-    user_info: Extension&lt;UserInfoRef&gt;,
+    Extension(query_ctx): Extension&lt;QueryContextRef&gt;,
     lines: String,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>IntoResponse&gt; {
     <span class="kw">let </span>db = params
@@ -218,7 +209,7 @@
         .map(|val| parse_time_precision(val))
         .transpose()<span class="question-mark">?</span>;
 
-    influxdb_write(<span class="kw-2">&amp;</span>db, precision, lines, handler, user_info.<span class="number">0</span>).<span class="kw">await
+    influxdb_write(<span class="kw-2">&amp;</span>db, precision, lines, handler, query_ctx).<span class="kw">await
 </span>}
 
 <span class="kw">pub async fn </span>influxdb_write(
@@ -226,19 +217,14 @@
     precision: <span class="prelude-ty">Option</span>&lt;Precision&gt;,
     lines: String,
     handler: InfluxdbLineProtocolHandlerRef,
-    user_info: UserInfoRef,
+    ctx: QueryContextRef,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>IntoResponse&gt; {
     <span class="kw">let </span>_timer = <span class="macro">timer!</span>(
         <span class="kw">crate</span>::metrics::METRIC_HTTP_INFLUXDB_WRITE_ELAPSED,
         <span class="kw-2">&amp;</span>[(<span class="kw">crate</span>::metrics::METRIC_DB_LABEL, db.to_string())]
     );
 
-    <span class="kw">let </span>(catalog, schema) = parse_catalog_and_schema_from_db_string(db);
-    <span class="kw">let </span>ctx = QueryContext::with(catalog, schema);
-    ctx.set_current_user(<span class="prelude-val">Some</span>(user_info));
-
     <span class="kw">let </span>request = InfluxdbRequest { precision, lines };
-
     handler.exec(request, ctx).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>((StatusCode::NO_CONTENT, ()))

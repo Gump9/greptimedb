@@ -260,18 +260,6 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -476,17 +464,6 @@
                     <span class="prelude-val">Some</span>(<span class="string">&quot;42s&quot;</span>),
                 ),
                 (
-                    <span class="comment">// storage.manifest.checkpoint_on_startup = true
-                    </span>[
-                        env_prefix.to_string(),
-                        <span class="string">&quot;storage&quot;</span>.to_uppercase(),
-                        <span class="string">&quot;manifest&quot;</span>.to_uppercase(),
-                        <span class="string">&quot;checkpoint_on_startup&quot;</span>.to_uppercase(),
-                    ]
-                    .join(ENV_VAR_SEP),
-                    <span class="prelude-val">Some</span>(<span class="string">&quot;true&quot;</span>),
-                ),
-                (
                     <span class="comment">// wal.dir = /other/wal/dir
                     </span>[
                         env_prefix.to_string(),
@@ -527,7 +504,6 @@
                     opts.storage.manifest.gc_duration,
                     <span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">42</span>))
                 );
-                <span class="macro">assert!</span>(opts.storage.manifest.checkpoint_on_startup);
                 <span class="macro">assert_eq!</span>(
                     opts.meta_client_options.unwrap().metasrv_addrs,
                     <span class="macro">vec!</span>[

@@ -1492,6 +1492,7 @@
 <a href="#1492" id="1492">1492</a>
 <a href="#1493" id="1493">1493</a>
 <a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1508,6 +1509,7 @@
 
 </span><span class="kw">use </span>std::cmp::Ordering;
 
+<span class="kw">use </span>common_catalog::consts::default_engine;
 <span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>once_cell::sync::Lazy;
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
@@ -1637,7 +1639,7 @@
 
         <span class="kw">let </span>partitions = <span class="self">self</span>.parse_partitions()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>engine = <span class="self">self</span>.parse_table_engine(common_catalog::consts::MITO_ENGINE)<span class="question-mark">?</span>;
+        <span class="kw">let </span>engine = <span class="self">self</span>.parse_table_engine(default_engine())<span class="question-mark">?</span>;
         <span class="kw">let </span>options = <span class="self">self
             </span>.parser
             .parse_options(Keyword::WITH)

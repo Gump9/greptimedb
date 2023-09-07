@@ -75,30 +75,6 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -117,16 +93,9 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>common_telemetry::logging;
-<span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>table::metadata::TableId;
-<span class="kw">use </span>table::Table;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, InsertCatalogRecordSnafu, <span class="prelude-ty">Result </span><span class="kw">as </span>CatalogResult};
-<span class="kw">use </span><span class="kw">crate</span>::system::{
-    build_schema_insert_request, build_table_deletion_request, build_table_insert_request,
-    SystemCatalogTable,
-};
+<span class="kw">use </span><span class="kw">crate</span>::system::SystemCatalogTable;
 <span class="kw">use </span><span class="kw">crate</span>::DeregisterTableRequest;
 
 <span class="kw">pub struct </span>InformationSchema {
@@ -155,49 +124,32 @@
         table_id: TableId,
         engine: String,
     ) -&gt; <span class="kw">crate</span>::error::Result&lt;usize&gt; {
-        <span class="kw">let </span>request = build_table_insert_request(catalog, schema, table_name, table_id, engine);
         <span class="self">self</span>.information_schema
             .system
-            .insert(request)
+            .register_table(catalog, schema, table_name, table_id, engine)
             .<span class="kw">await
-            </span>.context(InsertCatalogRecordSnafu)
-    }
+    </span>}
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>deregister_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: <span class="kw-2">&amp;</span>DeregisterTableRequest,
         table_id: TableId,
-    ) -&gt; CatalogResult&lt;()&gt; {
+    ) -&gt; <span class="kw">crate</span>::error::Result&lt;()&gt; {
         <span class="self">self</span>.information_schema
             .system
-            .insert(build_table_deletion_request(request, table_id))
+            .deregister_table(request, table_id)
             .<span class="kw">await
-            </span>.map(|x| {
-                <span class="kw">if </span>x != <span class="number">1 </span>{
-                    <span class="kw">let </span>table = common_catalog::format_full_table_name(
-                        <span class="kw-2">&amp;</span>request.catalog,
-                        <span class="kw-2">&amp;</span>request.schema,
-                        <span class="kw-2">&amp;</span>request.table_name
-                    );
-                    <span class="macro">logging::warn!</span>(<span class="string">&quot;Failed to delete table record from information_schema, unexpected returned result: {x}, table: {table}&quot;</span>);
-                }
-            })
-            .with_context(|<span class="kw">_</span>| error::DeregisterTableSnafu {
-                request: request.clone(),
-            })
-    }
+    </span>}
 
     <span class="kw">pub async fn </span>register_schema(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         catalog: String,
         schema: String,
     ) -&gt; <span class="kw">crate</span>::error::Result&lt;usize&gt; {
-        <span class="kw">let </span>request = build_schema_insert_request(catalog, schema);
         <span class="self">self</span>.information_schema
             .system
-            .insert(request)
+            .register_schema(catalog, schema)
             .<span class="kw">await
-            </span>.context(InsertCatalogRecordSnafu)
-    }
+    </span>}
 }
 </code></pre></div></section></main></body></html>

@@ -901,9 +901,6 @@
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -936,12 +933,10 @@
     <span class="kw">use </span>common_query::Output;
     <span class="kw">use </span>common_recordbatch::RecordBatches;
     <span class="kw">use </span>frontend::instance::Instance;
-    <span class="kw">use </span>frontend::table::DistTable;
     <span class="kw">use </span>query::parser::QueryLanguageParser;
     <span class="kw">use </span>servers::query_handler::grpc::GrpcQueryHandler;
     <span class="kw">use </span>session::context::QueryContext;
     <span class="kw">use </span>store_api::storage::RegionNumber;
-    <span class="kw">use </span>table::Table;
     <span class="kw">use </span>tests::{has_parquet_file, test_region_dir};
 
     <span class="kw">use </span><span class="kw">crate</span>::tests;
@@ -977,6 +972,7 @@
             expr: <span class="prelude-val">Some</span>(DdlExpr::CreateDatabase(CreateDatabaseExpr {
                 database_name: <span class="string">&quot;database_created_through_grpc&quot;</span>.to_string(),
                 create_if_not_exists: <span class="bool-val">true</span>,
+                options: Default::default(),
             })),
         });
         <span class="kw">let </span>output = query(instance, request).<span class="kw">await</span>;
@@ -1238,7 +1234,6 @@ CREATE TABLE {table_name} (
             .<span class="kw">await
             </span>.unwrap()
             .unwrap();
-        <span class="kw">let </span>table = table.as_any().downcast_ref::&lt;DistTable&gt;().unwrap();
         <span class="kw">let </span>table_id = table.table_info().table_id();
 
         <span class="kw">let </span>table_route_value = instance
@@ -1533,7 +1528,6 @@ CREATE TABLE {table_name} (
             .<span class="kw">await
             </span>.unwrap()
             .unwrap();
-        <span class="kw">let </span>table = table.as_any().downcast_ref::&lt;DistTable&gt;().unwrap();
         <span class="kw">let </span>table_id = table.table_info().ident.table_id;
         <span class="kw">let </span>table_route_value = instance
             .table_metadata_manager()

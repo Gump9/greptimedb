@@ -362,6 +362,7 @@
 <a href="#362" id="362">362</a>
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -505,7 +506,8 @@
                 <span class="kw">let </span>table_ref = TableReference::full(<span class="kw-2">&amp;</span>catalog, <span class="kw-2">&amp;</span>schema, <span class="kw-2">&amp;</span>table);
                 <span class="kw">let </span>table = <span class="self">self</span>.sql_handler.get_table(<span class="kw-2">&amp;</span>table_ref).<span class="kw">await</span><span class="question-mark">?</span>;
 
-                query::sql::show_create_table(table, <span class="prelude-val">None</span>).context(ExecuteStatementSnafu)
+                query::sql::show_create_table(table, <span class="prelude-val">None</span>, query_ctx.clone())
+                    .context(ExecuteStatementSnafu)
             }
             Statement::TruncateTable(truncate_table) =&gt; {
                 <span class="kw">let </span>(catalog_name, schema_name, table_name) =

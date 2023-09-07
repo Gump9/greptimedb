@@ -85,7 +85,7 @@
 
         <span class="kw">let </span>requests = request.try_into()<span class="question-mark">?</span>;
         <span class="kw">let _ </span>= <span class="self">self
-            </span>.handle_inserts(requests, ctx)
+            </span>.handle_row_inserts(requests, ctx)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
             .context(servers::error::ExecuteGrpcQuerySnafu)<span class="question-mark">?</span>;

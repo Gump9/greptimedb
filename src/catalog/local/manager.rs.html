@@ -769,7 +769,7 @@
             schema: INFORMATION_SCHEMA_NAME.to_string(),
             table_name: SYSTEM_CATALOG_TABLE_NAME.to_string(),
             table_id: SYSTEM_CATALOG_TABLE_ID,
-            table: <span class="self">self</span>.system.information_schema.system.clone(),
+            table: <span class="self">self</span>.system.information_schema.system.as_table_ref(),
         };
         <span class="self">self</span>.catalogs.register_table(register_table_req).<span class="kw">await</span><span class="question-mark">?</span>;
 

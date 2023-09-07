@@ -690,6 +690,52 @@
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -715,14 +761,19 @@
 };
 <span class="kw">use </span>api::v1::{ColumnDataType, ColumnSchema, OpType, Rows, Value};
 <span class="kw">use </span>common_base::readable_size::ReadableSize;
+<span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
 <span class="kw">use </span>store_api::metadata::{ColumnMetadata, RegionMetadata};
-<span class="kw">use </span>store_api::region_request::RegionRequest;
-<span class="kw">use </span>store_api::storage::{ColumnId, CompactionStrategy, RegionId};
+<span class="kw">use </span>store_api::region_request::{
+    RegionAlterRequest, RegionCloseRequest, RegionCompactRequest, RegionCreateRequest,
+    RegionDropRequest, RegionFlushRequest, RegionOpenRequest, RegionRequest,
+};
+<span class="kw">use </span>store_api::storage::{CompactionStrategy, RegionId};
 <span class="kw">use </span>tokio::sync::oneshot::{<span class="self">self</span>, Receiver, Sender};
 
 <span class="kw">use </span><span class="kw">crate</span>::config::DEFAULT_WRITE_BUFFER_SIZE;
-<span class="kw">use </span><span class="kw">crate</span>::error::{CreateDefaultSnafu, FillDefaultSnafu, InvalidRequestSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{CreateDefaultSnafu, Error, FillDefaultSnafu, InvalidRequestSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::sst::file::FileMeta;
 
 <span class="doccomment">/// Options that affect the entire region.
 ///
@@ -745,41 +796,6 @@
             compaction_strategy: CompactionStrategy::LeveledTimeWindow,
         }
     }
-}
-
-<span class="doccomment">/// Create region request.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>CreateRequest {
-    <span class="doccomment">/// Region to create.
-    </span><span class="kw">pub </span>region_id: RegionId,
-    <span class="doccomment">/// Data directory of the region.
-    </span><span class="kw">pub </span>region_dir: String,
-    <span class="doccomment">/// Columns in this region.
-    </span><span class="kw">pub </span>column_metadatas: Vec&lt;ColumnMetadata&gt;,
-    <span class="doccomment">/// Columns in the primary key.
-    </span><span class="kw">pub </span>primary_key: Vec&lt;ColumnId&gt;,
-    <span class="doccomment">/// Create region if not exists.
-    </span><span class="kw">pub </span>create_if_not_exists: bool,
-    <span class="doccomment">/// Options of the created region.
-    </span><span class="kw">pub </span>options: RegionOptions,
-}
-
-<span class="doccomment">/// Open region request.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>OpenRequest {
-    <span class="doccomment">/// Region to open.
-    </span><span class="kw">pub </span>region_id: RegionId,
-    <span class="doccomment">/// Data directory of the region.
-    </span><span class="kw">pub </span>region_dir: String,
-    <span class="doccomment">/// Options of the created region.
-    </span><span class="kw">pub </span>options: RegionOptions,
-}
-
-<span class="doccomment">/// Close region request.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>CloseRequest {
-    <span class="doccomment">/// Region to close.
-    </span><span class="kw">pub </span>region_id: RegionId,
 }
 
 <span class="doccomment">/// Request to write a region.
@@ -852,7 +868,8 @@
         <span class="self">self</span>.name_to_index.get(name).copied()
     }
 
-    <span class="doccomment">/// Checks schema of rows is compatible with schema of the region.
+    <span class="comment">// TODO(yingwen): Check delete schema.
+    </span><span class="doccomment">/// Checks schema of rows is compatible with schema of the region.
     ///
     /// If column with default value is missing, it returns a special [FillDefault](crate::error::Error::FillDefault)
     /// error.
@@ -1034,65 +1051,140 @@
 }
 
 <span class="doccomment">/// Sender and write request.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SenderWriteRequest {
     <span class="doccomment">/// Result sender.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) request: WriteRequest,
 }
 
 <span class="doccomment">/// Request sent to a worker
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>WorkerRequest {
-    <span class="doccomment">/// Region request.
-    </span>Region(RegionTask),
+    <span class="doccomment">/// Write to a region.
+    </span>Write(SenderWriteRequest),
+
+    <span class="doccomment">/// Ddl request to a region.
+    </span>Ddl(SenderDdlRequest),
+
+    <span class="doccomment">/// Notifications from internal background jobs.
+    </span>Background {
+        <span class="doccomment">/// Id of the region to send.
+        </span>region_id: RegionId,
+        <span class="doccomment">/// Internal notification.
+        </span>notify: BackgroundNotify,
+    },
 
     <span class="doccomment">/// Notify a worker to stop.
     </span>Stop,
 }
 
-<span class="doccomment">/// Request to modify a region.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RegionTask {
-    <span class="doccomment">/// Sender to send result.
-    ///
-    /// Now the result is a `Result&lt;()&gt;`, but we could replace the empty tuple
-    /// with an enum if we need to carry more information.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;&gt;,
-    <span class="doccomment">/// Request body.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) request: RegionRequest,
-    <span class="doccomment">/// Region identifier.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) region_id: RegionId,
-}
-
-<span class="kw">impl </span>RegionTask {
-    <span class="doccomment">/// Creates a [RegionTask] and a receiver from [RegionRequest].
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_request(
+<span class="kw">impl </span>WorkerRequest {
+    <span class="doccomment">/// Converts request from a [RegionRequest].
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_from_region_request(
         region_id: RegionId,
-        request: RegionRequest,
-    ) -&gt; (RegionTask, Receiver&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;) {
+        value: RegionRequest,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(WorkerRequest, Receiver&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;)&gt; {
         <span class="kw">let </span>(sender, receiver) = oneshot::channel();
-        (
-            RegionTask {
-                sender: <span class="prelude-val">Some</span>(sender),
-                request,
+        <span class="kw">let </span>worker_request = <span class="kw">match </span>value {
+            RegionRequest::Put(v) =&gt; {
+                <span class="kw">let </span>write_request = WriteRequest::new(region_id, OpType::Put, v.rows)<span class="question-mark">?</span>;
+                WorkerRequest::Write(SenderWriteRequest {
+                    sender: <span class="prelude-val">Some</span>(sender),
+                    request: write_request,
+                })
+            }
+            RegionRequest::Delete(v) =&gt; {
+                <span class="kw">let </span>write_request = WriteRequest::new(region_id, OpType::Delete, v.rows)<span class="question-mark">?</span>;
+                WorkerRequest::Write(SenderWriteRequest {
+                    sender: <span class="prelude-val">Some</span>(sender),
+                    request: write_request,
+                })
+            }
+            RegionRequest::Create(v) =&gt; WorkerRequest::Ddl(SenderDdlRequest {
                 region_id,
-            },
-            receiver,
-        )
+                sender: <span class="prelude-val">Some</span>(sender),
+                request: DdlRequest::Create(v),
+            }),
+            RegionRequest::Drop(v) =&gt; WorkerRequest::Ddl(SenderDdlRequest {
+                region_id,
+                sender: <span class="prelude-val">Some</span>(sender),
+                request: DdlRequest::Drop(v),
+            }),
+            RegionRequest::Open(v) =&gt; WorkerRequest::Ddl(SenderDdlRequest {
+                region_id,
+                sender: <span class="prelude-val">Some</span>(sender),
+                request: DdlRequest::Open(v),
+            }),
+            RegionRequest::Close(v) =&gt; WorkerRequest::Ddl(SenderDdlRequest {
+                region_id,
+                sender: <span class="prelude-val">Some</span>(sender),
+                request: DdlRequest::Close(v),
+            }),
+            RegionRequest::Alter(v) =&gt; WorkerRequest::Ddl(SenderDdlRequest {
+                region_id,
+                sender: <span class="prelude-val">Some</span>(sender),
+                request: DdlRequest::Alter(v),
+            }),
+            RegionRequest::Flush(v) =&gt; WorkerRequest::Ddl(SenderDdlRequest {
+                region_id,
+                sender: <span class="prelude-val">Some</span>(sender),
+                request: DdlRequest::Flush(v),
+            }),
+            RegionRequest::Compact(v) =&gt; WorkerRequest::Ddl(SenderDdlRequest {
+                region_id,
+                sender: <span class="prelude-val">Some</span>(sender),
+                request: DdlRequest::Compact(v),
+            }),
+        };
+
+        <span class="prelude-val">Ok</span>((worker_request, receiver))
     }
 }
 
-<span class="doccomment">/// Mito Region Engine&#39;s request validator
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RequestValidator;
+<span class="doccomment">/// DDL request to a region.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>DdlRequest {
+    Create(RegionCreateRequest),
+    Drop(RegionDropRequest),
+    Open(RegionOpenRequest),
+    Close(RegionCloseRequest),
+    Alter(RegionAlterRequest),
+    Flush(RegionFlushRequest),
+    Compact(RegionCompactRequest),
+}
 
-<span class="kw">impl </span>RequestValidator {
-    <span class="doccomment">/// Validate the [WriteRequest].
-    </span><span class="kw">pub fn </span>write_request(_write_request: <span class="kw-2">&amp;</span>WriteRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="comment">// - checks whether the request is too large.
-        // - checks whether each row in rows has the same schema.
-        // - checks whether each column match the schema in Rows.
-        // - checks rows don&#39;t have duplicate columns.
-        </span><span class="macro">unimplemented!</span>()
-    }
+<span class="doccomment">/// Sender and Ddl request.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SenderDdlRequest {
+    <span class="doccomment">/// Region id of the request.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) region_id: RegionId,
+    <span class="doccomment">/// Result sender.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;&gt;,
+    <span class="doccomment">/// Ddl request.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) request: DdlRequest,
+}
+
+<span class="doccomment">/// Notification from a background job.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>BackgroundNotify {
+    <span class="doccomment">/// Flush is finished.
+    </span>FlushFinished(FlushFinished),
+    <span class="doccomment">/// Flush is failed.
+    </span>FlushFailed(FlushFailed),
+}
+
+<span class="doccomment">/// Notifies a flush job is finished.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>FlushFinished {
+    <span class="doccomment">/// Meta of the flushed SST.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) file_meta: FileMeta,
+}
+
+<span class="doccomment">/// Notifies a flush job is failed.
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>FlushFailed {
+    <span class="doccomment">/// The reason of a failed flush job.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) error: Error,
 }
 
 <span class="attr">#[cfg(test)]

@@ -736,6 +736,26 @@
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1132,10 +1152,12 @@
 
 <span class="kw">impl</span>&lt;R: Region&gt; MitoTable&lt;R&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
-        table_info: TableInfo,
+        <span class="kw-2">mut </span>table_info: TableInfo,
         regions: HashMap&lt;RegionNumber, R&gt;,
         manifest: TableManifest,
     ) -&gt; <span class="self">Self </span>{
+        <span class="comment">// `TableInfo` is recovered from the file, which may contain incorrect content. We align it to real regions.
+        </span>table_info.meta.region_numbers = regions.keys().copied().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         <span class="self">Self </span>{
             table_info: ArcSwap::new(Arc::new(table_info)),
             regions: ArcSwap::new(Arc::new(regions)),
@@ -1305,6 +1327,16 @@
             Arc::new(regions)
         });
 
+        <span class="kw">let _ </span>= <span class="self">self</span>.table_info.rcu(|info| {
+            <span class="kw">let </span><span class="kw-2">mut </span>info = TableInfo::clone(info);
+
+            info.meta
+                .region_numbers
+                .retain(|r| !region_numbers.contains(r));
+
+            Arc::new(info)
+        });
+
         <span class="prelude-val">Ok</span>(removed)
     }
 
@@ -1382,6 +1414,14 @@
                 .or_insert_with(|| region.clone());
 
             Arc::new(regions)
+        });
+
+        <span class="kw">let _ </span>= <span class="self">self</span>.table_info.rcu(|info| {
+            <span class="kw">let </span><span class="kw-2">mut </span>info = TableInfo::clone(info);
+
+            info.meta.region_numbers.push(region_number);
+
+            Arc::new(info)
         });
 
         <span class="macro">info!</span>(

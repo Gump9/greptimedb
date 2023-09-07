@@ -740,6 +740,22 @@
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1255,7 +1271,7 @@
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read record batch, source: {}&quot;</span>, source))]
-    </span>ReadRecordBatch {
+    </span>ReadDfRecordBatch {
         source: datafusion::error::DataFusionError,
         location: Location,
     },
@@ -1342,6 +1358,18 @@
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Empty data: {}&quot;</span>, msg))]
     </span>EmptyData { msg: String, location: Location },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read record batch, source: {}&quot;</span>, source))]
+    </span>ReadRecordBatch {
+        source: common_recordbatch::error::Error,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build column vectors, source: {}&quot;</span>, source))]
+    </span>BuildColumnVectors {
+        source: common_recordbatch::error::Error,
+        location: Location,
+    },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -1420,7 +1448,7 @@
 
             Error::JoinTask { .. }
             | Error::BuildParquetRecordBatchStream { .. }
-            | Error::ReadRecordBatch { .. }
+            | Error::ReadDfRecordBatch { .. }
             | Error::BuildFileStream { .. }
             | Error::WriteStreamToFile { .. }
             | Error::Unexpected { .. } =&gt; StatusCode::Unexpected,
@@ -1473,6 +1501,10 @@
 
             Error::WriteParquet { source, .. } =&gt; source.status_code(),
             Error::InvalidCopyParameter { .. } =&gt; StatusCode::InvalidArguments,
+
+            Error::ReadRecordBatch { source, .. } | Error::BuildColumnVectors { source, .. } =&gt; {
+                source.status_code()
+            }
         }
     }
 

@@ -648,6 +648,10 @@
 <a href="#648" id="648">648</a>
 <a href="#649" id="649">649</a>
 <a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1166,6 +1170,9 @@
         operation: String,
         location: Location,
     },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Primary key &#39;{key}&#39; not found when creating region request, at {location}&quot;</span>))]
+    </span>PrimaryKeyNotFound { key: String, location: Location },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -1220,6 +1227,7 @@
             | Error::UnsupportedSelectorType { .. }
             | Error::InvalidArguments { .. }
             | Error::InvalidHeartbeatRequest { .. }
+            | Error::PrimaryKeyNotFound { .. }
             | Error::TooManyPartitions { .. } =&gt; StatusCode::InvalidArguments,
             Error::LeaseKeyFromUtf8 { .. }
             | Error::LeaseValueFromUtf8 { .. }

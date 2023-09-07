@@ -92,8 +92,6 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -108,9 +106,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::sync::Arc;
-
-<span class="kw">use </span>api::v1::greptime_database_server::GreptimeDatabase;
+</span><span class="kw">use </span>api::v1::greptime_database_server::GreptimeDatabase;
 <span class="kw">use </span>api::v1::greptime_response::Response <span class="kw">as </span>RawResponse;
 <span class="kw">use </span>api::v1::{AffectedRows, GreptimeRequest, GreptimeResponse, ResponseHeader};
 <span class="kw">use </span>async_trait::async_trait;
@@ -119,15 +115,15 @@
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>tonic::{Request, Response, Status, Streaming};
 
-<span class="kw">use </span><span class="kw">crate</span>::grpc::handler::GreptimeRequestHandler;
+<span class="kw">use </span><span class="kw">crate</span>::grpc::greptime_handler::GreptimeRequestHandler;
 <span class="kw">use </span><span class="kw">crate</span>::grpc::TonicResult;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DatabaseService {
-    handler: Arc&lt;GreptimeRequestHandler&gt;,
+    handler: GreptimeRequestHandler,
 }
 
 <span class="kw">impl </span>DatabaseService {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(handler: Arc&lt;GreptimeRequestHandler&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(handler: GreptimeRequestHandler) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ handler }
     }
 }

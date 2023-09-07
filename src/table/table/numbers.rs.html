@@ -146,9 +146,6 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -199,14 +196,11 @@
     }
 
     <span class="kw">pub fn </span>table_with_name(table_id: TableId, name: String) -&gt; TableRef {
-        <span class="kw">let </span>schema = <span class="self">Self</span>::schema();
         <span class="kw">let </span>thin_table = ThinTable::new(
-            schema.clone(),
             <span class="self">Self</span>::table_info(table_id, name, <span class="string">&quot;test_engine&quot;</span>.to_string()),
-            TableType::Temporary,
             FilterPushDownType::Unsupported,
         );
-        <span class="kw">let </span>data_source = Arc::new(NumbersDataSource::new(schema));
+        <span class="kw">let </span>data_source = Arc::new(NumbersDataSource::new(<span class="self">Self</span>::schema()));
         Arc::new(ThinTableAdapter::new(thin_table, data_source))
     }
 

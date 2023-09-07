@@ -1039,6 +1039,11 @@
 <a href="#1039" id="1039">1039</a>
 <a href="#1040" id="1040">1040</a>
 <a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1406,6 +1411,7 @@
             expr: <span class="prelude-val">Some</span>(DdlExpr::CreateDatabase(CreateDatabaseExpr {
                 database_name: <span class="string">&quot;my_database&quot;</span>.to_string(),
                 create_if_not_exists: <span class="bool-val">true</span>,
+                options: Default::default(),
             })),
         });
         <span class="kw">let </span>output = instance.do_query(query, QueryContext::arc()).<span class="kw">await</span>.unwrap();
@@ -1459,6 +1465,7 @@
             expr: <span class="prelude-val">Some</span>(DdlExpr::CreateDatabase(CreateDatabaseExpr {
                 database_name: <span class="string">&quot;my_database&quot;</span>.to_string(),
                 create_if_not_exists: <span class="bool-val">true</span>,
+                options: Default::default(),
             })),
         });
         <span class="kw">let </span>output = instance.do_query(query, QueryContext::arc()).<span class="kw">await</span>.unwrap();
@@ -1526,6 +1533,7 @@
             expr: <span class="prelude-val">Some</span>(DdlExpr::CreateDatabase(CreateDatabaseExpr {
                 database_name: <span class="string">&quot;my_database&quot;</span>.to_string(),
                 create_if_not_exists: <span class="bool-val">true</span>,
+                options: Default::default(),
             })),
         });
         <span class="kw">let </span>output = instance.do_query(query, QueryContext::arc()).<span class="kw">await</span>.unwrap();
@@ -1630,6 +1638,7 @@
             expr: <span class="prelude-val">Some</span>(DdlExpr::CreateDatabase(CreateDatabaseExpr {
                 database_name: <span class="string">&quot;my_database&quot;</span>.to_string(),
                 create_if_not_exists: <span class="bool-val">true</span>,
+                options: Default::default(),
             })),
         });
         <span class="kw">let </span>output = instance.do_query(query, QueryContext::arc()).<span class="kw">await</span>.unwrap();
@@ -1702,6 +1711,7 @@
             expr: <span class="prelude-val">Some</span>(DdlExpr::CreateDatabase(CreateDatabaseExpr {
                 database_name: <span class="string">&quot;my_database&quot;</span>.to_string(),
                 create_if_not_exists: <span class="bool-val">true</span>,
+                options: Default::default(),
             })),
         });
         <span class="kw">let </span>output = instance.do_query(query, QueryContext::arc()).<span class="kw">await</span>.unwrap();

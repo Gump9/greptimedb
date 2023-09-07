@@ -488,17 +488,6 @@
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -521,7 +510,7 @@
 <span class="kw">use </span>common_telemetry::logging;
 <span class="kw">use </span>frontend::frontend::FrontendOptions;
 <span class="kw">use </span>frontend::instance::{FrontendInstance, Instance <span class="kw">as </span>FeInstance};
-<span class="kw">use </span>frontend::service_config::{InfluxdbOptions, PrometheusOptions};
+<span class="kw">use </span>frontend::service_config::InfluxdbOptions;
 <span class="kw">use </span>meta_client::MetaClientOptions;
 <span class="kw">use </span>servers::tls::{TlsMode, TlsOption};
 <span class="kw">use </span>servers::Mode;
@@ -600,8 +589,6 @@
     <span class="attr">#[clap(long)]
     </span>mysql_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
-    </span>prom_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[clap(long)]
     </span>postgres_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
     </span>opentsdb_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -670,10 +657,6 @@
                 mysql_opts.addr = addr.clone();
                 mysql_opts.tls = tls_opts.clone();
             }
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(addr) = <span class="kw-2">&amp;</span><span class="self">self</span>.prom_addr {
-            opts.prometheus_options = <span class="prelude-val">Some</span>(PrometheusOptions { addr: addr.clone() });
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(addr) = <span class="kw-2">&amp;</span><span class="self">self</span>.postgres_addr {
@@ -749,7 +732,6 @@
     </span><span class="kw">fn </span>test_try_from_start_command() {
         <span class="kw">let </span>command = StartCommand {
             http_addr: <span class="prelude-val">Some</span>(<span class="string">&quot;127.0.0.1:1234&quot;</span>.to_string()),
-            prom_addr: <span class="prelude-val">Some</span>(<span class="string">&quot;127.0.0.1:4444&quot;</span>.to_string()),
             mysql_addr: <span class="prelude-val">Some</span>(<span class="string">&quot;127.0.0.1:5678&quot;</span>.to_string()),
             postgres_addr: <span class="prelude-val">Some</span>(<span class="string">&quot;127.0.0.1:5432&quot;</span>.to_string()),
             opentsdb_addr: <span class="prelude-val">Some</span>(<span class="string">&quot;127.0.0.1:4321&quot;</span>.to_string()),
@@ -776,10 +758,6 @@
         <span class="macro">assert_eq!</span>(
             opts.opentsdb_options.as_ref().unwrap().addr,
             <span class="string">&quot;127.0.0.1:4321&quot;
-        </span>);
-        <span class="macro">assert_eq!</span>(
-            opts.prometheus_options.as_ref().unwrap().addr,
-            <span class="string">&quot;127.0.0.1:4444&quot;
         </span>);
 
         <span class="kw">let </span>default_opts = FrontendOptions::default();

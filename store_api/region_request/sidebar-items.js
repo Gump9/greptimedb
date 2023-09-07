@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["RegionRequest"],"struct":["RegionAlterRequest","RegionCloseRequest","RegionCompactRequest","RegionCreateRequest","RegionDeleteRequest","RegionDropRequest","RegionFlushRequest","RegionOpenRequest","RegionReadRequest","RegionWriteRequest"]};
+window.SIDEBAR_ITEMS = {"enum":["RegionRequest"],"struct":["RegionAlterRequest","RegionCloseRequest","RegionCompactRequest","RegionCreateRequest","RegionDeleteRequest","RegionDropRequest","RegionFlushRequest","RegionOpenRequest","RegionPutRequest","RegionReadRequest"]};

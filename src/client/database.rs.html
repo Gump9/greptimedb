@@ -369,6 +369,40 @@
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -390,18 +424,21 @@
 <span class="kw">use </span>api::v1::{
     AlterExpr, AuthHeader, CompactTableExpr, CreateTableExpr, DdlRequest, DeleteRequests,
     DropTableExpr, FlushTableExpr, GreptimeRequest, InsertRequests, PromRangeQuery, QueryRequest,
-    RequestHeader, TruncateTableExpr,
+    RequestHeader, RowInsertRequests, TruncateTableExpr,
 };
-<span class="kw">use </span>arrow_flight::{FlightData, Ticket};
+<span class="kw">use </span>arrow_flight::Ticket;
+<span class="kw">use </span>async_stream::stream;
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
-<span class="kw">use </span>common_grpc::flight::{flight_messages_to_recordbatches, FlightDecoder, FlightMessage};
+<span class="kw">use </span>common_grpc::flight::{FlightDecoder, FlightMessage};
 <span class="kw">use </span>common_query::Output;
+<span class="kw">use </span>common_recordbatch::error::ExternalSnafu;
+<span class="kw">use </span>common_recordbatch::RecordBatchStreamAdaptor;
 <span class="kw">use </span>common_telemetry::{logging, timer};
-<span class="kw">use </span>futures_util::{TryFutureExt, TryStreamExt};
+<span class="kw">use </span>futures_util::StreamExt;
 <span class="kw">use </span>prost::Message;
 <span class="kw">use </span>snafu::{ensure, ResultExt};
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{ConvertFlightDataSnafu, IllegalFlightMessagesSnafu, ServerSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::error::{ConvertFlightDataSnafu, Error, IllegalFlightMessagesSnafu, ServerSnafu};
 <span class="kw">use crate</span>::{error, from_grpc_response, metrics, Client, <span class="prelude-ty">Result</span>, StreamInserter};
 
 <span class="attr">#[derive(Clone, Debug, Default)]
@@ -481,6 +518,11 @@
     <span class="kw">pub async fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, requests: InsertRequests) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
         <span class="kw">let </span>_timer = <span class="macro">timer!</span>(metrics::METRIC_GRPC_INSERT);
         <span class="self">self</span>.handle(Request::Inserts(requests)).<span class="kw">await
+    </span>}
+
+    <span class="kw">pub async fn </span>row_insert(<span class="kw-2">&amp;</span><span class="self">self</span>, requests: RowInsertRequests) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+        <span class="kw">let </span>_timer = <span class="macro">timer!</span>(metrics::METRIC_GRPC_INSERT);
+        <span class="self">self</span>.handle(Request::RowInserts(requests)).<span class="kw">await
     </span>}
 
     <span class="kw">pub fn </span>streaming_inserter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;StreamInserter&gt; {
@@ -654,55 +696,81 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>client = <span class="self">self</span>.client.make_flight_client()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>flight_data: Vec&lt;FlightData&gt; = client
-            .mut_inner()
-            .do_get(request)
-            .and_then(|response| response.into_inner().try_collect())
-            .<span class="kw">await
-            </span>.map_err(|e| {
-                <span class="kw">let </span>tonic_code = e.code();
-                <span class="kw">let </span>e: error::Error = e.into();
-                <span class="kw">let </span>code = e.status_code();
-                <span class="kw">let </span>msg = e.to_string();
-                ServerSnafu { code, msg }
-                    .fail::&lt;()&gt;()
-                    .map_err(BoxedError::new)
-                    .context(error::FlightGetSnafu {
-                        tonic_code,
-                        addr: client.addr(),
-                    })
-                    .map_err(|error| {
-                        <span class="macro">logging::error!</span>(
-                            <span class="string">&quot;Failed to do Flight get, addr: {}, code: {}, source: {}&quot;</span>,
-                            client.addr(),
-                            tonic_code,
-                            error
-                        );
-                        error
-                    })
-                    .unwrap_err()
-            })<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>decoder = <span class="kw-2">&amp;mut </span>FlightDecoder::default();
-        <span class="kw">let </span>flight_messages = flight_data
-            .into_iter()
-            .map(|x| decoder.try_decode(x).context(ConvertFlightDataSnafu))
-            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>output = <span class="kw">if let </span><span class="prelude-val">Some</span>(FlightMessage::AffectedRows(rows)) = flight_messages.get(<span class="number">0</span>) {
-            <span class="macro">ensure!</span>(
-                flight_messages.len() == <span class="number">1</span>,
-                IllegalFlightMessagesSnafu {
-                    reason: <span class="string">&quot;Expect &#39;AffectedRows&#39; Flight messages to be one and only!&quot;
-                </span>}
+        <span class="kw">let </span>response = client.mut_inner().do_get(request).<span class="kw">await</span>.map_err(|e| {
+            <span class="kw">let </span>tonic_code = e.code();
+            <span class="kw">let </span>e: error::Error = e.into();
+            <span class="kw">let </span>code = e.status_code();
+            <span class="kw">let </span>msg = e.to_string();
+            <span class="kw">let </span>error = Error::FlightGet {
+                tonic_code,
+                addr: client.addr().to_string(),
+                source: BoxedError::new(ServerSnafu { code, msg }.build()),
+            };
+            <span class="macro">logging::error!</span>(
+                <span class="string">&quot;Failed to do Flight get, addr: {}, code: {}, source: {}&quot;</span>,
+                client.addr(),
+                tonic_code,
+                error
             );
-            Output::AffectedRows(<span class="kw-2">*</span>rows)
-        } <span class="kw">else </span>{
-            <span class="kw">let </span>recordbatches = flight_messages_to_recordbatches(flight_messages)
-                .context(ConvertFlightDataSnafu)<span class="question-mark">?</span>;
-            Output::RecordBatches(recordbatches)
+            error
+        })<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>flight_data_stream = response.into_inner();
+        <span class="kw">let </span><span class="kw-2">mut </span>decoder = FlightDecoder::default();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>flight_message_stream = flight_data_stream.map(<span class="kw">move </span>|flight_data| {
+            flight_data
+                .map_err(Error::from)
+                .and_then(|data| decoder.try_decode(data).context(ConvertFlightDataSnafu))
+        });
+
+        <span class="kw">let </span><span class="prelude-val">Some</span>(first_flight_message) = flight_message_stream.next().<span class="kw">await else </span>{
+            <span class="kw">return </span>IllegalFlightMessagesSnafu {
+                reason: <span class="string">&quot;Expect the response not to be empty&quot;</span>,
+            }
+            .fail();
         };
-        <span class="prelude-val">Ok</span>(output)
+
+        <span class="kw">let </span>first_flight_message = first_flight_message<span class="question-mark">?</span>;
+
+        <span class="kw">match </span>first_flight_message {
+            FlightMessage::AffectedRows(rows) =&gt; {
+                <span class="macro">ensure!</span>(
+                    flight_message_stream.next().<span class="kw">await</span>.is_none(),
+                    IllegalFlightMessagesSnafu {
+                        reason: <span class="string">&quot;Expect &#39;AffectedRows&#39; Flight messages to be the one and the only!&quot;
+                    </span>}
+                );
+                <span class="prelude-val">Ok</span>(Output::AffectedRows(rows))
+            }
+            FlightMessage::Recordbatch(<span class="kw">_</span>) =&gt; IllegalFlightMessagesSnafu {
+                reason: <span class="string">&quot;The first flight message cannot be a RecordBatch message&quot;</span>,
+            }
+            .fail(),
+            FlightMessage::Schema(schema) =&gt; {
+                <span class="kw">let </span>stream = Box::pin(<span class="macro">stream!</span>({
+                    <span class="kw">while let </span><span class="prelude-val">Some</span>(flight_message) = flight_message_stream.next().<span class="kw">await </span>{
+                        <span class="kw">let </span>flight_message = flight_message
+                            .map_err(BoxedError::new)
+                            .context(ExternalSnafu)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>FlightMessage::Recordbatch(record_batch) = flight_message <span class="kw">else </span>{
+                            <span class="kw">yield </span>IllegalFlightMessagesSnafu {reason: <span class="string">&quot;A Schema message must be succeeded exclusively by a set of RecordBatch messages&quot;</span>}
+                                        .fail()
+                                        .map_err(BoxedError::new)
+                                        .context(ExternalSnafu);
+                            <span class="kw">break</span>;
+                        };
+                        <span class="kw">yield </span><span class="prelude-val">Ok</span>(record_batch);
+                    }
+                }));
+                <span class="kw">let </span>record_batch_stream = RecordBatchStreamAdaptor {
+                    schema,
+                    stream,
+                    output_ordering: <span class="prelude-val">None</span>,
+                };
+                <span class="prelude-val">Ok</span>(Output::Stream(Box::pin(record_batch_stream)))
+            }
+        }
     }
 }
 

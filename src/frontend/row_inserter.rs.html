@@ -168,8 +168,6 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -189,6 +187,7 @@
 <span class="kw">use </span>api::v1::greptime_request::Request;
 <span class="kw">use </span>api::v1::{AlterExpr, ColumnSchema, DdlRequest, Row, RowInsertRequest, RowInsertRequests};
 <span class="kw">use </span>catalog::CatalogManagerRef;
+<span class="kw">use </span>common_catalog::consts::default_engine;
 <span class="kw">use </span>common_grpc_expr::util::{extract_new_columns, ColumnExpr};
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_telemetry::info;
@@ -202,7 +201,6 @@
 <span class="kw">use </span><span class="kw">crate</span>::expr_factory::CreateExprFactory;
 
 <span class="kw">pub struct </span>RowInserter {
-    engine_name: String,
     catalog_manager: CatalogManagerRef,
     create_expr_factory: CreateExprFactory,
     grpc_query_handler: GrpcQueryHandlerRef&lt;Error&gt;,
@@ -210,13 +208,11 @@
 
 <span class="kw">impl </span>RowInserter {
     <span class="kw">pub fn </span>new(
-        engine_name: String,
         catalog_manager: CatalogManagerRef,
         create_expr_factory: CreateExprFactory,
         grpc_query_handler: GrpcQueryHandlerRef&lt;Error&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            engine_name,
             catalog_manager,
             create_expr_factory,
             grpc_query_handler,
@@ -277,7 +273,7 @@
         <span class="kw">let </span>(column_schemas, <span class="kw">_</span>) = extract_schema_and_rows(req)<span class="question-mark">?</span>;
         <span class="kw">let </span>create_table_expr = <span class="self">self
             </span>.create_expr_factory
-            .create_table_expr_by_column_schemas(table_name, column_schemas, <span class="kw-2">&amp;</span><span class="self">self</span>.engine_name)<span class="question-mark">?</span>;
+            .create_table_expr_by_column_schemas(table_name, column_schemas, default_engine())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>req = Request::Ddl(DdlRequest {
             expr: <span class="prelude-val">Some</span>(Expr::CreateTable(create_table_expr)),

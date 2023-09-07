@@ -142,6 +142,54 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -160,9 +208,12 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>common_telemetry::info;
+<span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>object_store::util::join_dir;
 <span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>snafu::{ensure, OptionExt};
+<span class="kw">use </span>store_api::logstore::LogStore;
 <span class="kw">use </span>store_api::metadata::RegionMetadata;
 <span class="kw">use </span>store_api::storage::RegionId;
 
@@ -170,8 +221,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{RegionCorruptedSnafu, RegionNotFoundSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::manifest::manager::{RegionManifestManager, RegionManifestOptions};
 <span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableBuilderRef;
-<span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionBuilder, VersionControl};
+<span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionBuilder, VersionControl, VersionControlRef};
 <span class="kw">use </span><span class="kw">crate</span>::region::MitoRegion;
+<span class="kw">use </span><span class="kw">crate</span>::region_write_ctx::RegionWriteCtx;
+<span class="kw">use </span><span class="kw">crate</span>::wal::{EntryId, Wal};
 
 <span class="doccomment">/// Builder to create a new [MitoRegion] or open an existing one.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RegionOpener {
@@ -236,6 +289,7 @@
         <span class="prelude-val">Ok</span>(MitoRegion {
             region_id,
             version_control,
+            region_dir: <span class="self">self</span>.region_dir,
             manifest_manager,
         })
     }
@@ -243,7 +297,11 @@
     <span class="doccomment">/// Opens an existing region.
     ///
     /// Returns error if the region doesn&#39;t exist.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>open(<span class="self">self</span>, config: <span class="kw-2">&amp;</span>MitoConfig) -&gt; <span class="prelude-ty">Result</span>&lt;MitoRegion&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>open&lt;S: LogStore&gt;(
+        <span class="self">self</span>,
+        config: <span class="kw-2">&amp;</span>MitoConfig,
+        wal: <span class="kw-2">&amp;</span>Wal&lt;S&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;MitoRegion&gt; {
         <span class="kw">let </span>options = RegionManifestOptions {
             manifest_dir: new_manifest_dir(<span class="kw-2">&amp;</span><span class="self">self</span>.region_dir),
             object_store: <span class="self">self</span>.object_store,
@@ -268,18 +326,56 @@
             }
         );
 
+        <span class="kw">let </span>region_id = metadata.region_id;
         <span class="kw">let </span>mutable = <span class="self">self</span>.memtable_builder.build(<span class="kw-2">&amp;</span>metadata);
         <span class="kw">let </span>version = VersionBuilder::new(metadata, mutable).build();
+        <span class="kw">let </span>flushed_sequence = version.flushed_entry_id;
         <span class="kw">let </span>version_control = Arc::new(VersionControl::new(version));
+        replay_memtable(wal, region_id, flushed_sequence, <span class="kw-2">&amp;</span>version_control).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="comment">// TODO(yingwen): Replay.
-
-        </span><span class="prelude-val">Ok</span>(MitoRegion {
+        <span class="kw">let </span>region = MitoRegion {
             region_id: <span class="self">self</span>.region_id,
             version_control,
+            region_dir: <span class="self">self</span>.region_dir,
             manifest_manager,
-        })
+        };
+        <span class="prelude-val">Ok</span>(region)
     }
+}
+
+<span class="doccomment">/// Replays the mutations from WAL and inserts mutations to memtable of given region.
+</span><span class="kw">async fn </span>replay_memtable&lt;S: LogStore&gt;(
+    wal: <span class="kw-2">&amp;</span>Wal&lt;S&gt;,
+    region_id: RegionId,
+    flushed_entry_id: EntryId,
+    version_control: <span class="kw-2">&amp;</span>VersionControlRef,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>rows_replayed = <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>last_entry_id = EntryId::MIN;
+    <span class="kw">let </span><span class="kw-2">mut </span>region_write_ctx = RegionWriteCtx::new(region_id, version_control);
+    <span class="kw">let </span><span class="kw-2">mut </span>wal_stream = wal.scan(region_id, flushed_entry_id)<span class="question-mark">?</span>;
+    <span class="kw">while let </span><span class="prelude-val">Some</span>(res) = wal_stream.next().<span class="kw">await </span>{
+        <span class="kw">let </span>(entry_id, entry) = res<span class="question-mark">?</span>;
+        last_entry_id = last_entry_id.max(entry_id);
+        <span class="kw">for </span>mutation <span class="kw">in </span>entry.mutations {
+            rows_replayed += mutation
+                .rows
+                .as_ref()
+                .map(|rows| rows.rows.len())
+                .unwrap_or(<span class="number">0</span>);
+            region_write_ctx.push_mutation(mutation.op_type, mutation.rows, <span class="prelude-val">None</span>);
+        }
+    }
+
+    <span class="comment">// set next_entry_id and write to memtable.
+    </span>region_write_ctx.set_next_entry_id(last_entry_id + <span class="number">1</span>);
+    region_write_ctx.write_memtable();
+
+    <span class="macro">info!</span>(
+        <span class="string">&quot;Replay WAL for region: {}, rows recovered: {}, last entry id: {}&quot;</span>,
+        region_id, rows_replayed, last_entry_id
+    );
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Returns the directory to the manifest files.

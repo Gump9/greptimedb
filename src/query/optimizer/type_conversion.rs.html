@@ -446,6 +446,9 @@
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -724,14 +727,16 @@
 }
 
 <span class="kw">fn </span>string_to_timestamp_ms(string: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;ScalarValue&gt; {
-    <span class="prelude-val">Ok</span>(ScalarValue::TimestampMillisecond(
-        <span class="prelude-val">Some</span>(
-            Timestamp::from_str(string)
-                .map(|t| t.value() / <span class="number">1_000_000</span>)
-                .map_err(|e| DataFusionError::External(Box::new(e)))<span class="question-mark">?</span>,
-        ),
-        <span class="prelude-val">None</span>,
-    ))
+    <span class="kw">let </span>ts = Timestamp::from_str(string).map_err(|e| DataFusionError::External(Box::new(e)))<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>value = <span class="prelude-val">Some</span>(ts.value());
+    <span class="kw">let </span>scalar = <span class="kw">match </span>ts.unit() {
+        TimeUnit::Second =&gt; ScalarValue::TimestampSecond(value, <span class="prelude-val">None</span>),
+        TimeUnit::Millisecond =&gt; ScalarValue::TimestampMillisecond(value, <span class="prelude-val">None</span>),
+        TimeUnit::Microsecond =&gt; ScalarValue::TimestampMicrosecond(value, <span class="prelude-val">None</span>),
+        TimeUnit::Nanosecond =&gt; ScalarValue::TimestampNanosecond(value, <span class="prelude-val">None</span>),
+    };
+    <span class="prelude-val">Ok</span>(scalar)
 }
 
 <span class="attr">#[cfg(test)]
@@ -750,11 +755,11 @@
     </span><span class="kw">fn </span>test_string_to_timestamp_ms() {
         <span class="macro">assert_eq!</span>(
             string_to_timestamp_ms(<span class="string">&quot;2022-02-02 19:00:00+08:00&quot;</span>).unwrap(),
-            ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">1643799600000</span>), <span class="prelude-val">None</span>)
+            ScalarValue::TimestampSecond(<span class="prelude-val">Some</span>(<span class="number">1643799600</span>), <span class="prelude-val">None</span>)
         );
         <span class="macro">assert_eq!</span>(
             string_to_timestamp_ms(<span class="string">&quot;2009-02-13 23:31:30Z&quot;</span>).unwrap(),
-            ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">1234567890000</span>), <span class="prelude-val">None</span>)
+            ScalarValue::TimestampSecond(<span class="prelude-val">Some</span>(<span class="number">1234567890</span>), <span class="prelude-val">None</span>)
         );
     }
 
@@ -814,9 +819,10 @@
         <span class="kw">let </span><span class="kw-2">mut </span>converter = TypeConverter { schema };
 
         <span class="macro">assert_eq!</span>(
-            Expr::Column(Column::from_name(<span class="string">&quot;ts&quot;</span>)).gt(Expr::Literal(
-                ScalarValue::TimestampMillisecond(<span class="prelude-val">Some</span>(<span class="number">1599514949000</span>), <span class="prelude-val">None</span>)
-            )),
+            Expr::Column(Column::from_name(<span class="string">&quot;ts&quot;</span>)).gt(Expr::Literal(ScalarValue::TimestampSecond(
+                <span class="prelude-val">Some</span>(<span class="number">1599514949</span>),
+                <span class="prelude-val">None
+            </span>))),
             converter
                 .mutate(
                     Expr::Column(Column::from_name(<span class="string">&quot;ts&quot;</span>)).gt(Expr::Literal(ScalarValue::Utf8(
@@ -888,7 +894,7 @@
             .unwrap();
         <span class="kw">let </span>expected = String::from(
             <span class="string">&quot;Aggregate: groupBy=[[]], aggr=[[COUNT(column1)]]\
-            \n  Filter: column3 &gt; TimestampMillisecond(-28800000, None)\
+            \n  Filter: column3 &gt; TimestampSecond(-28800, None)\
             \n    Values: (Int64(1), Float64(1), TimestampMillisecond(1, None))&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, transformed_plan.display_indent()), expected);

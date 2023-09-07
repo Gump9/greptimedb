@@ -214,7 +214,7 @@
                 </span>Commutativity::Unimplemented
             }
             LogicalPlan::Union(<span class="kw">_</span>) =&gt; Commutativity::Unimplemented,
-            LogicalPlan::TableScan(<span class="kw">_</span>) =&gt; Commutativity::CheckPartition,
+            LogicalPlan::TableScan(<span class="kw">_</span>) =&gt; Commutativity::Commutative,
             LogicalPlan::EmptyRelation(<span class="kw">_</span>) =&gt; Commutativity::NonCommutative,
             LogicalPlan::Subquery(<span class="kw">_</span>) =&gt; Commutativity::Unimplemented,
             LogicalPlan::SubqueryAlias(<span class="kw">_</span>) =&gt; Commutativity::Unimplemented,

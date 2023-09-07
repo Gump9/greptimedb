@@ -206,6 +206,30 @@
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -225,7 +249,8 @@
 
 <span class="kw">use </span>common_base::paths::DATA_DIR;
 <span class="kw">use </span>common_procedure::BoxedProcedure;
-<span class="kw">use </span>store_api::storage::RegionNumber;
+<span class="kw">use </span>datafusion_common::TableReference <span class="kw">as </span>DfTableReference;
+<span class="kw">use </span>store_api::storage::{RegionId, RegionNumber};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::metadata::TableId;
@@ -268,6 +293,12 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Display <span class="kw">for </span>TableReference&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
         <span class="macro">write!</span>(f, <span class="string">&quot;{}.{}.{}&quot;</span>, <span class="self">self</span>.catalog, <span class="self">self</span>.schema, <span class="self">self</span>.table)
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;TableReference&lt;<span class="lifetime">&#39;a</span>&gt;&gt; <span class="kw">for </span>DfTableReference&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>from(val: TableReference&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="self">Self </span>{
+        DfTableReference::full(val.catalog, val.schema, val.table)
     }
 }
 
@@ -399,6 +430,14 @@
     <span class="macro">format!</span>(<span class="string">&quot;{DATA_DIR}{catalog_name}/{schema_name}/{table_id}/&quot;</span>)
 }
 
+<span class="kw">pub fn </span>region_dir(catalog_name: <span class="kw-2">&amp;</span>str, schema_name: <span class="kw-2">&amp;</span>str, region_id: RegionId) -&gt; String {
+    <span class="macro">format!</span>(
+        <span class="string">&quot;{}{}&quot;</span>,
+        table_dir(catalog_name, schema_name, region_id.table_id()),
+        region_name(region_id.table_id(), region_id.region_number())
+    )
+}
+
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -412,6 +451,15 @@
         };
 
         <span class="macro">assert_eq!</span>(<span class="string">&quot;greptime.public.test&quot;</span>, table_ref.to_string());
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_region_dir() {
+        <span class="kw">let </span>region_id = RegionId::new(<span class="number">42</span>, <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(
+            region_dir(<span class="string">&quot;my_catalog&quot;</span>, <span class="string">&quot;my_schema&quot;</span>, region_id),
+            <span class="string">&quot;data/my_catalog/my_schema/42/42_0000000001&quot;
+        </span>);
     }
 }
 </code></pre></div></section></main></body></html>

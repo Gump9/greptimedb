@@ -168,7 +168,7 @@
         source: datatypes::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;External error, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;External error, location: {}, source: {}&quot;</span>, location, source))]
     </span>External {
         location: Location,
         source: BoxedError,

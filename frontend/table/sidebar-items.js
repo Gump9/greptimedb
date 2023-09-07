@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["project_schema"],"mod":["delete","insert","scan"],"struct":["DistTable","DistTableScan","PartitionExec"]};
+window.SIDEBAR_ITEMS = {"mod":["delete","insert"],"struct":["DistTable","DummyDataSource"]};

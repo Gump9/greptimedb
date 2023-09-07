@@ -734,6 +734,14 @@
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -785,6 +793,7 @@
 <span class="kw">use </span>object_store::test_util::TempFolder;
 <span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>secrecy::ExposeSecret;
+<span class="kw">use </span>servers::grpc::greptime_handler::GreptimeRequestHandler;
 <span class="kw">use </span>servers::grpc::GrpcServer;
 <span class="kw">use </span>servers::http::{HttpOptions, HttpServerBuilder};
 <span class="kw">use </span>servers::metrics_handler::MetricsHandler;
@@ -1319,9 +1328,16 @@
         heartbeat.start().<span class="kw">await</span>.unwrap();
     }
     <span class="kw">let </span>fe_instance_ref = Arc::new(fe_instance);
+    <span class="kw">let </span>flight_handler = Arc::new(GreptimeRequestHandler::new(
+        ServerGrpcQueryHandlerAdaptor::arc(fe_instance_ref.clone()),
+        user_provider.clone(),
+        runtime.clone(),
+    ));
     <span class="kw">let </span>fe_grpc_server = Arc::new(GrpcServer::new(
         ServerGrpcQueryHandlerAdaptor::arc(fe_instance_ref.clone()),
         <span class="prelude-val">Some</span>(fe_instance_ref.clone()),
+        <span class="prelude-val">Some</span>(flight_handler),
+        <span class="prelude-val">None</span>,
         user_provider,
         runtime,
     ));

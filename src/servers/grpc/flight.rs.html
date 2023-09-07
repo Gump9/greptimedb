@@ -147,6 +147,36 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -181,24 +211,43 @@
 <span class="kw">use </span>tonic::{Request, Response, Status, Streaming};
 
 <span class="kw">use </span><span class="kw">crate</span>::error;
-<span class="kw">use </span><span class="kw">crate</span>::grpc::flight::stream::FlightRecordBatchStream;
-<span class="kw">use </span><span class="kw">crate</span>::grpc::handler::GreptimeRequestHandler;
+<span class="kw">pub use </span><span class="kw">crate</span>::grpc::flight::stream::FlightRecordBatchStream;
+<span class="kw">use </span><span class="kw">crate</span>::grpc::greptime_handler::GreptimeRequestHandler;
 <span class="kw">use </span><span class="kw">crate</span>::grpc::TonicResult;
 
-<span class="kw">type </span>TonicStream&lt;T&gt; = Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = TonicResult&lt;T&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;;
+<span class="kw">pub type </span>TonicStream&lt;T&gt; = Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = TonicResult&lt;T&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;;
 
-<span class="kw">pub struct </span>FlightHandler {
-    handler: Arc&lt;GreptimeRequestHandler&gt;,
+<span class="doccomment">/// A subset of [FlightService]
+</span><span class="attr">#[async_trait]
+</span><span class="kw">pub trait </span>FlightCraft: Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="kw">async fn </span>do_get(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: Request&lt;Ticket&gt;,
+    ) -&gt; TonicResult&lt;Response&lt;TonicStream&lt;FlightData&gt;&gt;&gt;;
 }
 
-<span class="kw">impl </span>FlightHandler {
-    <span class="kw">pub fn </span>new(handler: Arc&lt;GreptimeRequestHandler&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ handler }
+<span class="kw">pub type </span>FlightCraftRef = Arc&lt;<span class="kw">dyn </span>FlightCraft&gt;;
+
+<span class="kw">pub struct </span>FlightCraftWrapper&lt;T: FlightCraft&gt;(<span class="kw">pub </span>T);
+
+<span class="kw">impl</span>&lt;T: FlightCraft&gt; From&lt;T&gt; <span class="kw">for </span>FlightCraftWrapper&lt;T&gt; {
+    <span class="kw">fn </span>from(t: T) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(t)
     }
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl </span>FlightService <span class="kw">for </span>FlightHandler {
+</span><span class="kw">impl </span>FlightCraft <span class="kw">for </span>FlightCraftRef {
+    <span class="kw">async fn </span>do_get(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: Request&lt;Ticket&gt;,
+    ) -&gt; TonicResult&lt;Response&lt;TonicStream&lt;FlightData&gt;&gt;&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).do_get(request).<span class="kw">await
+    </span>}
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;T: FlightCraft&gt; FlightService <span class="kw">for </span>FlightCraftWrapper&lt;T&gt; {
     <span class="kw">type </span>HandshakeStream = TonicStream&lt;HandshakeResponse&gt;;
 
     <span class="kw">async fn </span>handshake(
@@ -234,15 +283,8 @@
     <span class="kw">type </span>DoGetStream = TonicStream&lt;FlightData&gt;;
 
     <span class="kw">async fn </span>do_get(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request&lt;Ticket&gt;) -&gt; TonicResult&lt;Response&lt;<span class="self">Self</span>::DoGetStream&gt;&gt; {
-        <span class="kw">let </span>ticket = request.into_inner().ticket;
-        <span class="kw">let </span>request =
-            GreptimeRequest::decode(ticket.as_ref()).context(error::InvalidFlightTicketSnafu)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>output = <span class="self">self</span>.handler.handle_request(request).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">let </span>stream = to_flight_data_stream(output);
-        <span class="prelude-val">Ok</span>(Response::new(stream))
-    }
+        <span class="self">self</span>.<span class="number">0</span>.do_get(request).<span class="kw">await
+    </span>}
 
     <span class="kw">type </span>DoPutStream = TonicStream&lt;PutResult&gt;;
 
@@ -275,6 +317,24 @@
         <span class="kw">_</span>: Request&lt;Empty&gt;,
     ) -&gt; TonicResult&lt;Response&lt;<span class="self">Self</span>::ListActionsStream&gt;&gt; {
         <span class="prelude-val">Err</span>(Status::unimplemented(<span class="string">&quot;Not yet implemented&quot;</span>))
+    }
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>FlightCraft <span class="kw">for </span>GreptimeRequestHandler {
+    <span class="kw">async fn </span>do_get(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: Request&lt;Ticket&gt;,
+    ) -&gt; TonicResult&lt;Response&lt;TonicStream&lt;FlightData&gt;&gt;&gt; {
+        <span class="kw">let </span>ticket = request.into_inner().ticket;
+        <span class="kw">let </span>request =
+            GreptimeRequest::decode(ticket.as_ref()).context(error::InvalidFlightTicketSnafu)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>output = <span class="self">self</span>.handle_request(request).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">let </span>stream: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;FlightData, Status&gt;&gt; + Send + Sync&gt;&gt; =
+            to_flight_data_stream(output);
+        <span class="prelude-val">Ok</span>(Response::new(stream))
     }
 }
 

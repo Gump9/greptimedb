@@ -311,6 +311,15 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -441,6 +450,15 @@
 </span><span class="kw">pub struct </span>Partitions {
     <span class="kw">pub </span>column_list: Vec&lt;Ident&gt;,
     <span class="kw">pub </span>entries: Vec&lt;PartitionEntry&gt;,
+}
+
+<span class="kw">impl </span>Partitions {
+    <span class="doccomment">/// set quotes to all [Ident]s from column list
+    </span><span class="kw">pub fn </span>set_quote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, quote_style: char) {
+        <span class="self">self</span>.column_list
+            .iter_mut()
+            .for_each(|c| c.quote_style = <span class="prelude-val">Some</span>(quote_style));
+    }
 }
 
 <span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]

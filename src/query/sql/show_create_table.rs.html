@@ -334,6 +334,10 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -356,7 +360,7 @@
 <span class="kw">use </span>humantime::format_duration;
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>sql::ast::{
-    ColumnDef, ColumnOption, ColumnOptionDef, Expr, ObjectName, SqlOption, TableConstraint,
+    ColumnDef, ColumnOption, ColumnOptionDef, Expr, Ident, ObjectName, SqlOption, TableConstraint,
     Value <span class="kw">as </span>SqlValue,
 };
 <span class="kw">use </span>sql::dialect::GreptimeDbDialect;
@@ -426,7 +430,7 @@
     ColumnOptionDef { name: <span class="prelude-val">None</span>, option }
 }
 
-<span class="kw">fn </span>create_column_def(column_schema: <span class="kw-2">&amp;</span>ColumnSchema) -&gt; <span class="prelude-ty">Result</span>&lt;ColumnDef&gt; {
+<span class="kw">fn </span>create_column_def(column_schema: <span class="kw-2">&amp;</span>ColumnSchema, quote_style: char) -&gt; <span class="prelude-ty">Result</span>&lt;ColumnDef&gt; {
     <span class="kw">let </span>name = <span class="kw-2">&amp;</span>column_schema.name;
     <span class="kw">let </span><span class="kw-2">mut </span>options = Vec::with_capacity(<span class="number">2</span>);
 
@@ -455,7 +459,7 @@
     }
 
     <span class="prelude-val">Ok</span>(ColumnDef {
-        name: name[..].into(),
+        name: Ident::with_quote(quote_style, name),
         data_type: statements::concrete_data_type_to_sql_data_type(<span class="kw-2">&amp;</span>column_schema.data_type)
             .with_context(|<span class="kw">_</span>| ConvertSqlTypeSnafu {
                 datatype: column_schema.data_type.clone(),
@@ -465,20 +469,24 @@
     })
 }
 
-<span class="kw">fn </span>create_table_constraints(schema: <span class="kw-2">&amp;</span>SchemaRef, table_meta: <span class="kw-2">&amp;</span>TableMeta) -&gt; Vec&lt;TableConstraint&gt; {
+<span class="kw">fn </span>create_table_constraints(
+    schema: <span class="kw-2">&amp;</span>SchemaRef,
+    table_meta: <span class="kw-2">&amp;</span>TableMeta,
+    quote_style: char,
+) -&gt; Vec&lt;TableConstraint&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>constraints = Vec::with_capacity(<span class="number">2</span>);
     <span class="kw">if let </span><span class="prelude-val">Some</span>(timestamp_column) = schema.timestamp_column() {
         <span class="kw">let </span>column_name = <span class="kw-2">&amp;</span>timestamp_column.name;
         constraints.push(TableConstraint::Unique {
             name: <span class="prelude-val">Some</span>(TIME_INDEX.into()),
-            columns: <span class="macro">vec!</span>[column_name[..].into()],
+            columns: <span class="macro">vec!</span>[Ident::with_quote(quote_style, column_name)],
             is_primary: <span class="bool-val">false</span>,
         });
     }
     <span class="kw">if </span>!table_meta.primary_key_indices.is_empty() {
         <span class="kw">let </span>columns = table_meta
             .row_key_column_names()
-            .map(|name| name[..].into())
+            .map(|name| Ident::with_quote(quote_style, name))
             .collect();
         constraints.push(TableConstraint::Unique {
             name: <span class="prelude-val">None</span>,
@@ -491,7 +499,7 @@
 }
 
 <span class="doccomment">/// Create a CreateTable statement from table info.
-</span><span class="kw">pub fn </span>create_table_stmt(table_info: <span class="kw-2">&amp;</span>TableInfoRef) -&gt; <span class="prelude-ty">Result</span>&lt;CreateTable&gt; {
+</span><span class="kw">pub fn </span>create_table_stmt(table_info: <span class="kw-2">&amp;</span>TableInfoRef, quote_style: char) -&gt; <span class="prelude-ty">Result</span>&lt;CreateTable&gt; {
     <span class="kw">let </span>table_meta = <span class="kw-2">&amp;</span>table_info.meta;
     <span class="kw">let </span>table_name = <span class="kw-2">&amp;</span>table_info.name;
     <span class="kw">let </span>schema = <span class="kw-2">&amp;</span>table_info.meta.schema;
@@ -499,15 +507,15 @@
     <span class="kw">let </span>columns = schema
         .column_schemas()
         .iter()
-        .map(create_column_def)
+        .map(|c| create_column_def(c, quote_style))
         .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>constraints = create_table_constraints(schema, table_meta);
+    <span class="kw">let </span>constraints = create_table_constraints(schema, table_meta, quote_style);
 
     <span class="prelude-val">Ok</span>(CreateTable {
         if_not_exists: <span class="bool-val">true</span>,
         table_id: table_info.ident.table_id,
-        name: ObjectName(<span class="macro">vec!</span>[table_name[..].into()]),
+        name: ObjectName(<span class="macro">vec!</span>[Ident::with_quote(quote_style, table_name)]),
         columns,
         engine: table_meta.engine.clone(),
         constraints,
@@ -582,19 +590,19 @@
                 .unwrap(),
         );
 
-        <span class="kw">let </span>stmt = create_table_stmt(<span class="kw-2">&amp;</span>info).unwrap();
+        <span class="kw">let </span>stmt = create_table_stmt(<span class="kw-2">&amp;</span>info, <span class="string">&#39;&quot;&#39;</span>).unwrap();
 
         <span class="kw">let </span>sql = <span class="macro">format!</span>(<span class="string">&quot;\n{}&quot;</span>, stmt);
         <span class="macro">assert_eq!</span>(
             <span class="string">r#&quot;
-CREATE TABLE IF NOT EXISTS system_metrics (
-  id INT UNSIGNED NULL,
-  host STRING NULL,
-  cpu DOUBLE NULL,
-  disk FLOAT NULL,
-  ts TIMESTAMP(3) NOT NULL DEFAULT current_timestamp(),
-  TIME INDEX (ts),
-  PRIMARY KEY (id, host)
+CREATE TABLE IF NOT EXISTS &quot;system_metrics&quot; (
+  &quot;id&quot; INT UNSIGNED NULL,
+  &quot;host&quot; STRING NULL,
+  &quot;cpu&quot; DOUBLE NULL,
+  &quot;disk&quot; FLOAT NULL,
+  &quot;ts&quot; TIMESTAMP(3) NOT NULL DEFAULT current_timestamp(),
+  TIME INDEX (&quot;ts&quot;),
+  PRIMARY KEY (&quot;id&quot;, &quot;host&quot;)
 )
 ENGINE=mito
 WITH(
@@ -651,14 +659,14 @@ WITH(
                 .unwrap(),
         );
 
-        <span class="kw">let </span>stmt = create_table_stmt(<span class="kw-2">&amp;</span>info).unwrap();
+        <span class="kw">let </span>stmt = create_table_stmt(<span class="kw-2">&amp;</span>info, <span class="string">&#39;&quot;&#39;</span>).unwrap();
 
         <span class="kw">let </span>sql = <span class="macro">format!</span>(<span class="string">&quot;\n{}&quot;</span>, stmt);
         <span class="macro">assert_eq!</span>(
             <span class="string">r#&quot;
-CREATE EXTERNAL TABLE IF NOT EXISTS system_metrics (
-  host STRING NULL,
-  cpu DOUBLE NULL,
+CREATE EXTERNAL TABLE IF NOT EXISTS &quot;system_metrics&quot; (
+  &quot;host&quot; STRING NULL,
+  &quot;cpu&quot; DOUBLE NULL,
 
 )
 ENGINE=file

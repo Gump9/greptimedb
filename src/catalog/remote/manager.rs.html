@@ -417,6 +417,23 @@
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -504,6 +521,7 @@
                 <span class="kw">let </span>engine_manager = <span class="self">self</span>.engine_manager.clone();
                 <span class="kw">let </span>memory_catalog_manager = <span class="self">self</span>.memory_catalog_manager.clone();
                 <span class="kw">let </span>table_metadata_manager = <span class="self">self</span>.table_metadata_manager.clone();
+                <span class="kw">let </span>region_alive_keepers = <span class="self">self</span>.region_alive_keepers.clone();
                 common_runtime::spawn_bg(<span class="kw">async move </span>{
                     <span class="kw">let </span>table_id = datanode_table_value.table_id;
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = open_and_register_table(
@@ -511,6 +529,7 @@
                         datanode_table_value,
                         memory_catalog_manager,
                         table_metadata_manager,
+                        region_alive_keepers,
                     )
                     .<span class="kw">await
                     </span>{
@@ -535,6 +554,7 @@
     datanode_table_value: DatanodeTableValue,
     memory_catalog_manager: Arc&lt;MemoryCatalogManager&gt;,
     table_metadata_manager: TableMetadataManagerRef,
+    region_alive_keepers: Arc&lt;RegionAliveKeepers&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>context = EngineContext {};
 
@@ -611,7 +631,8 @@
         table_id,
         table,
     };
-    <span class="kw">let </span>registered = memory_catalog_manager.register_table_sync(request)<span class="question-mark">?</span>;
+    <span class="kw">let </span>registered =
+        register_table(<span class="kw-2">&amp;</span>memory_catalog_manager, <span class="kw-2">&amp;</span>region_alive_keepers, request).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="macro">ensure!</span>(
         registered,
         TableExistsSnafu {
@@ -620,6 +641,32 @@
     );
     <span class="macro">info!</span>(<span class="string">&quot;Successfully registered table, {table_ident}&quot;</span>);
     <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">async fn </span>register_table(
+    memory_catalog_manager: <span class="kw-2">&amp;</span>Arc&lt;MemoryCatalogManager&gt;,
+    region_alive_keepers: <span class="kw-2">&amp;</span>Arc&lt;RegionAliveKeepers&gt;,
+    request: RegisterTableRequest,
+) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+    <span class="kw">let </span>table = request.table.clone();
+
+    <span class="kw">let </span>registered = memory_catalog_manager.register_table_sync(request)<span class="question-mark">?</span>;
+
+    <span class="kw">if </span>registered {
+        <span class="kw">let </span>table_info = table.table_info();
+        <span class="kw">let </span>table_ident = TableIdent {
+            catalog: table_info.catalog_name.clone(),
+            schema: table_info.schema_name.clone(),
+            table: table_info.name.clone(),
+            table_id: table_info.table_id(),
+            engine: table_info.meta.engine.clone(),
+        };
+        region_alive_keepers
+            .register_table(table_ident, table, memory_catalog_manager.clone())
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+    }
+
+    <span class="prelude-val">Ok</span>(registered)
 }
 
 <span class="attr">#[async_trait]
@@ -640,26 +687,13 @@
     }
 
     <span class="kw">async fn </span>register_table(<span class="kw-2">&amp;</span><span class="self">self</span>, request: RegisterTableRequest) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-        <span class="kw">let </span>table = request.table.clone();
-
-        <span class="kw">let </span>registered = <span class="self">self</span>.memory_catalog_manager.register_table_sync(request)<span class="question-mark">?</span>;
-
-        <span class="kw">if </span>registered {
-            <span class="kw">let </span>table_info = table.table_info();
-            <span class="kw">let </span>table_ident = TableIdent {
-                catalog: table_info.catalog_name.clone(),
-                schema: table_info.schema_name.clone(),
-                table: table_info.name.clone(),
-                table_id: table_info.table_id(),
-                engine: table_info.meta.engine.clone(),
-            };
-            <span class="self">self</span>.region_alive_keepers
-                .register_table(table_ident, table)
-                .<span class="kw">await</span><span class="question-mark">?</span>;
-        }
-
-        <span class="prelude-val">Ok</span>(registered)
-    }
+        register_table(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.memory_catalog_manager,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.region_alive_keepers,
+            request,
+        )
+        .<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>deregister_table(<span class="kw-2">&amp;</span><span class="self">self</span>, request: DeregisterTableRequest) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span><span class="prelude-val">Some</span>(table) = <span class="self">self

@@ -373,6 +373,7 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -414,7 +415,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.array
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>as_boolean_array(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BooleanArray {
+    <span class="doccomment">/// Get the inner boolean array.
+    </span><span class="kw">pub fn </span>as_boolean_array(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BooleanArray {
         <span class="kw-2">&amp;</span><span class="self">self</span>.array
     }
 

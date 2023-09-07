@@ -469,11 +469,6 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -705,7 +700,6 @@
             [storage.manifest]
             checkpoint_margin = 9
             gc_duration = &#39;7s&#39;
-            checkpoint_on_startup = true
             compress = true
 
             [logging]
@@ -765,7 +759,6 @@
             RegionManifestConfig {
                 checkpoint_margin: <span class="prelude-val">Some</span>(<span class="number">9</span>),
                 gc_duration: <span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">7</span>)),
-                checkpoint_on_startup: <span class="bool-val">true</span>,
                 compress: <span class="bool-val">true
             </span>},
             options.storage.manifest,
@@ -858,9 +851,6 @@
             max_inflight_tasks = 3
             max_files_in_level0 = 7
             max_purge_tasks = 32
-
-            [storage.manifest]
-            checkpoint_on_startup = true
 
             [logging]
             level = &quot;debug&quot;

@@ -453,6 +453,8 @@
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -806,15 +808,17 @@
         }
 
         <span class="kw">let </span>query = <span class="string">&quot;select version()&quot;</span>;
-        <span class="kw">let </span>expected = <span class="macro">format!</span>(
-            <span class="string">r#&quot;+----------------+
-| version()      |
-+----------------+
-| {}-greptime |
-+----------------+&quot;#</span>,
-            env::var(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>).unwrap_or_else(|<span class="kw">_</span>| <span class="string">&quot;unknown&quot;</span>.to_string())
-        );
-        test(query, <span class="kw-2">&amp;</span>expected);
+        <span class="kw">let </span>version = env::var(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>).unwrap_or_else(|<span class="kw">_</span>| <span class="string">&quot;unknown&quot;</span>.to_string());
+        <span class="kw">let </span>output = check(query, QueryContext::arc());
+        <span class="kw">match </span>output.unwrap() {
+            Output::RecordBatches(r) =&gt; {
+                <span class="macro">assert!</span>(<span class="kw-2">&amp;</span>r
+                    .pretty_print()
+                    .unwrap()
+                    .contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{version}-greptime&quot;</span>)));
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+        }
 
         <span class="kw">let </span>query = <span class="string">&quot;SELECT @@version_comment LIMIT 1&quot;</span>;
         <span class="kw">let </span>expected = <span class="string">&quot;\

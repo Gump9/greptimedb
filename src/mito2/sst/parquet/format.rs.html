@@ -579,6 +579,9 @@
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -604,6 +607,8 @@
 //! ```text
 //! field 0, field 1, ..., field N, time index, primary key, sequence, op type
 //! ```
+//!
+//! We stores fields in the same order as [RegionMetadata::field_columns()](store_api::metadata::RegionMetadata::field_columns()).
 
 </span><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::sync::Arc;
@@ -922,6 +927,7 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>api::v1::OpType;
     <span class="kw">use </span>datatypes::arrow::array::{Int64Array, TimestampMillisecondArray, UInt64Array, UInt8Array};
     <span class="kw">use </span>datatypes::arrow::datatypes::TimeUnit;
     <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
@@ -933,7 +939,7 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="kw">const </span>TEST_SEQUENCE: u64 = <span class="number">1</span>;
-    <span class="kw">const </span>TEST_OP_TYPE: u8 = <span class="number">1</span>;
+    <span class="kw">const </span>TEST_OP_TYPE: u8 = OpType::Put <span class="kw">as </span>u8;
 
     <span class="kw">fn </span>build_test_region_metadata() -&gt; RegionMetadataRef {
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegionMetadataBuilder::new(RegionId::new(<span class="number">1</span>, <span class="number">1</span>));

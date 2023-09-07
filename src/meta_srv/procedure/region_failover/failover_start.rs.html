@@ -233,7 +233,7 @@
 #[typetag::serde]
 </span><span class="kw">impl </span>State <span class="kw">for </span>RegionFailoverStart {
     <span class="kw">async fn </span>next(
-        <span class="kw-2">mut </span><span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         ctx: <span class="kw-2">&amp;</span>RegionFailoverContext,
         failed_region: <span class="kw-2">&amp;</span>RegionIdent,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>State&gt;&gt; {

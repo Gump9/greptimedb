@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["impl_table_meta_key","impl_table_meta_value"],"mod":["error","heartbeat","helper","ident","instruction","key","kv_backend","metrics","peer","range_stream","rpc","table_name","util"],"type":["ClusterId","DatanodeId"]};
+window.SIDEBAR_ITEMS = {"macro":["impl_optional_meta_value","impl_table_meta_key","impl_table_meta_value"],"mod":["error","heartbeat","helper","ident","instruction","key","kv_backend","metrics","peer","range_stream","rpc","table_name","util"],"type":["ClusterId","DatanodeId"]};

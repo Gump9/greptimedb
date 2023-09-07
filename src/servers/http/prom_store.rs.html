@@ -133,13 +133,14 @@
 <span class="kw">use </span>axum::extract::{Query, RawBody, State};
 <span class="kw">use </span>axum::http::{header, StatusCode};
 <span class="kw">use </span>axum::response::IntoResponse;
+<span class="kw">use </span>axum::Extension;
 <span class="kw">use </span>common_catalog::consts::DEFAULT_SCHEMA_NAME;
 <span class="kw">use </span>common_telemetry::timer;
 <span class="kw">use </span>hyper::Body;
 <span class="kw">use </span>prost::Message;
 <span class="kw">use </span>schemars::JsonSchema;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>session::context::QueryContext;
+<span class="kw">use </span>session::context::QueryContextRef;
 <span class="kw">use </span>snafu::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
@@ -163,6 +164,7 @@
 </span><span class="kw">pub async fn </span>remote_write(
     State(handler): State&lt;PromStoreProtocolHandlerRef&gt;,
     Query(params): Query&lt;DatabaseQuery&gt;,
+    Extension(query_ctx): Extension&lt;QueryContextRef&gt;,
     RawBody(body): RawBody,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(StatusCode, ())&gt; {
     <span class="kw">let </span>request = decode_remote_write_request(body).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -175,8 +177,7 @@
         )]
     );
 
-    <span class="kw">let </span>ctx = QueryContext::with_db_name(params.db.as_ref());
-    handler.write(request, ctx).<span class="kw">await</span><span class="question-mark">?</span>;
+    handler.write(request, query_ctx).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>((StatusCode::NO_CONTENT, ()))
 }
 
@@ -197,6 +198,7 @@
 </span><span class="kw">pub async fn </span>remote_read(
     State(handler): State&lt;PromStoreProtocolHandlerRef&gt;,
     Query(params): Query&lt;DatabaseQuery&gt;,
+    Extension(query_ctx): Extension&lt;QueryContextRef&gt;,
     RawBody(body): RawBody,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;PromStoreResponse&gt; {
     <span class="kw">let </span>request = decode_remote_read_request(body).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -208,9 +210,7 @@
             params.db.clone().unwrap_or_default()
         )]
     );
-
-    <span class="kw">let </span>ctx = QueryContext::with_db_name(params.db.as_ref());
-    handler.read(request, ctx).<span class="kw">await
+    handler.read(request, query_ctx).<span class="kw">await
 </span>}
 
 <span class="kw">async fn </span>decode_remote_write_request(body: Body) -&gt; <span class="prelude-ty">Result</span>&lt;WriteRequest&gt; {

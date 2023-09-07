@@ -303,6 +303,7 @@
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -322,6 +323,7 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_recordbatch::error::Result <span class="kw">as </span>RecordBatchResult;
 <span class="kw">use </span>common_recordbatch::{RecordBatch, RecordBatchStream, SendableRecordBatchStream};
@@ -359,8 +361,8 @@
             table_name,
             recordbatch,
             <span class="number">1</span>,
-            <span class="string">&quot;greptime&quot;</span>.to_string(),
-            <span class="string">&quot;public&quot;</span>.to_string(),
+            DEFAULT_CATALOG_NAME.to_string(),
+            DEFAULT_SCHEMA_NAME.to_string(),
             regions,
         )
     }

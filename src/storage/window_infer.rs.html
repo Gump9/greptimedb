@@ -399,8 +399,6 @@
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -426,17 +424,21 @@
 <span class="kw">use </span><span class="kw">crate</span>::sst::FileMeta;
 
 <span class="doccomment">/// A set of predefined time windows.
-</span><span class="kw">const </span>TIME_WINDOW_SIZE: [i64; <span class="number">10</span>] = [
-    <span class="number">1</span>,                <span class="comment">// 1 second
-    </span><span class="number">60</span>,               <span class="comment">// 1 minute
-    </span><span class="number">60 </span>* <span class="number">10</span>,          <span class="comment">// 10 minutes
-    </span><span class="number">60 </span>* <span class="number">30</span>,          <span class="comment">// 30 minutes
-    </span><span class="number">60 </span>* <span class="number">60</span>,          <span class="comment">// 1 hour
-    </span><span class="number">2 </span>* <span class="number">60 </span>* <span class="number">60</span>,      <span class="comment">// 2 hours
-    </span><span class="number">6 </span>* <span class="number">60 </span>* <span class="number">60</span>,      <span class="comment">// 6 hours
-    </span><span class="number">12 </span>* <span class="number">60 </span>* <span class="number">60</span>,     <span class="comment">// 12 hours
-    </span><span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,     <span class="comment">// 1 day
-    </span><span class="number">7 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>, <span class="comment">// 1 week
+</span><span class="kw">const </span>TIME_WINDOW_SIZE: [i64; <span class="number">14</span>] = [
+    <span class="number">1</span>,                            <span class="comment">// 1 second
+    </span><span class="number">60</span>,                           <span class="comment">// 1 minute
+    </span><span class="number">60 </span>* <span class="number">10</span>,                      <span class="comment">// 10 minutes
+    </span><span class="number">60 </span>* <span class="number">30</span>,                      <span class="comment">// 30 minutes
+    </span><span class="number">60 </span>* <span class="number">60</span>,                      <span class="comment">// 1 hour
+    </span><span class="number">2 </span>* <span class="number">60 </span>* <span class="number">60</span>,                  <span class="comment">// 2 hours
+    </span><span class="number">6 </span>* <span class="number">60 </span>* <span class="number">60</span>,                  <span class="comment">// 6 hours
+    </span><span class="number">12 </span>* <span class="number">60 </span>* <span class="number">60</span>,                 <span class="comment">// 12 hours
+    </span><span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,                 <span class="comment">// 1 day
+    </span><span class="number">7 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,             <span class="comment">// 1 week
+    </span><span class="number">30 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,            <span class="comment">// 1 month
+    </span><span class="number">12 </span>* <span class="number">30 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,       <span class="comment">// 1 year
+    </span><span class="number">10 </span>* <span class="number">12 </span>* <span class="number">30 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,  <span class="comment">// 10 years
+    </span><span class="number">100 </span>* <span class="number">12 </span>* <span class="number">30 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>, <span class="comment">// 100 years
 </span>];
 
 <span class="doccomment">/// [WindowInfer] infers the time windows that can be used to optimize table scans ordered by
@@ -583,14 +585,8 @@
         <span class="macro">assert_eq!</span>(<span class="number">12 </span>* <span class="number">60 </span>* <span class="number">60</span>, duration_to_window_size(<span class="number">21601</span>, <span class="number">21601</span>));
         <span class="macro">assert_eq!</span>(<span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>, duration_to_window_size(<span class="number">43201</span>, <span class="number">43201</span>));
         <span class="macro">assert_eq!</span>(<span class="number">7 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>, duration_to_window_size(<span class="number">604799</span>, <span class="number">604799</span>));
-        <span class="macro">assert_eq!</span>(
-            <span class="number">7 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,
-            duration_to_window_size(<span class="number">31535999</span>, <span class="number">31535999</span>)
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="number">7 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>,
-            duration_to_window_size(i64::MAX, i64::MAX)
-        );
+        <span class="macro">assert_eq!</span>(<span class="number">311040000</span>, duration_to_window_size(<span class="number">31535999</span>, <span class="number">31535999</span>));
+        <span class="macro">assert_eq!</span>(<span class="number">3110400000</span>, duration_to_window_size(i64::MAX, i64::MAX));
     }
 
     <span class="attr">#[test]

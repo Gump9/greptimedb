@@ -936,39 +936,6 @@
 <a href="#936" id="936">936</a>
 <a href="#937" id="937">937</a>
 <a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
-<a href="#968" id="968">968</a>
-<a href="#969" id="969">969</a>
-<a href="#970" id="970">970</a>
-<a href="#971" id="971">971</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -993,13 +960,13 @@
 <span class="kw">pub mod </span>otlp;
 <span class="kw">mod </span>pprof;
 <span class="kw">pub mod </span>prom_store;
+<span class="kw">pub mod </span>prometheus;
 <span class="kw">pub mod </span>script;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;dashboard&quot;</span>)]
 </span><span class="kw">mod </span>dashboard;
 
 <span class="kw">use </span>std::net::SocketAddr;
-<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::{Duration, Instant};
 
 <span class="kw">use </span>aide::axum::{routing <span class="kw">as </span>apirouting, ApiRouter, IntoApiResponse};
@@ -1014,8 +981,6 @@
 <span class="kw">use </span>axum::response::{Html, IntoResponse, Json};
 <span class="kw">use </span>axum::{routing, BoxError, Extension, Router};
 <span class="kw">use </span>common_base::readable_size::ReadableSize;
-<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
-<span class="kw">use </span>common_catalog::parse_catalog_and_schema_from_db_string;
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
 <span class="kw">use </span>common_query::Output;
@@ -1026,7 +991,6 @@
 <span class="kw">use </span>schemars::JsonSchema;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>serde_json::Value;
-<span class="kw">use </span>session::context::QueryContext;
 <span class="kw">use </span>snafu::{ensure, ResultExt};
 <span class="kw">use </span>tokio::sync::oneshot::{<span class="self">self</span>, Sender};
 <span class="kw">use </span>tokio::sync::Mutex;
@@ -1040,15 +1004,15 @@
 <span class="kw">use </span><span class="kw">crate</span>::configurator::ConfiguratorRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::{AlreadyStartedSnafu, <span class="prelude-ty">Result</span>, StartHttpSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::http::admin::{compact, flush};
+<span class="kw">use </span><span class="kw">crate</span>::http::prometheus::{
+    instant_query, label_values_query, labels_query, range_query, series_query,
+};
 <span class="kw">use </span><span class="kw">crate</span>::metrics::{
     METRIC_CODE_LABEL, METRIC_HTTP_REQUESTS_ELAPSED, METRIC_HTTP_REQUESTS_TOTAL,
     METRIC_METHOD_LABEL, METRIC_PATH_LABEL,
 };
 <span class="kw">use </span><span class="kw">crate</span>::metrics_handler::MetricsHandler;
-<span class="kw">use </span><span class="kw">crate</span>::prometheus::{
-    instant_query, label_values_query, labels_query, range_query, series_query,
-    PrometheusHandlerRef,
-};
+<span class="kw">use </span><span class="kw">crate</span>::prometheus_handler::PrometheusHandlerRef;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::grpc::ServerGrpcQueryHandlerRef;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::sql::ServerSqlQueryHandlerRef;
 <span class="kw">use </span><span class="kw">crate</span>::query_handler::{
@@ -1056,36 +1020,6 @@
     PromStoreProtocolHandlerRef, ScriptHandlerRef,
 };
 <span class="kw">use </span><span class="kw">crate</span>::server::Server;
-
-<span class="doccomment">/// create query context from database name information, catalog and schema are
-/// resolved from the name
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>query_context_from_db(
-    query_handler: ServerSqlQueryHandlerRef,
-    db: <span class="prelude-ty">Option</span>&lt;String&gt;,
-) -&gt; std::result::Result&lt;Arc&lt;QueryContext&gt;, JsonResponse&gt; {
-    <span class="kw">let </span>(catalog, schema) = <span class="kw">if let </span><span class="prelude-val">Some</span>(db) = <span class="kw-2">&amp;</span>db {
-        <span class="kw">let </span>(catalog, schema) = parse_catalog_and_schema_from_db_string(db);
-
-        <span class="kw">match </span>query_handler.is_valid_schema(catalog, schema).<span class="kw">await </span>{
-            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; (catalog, schema),
-            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(JsonResponse::with_error(
-                    <span class="macro">format!</span>(<span class="string">&quot;Database not found: {db}&quot;</span>),
-                    StatusCode::DatabaseNotFound,
-                ))
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(JsonResponse::with_error(
-                    <span class="macro">format!</span>(<span class="string">&quot;Error checking database: {db}, {e}&quot;</span>),
-                    StatusCode::Internal,
-                ))
-            }
-        }
-    } <span class="kw">else </span>{
-        (DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME)
-    };
-    <span class="prelude-val">Ok</span>(QueryContext::with(catalog, schema))
-}
 
 <span class="kw">pub const </span>HTTP_API_VERSION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;v1&quot;</span>;
 <span class="kw">pub const </span>HTTP_API_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/v1/&quot;</span>;
@@ -1521,7 +1455,7 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(prometheus_handler) = <span class="self">self</span>.prometheus_handler.clone() {
             router = router.nest(
-                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/{HTTP_API_VERSION}/prometheus&quot;</span>),
+                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/{HTTP_API_VERSION}/prometheus/api/v1&quot;</span>),
                 <span class="self">self</span>.route_prometheus(prometheus_handler),
             );
         }
