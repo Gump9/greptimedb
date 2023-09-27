@@ -238,6 +238,13 @@
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
 <a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -258,7 +265,6 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>catalog::CatalogManagerRef;
-<span class="kw">use </span>client::client_manager::DatanodeClients;
 <span class="kw">use </span>common_base::Plugins;
 <span class="kw">use </span>common_function::scalars::aggregate::AggregateFunctionMetaRef;
 <span class="kw">use </span>common_query::physical_plan::SessionContext;
@@ -277,7 +283,6 @@
 <span class="kw">use </span>datafusion_expr::LogicalPlan <span class="kw">as </span>DfLogicalPlan;
 <span class="kw">use </span>datafusion_optimizer::analyzer::Analyzer;
 <span class="kw">use </span>datafusion_optimizer::optimizer::Optimizer;
-<span class="kw">use </span>partition::manager::PartitionRuleManager;
 <span class="kw">use </span>promql::extension_plan::PromExtensionPlanner;
 <span class="kw">use </span>substrait::extension_serializer::ExtensionSerializer;
 <span class="kw">use </span>table::table::adapter::DfTableProviderAdapter;
@@ -289,6 +294,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::optimizer::type_conversion::TypeConversionRule;
 <span class="kw">use </span><span class="kw">crate</span>::query_engine::options::QueryOptions;
 <span class="kw">use </span><span class="kw">crate</span>::range_select::planner::RangeSelectPlanner;
+<span class="kw">use </span><span class="kw">crate</span>::region_query::RegionQueryHandlerRef;
+<span class="kw">use </span><span class="kw">crate</span>::table_mutation::TableMutationHandlerRef;
 
 <span class="doccomment">/// Query engine global state
 </span><span class="comment">// TODO(yingwen): This QueryEngineState still relies on datafusion, maybe we can define a trait for it,
@@ -298,6 +305,7 @@
 </span><span class="kw">pub struct </span>QueryEngineState {
     df_context: SessionContext,
     catalog_manager: CatalogManagerRef,
+    table_mutation_handler: <span class="prelude-ty">Option</span>&lt;TableMutationHandlerRef&gt;,
     aggregate_functions: Arc&lt;RwLock&lt;HashMap&lt;String, AggregateFunctionMetaRef&gt;&gt;&gt;,
     plugins: Arc&lt;Plugins&gt;,
 }
@@ -313,9 +321,9 @@
 <span class="kw">impl </span>QueryEngineState {
     <span class="kw">pub fn </span>new(
         catalog_list: CatalogManagerRef,
+        region_query_handler: <span class="prelude-ty">Option</span>&lt;RegionQueryHandlerRef&gt;,
+        table_mutation_handler: <span class="prelude-ty">Option</span>&lt;TableMutationHandlerRef&gt;,
         with_dist_planner: bool,
-        partition_manager: <span class="prelude-ty">Option</span>&lt;Arc&lt;PartitionRuleManager&gt;&gt;,
-        datanode_clients: <span class="prelude-ty">Option</span>&lt;Arc&lt;DatanodeClients&gt;&gt;,
         plugins: Arc&lt;Plugins&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>runtime_env = Arc::new(RuntimeEnv::default());
@@ -354,9 +362,8 @@
         .with_serializer_registry(Arc::new(ExtensionSerializer))
         .with_analyzer_rules(analyzer.rules)
         .with_query_planner(Arc::new(DfQueryPlanner::new(
-            partition_manager,
-            datanode_clients,
             catalog_list.clone(),
+            region_query_handler,
         )))
         .with_optimizer_rules(optimizer.rules)
         .with_physical_optimizer_rules(physical_optimizers);
@@ -366,6 +373,7 @@
         <span class="self">Self </span>{
             df_context,
             catalog_manager: catalog_list,
+            table_mutation_handler,
             aggregate_functions: Arc::new(RwLock::new(HashMap::new())),
             plugins,
         }
@@ -427,6 +435,11 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.catalog_manager
     }
 
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>table_mutation_handler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TableMutationHandlerRef&gt; {
+        <span class="self">self</span>.table_mutation_handler.as_ref()
+    }
+
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>disallow_cross_schema_query(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.plugins
             .map::&lt;QueryOptions, <span class="kw">_</span>, <span class="kw">_</span>&gt;(|x| x.disallow_cross_schema_query)
@@ -463,15 +476,16 @@
 
 <span class="kw">impl </span>DfQueryPlanner {
     <span class="kw">fn </span>new(
-        partition_manager: <span class="prelude-ty">Option</span>&lt;Arc&lt;PartitionRuleManager&gt;&gt;,
-        datanode_clients: <span class="prelude-ty">Option</span>&lt;Arc&lt;DatanodeClients&gt;&gt;,
         catalog_manager: CatalogManagerRef,
+        region_query_handler: <span class="prelude-ty">Option</span>&lt;RegionQueryHandlerRef&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>planners: Vec&lt;Arc&lt;<span class="kw">dyn </span>ExtensionPlanner + Send + Sync&gt;&gt; =
             <span class="macro">vec!</span>[Arc::new(PromExtensionPlanner), Arc::new(RangeSelectPlanner)];
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(partition_manager) = partition_manager
-         &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(datanode_clients) = datanode_clients {
-            planners.push(Arc::new(DistExtensionPlanner::new(partition_manager, datanode_clients, catalog_manager)));
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(region_query_handler) = region_query_handler {
+            planners.push(Arc::new(DistExtensionPlanner::new(
+                catalog_manager,
+                region_query_handler,
+            )));
         }
         <span class="self">Self </span>{
             physical_planner: DefaultPhysicalPlanner::with_extension_planners(planners),

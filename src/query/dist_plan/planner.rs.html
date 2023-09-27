@@ -242,18 +242,6 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -274,9 +262,7 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>catalog::CatalogManagerRef;
-<span class="kw">use </span>client::client_manager::DatanodeClients;
 <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
-<span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>datafusion::common::Result;
 <span class="kw">use </span>datafusion::datasource::DefaultTableSource;
@@ -284,11 +270,11 @@
 <span class="kw">use </span>datafusion::physical_plan::ExecutionPlan;
 <span class="kw">use </span>datafusion::physical_planner::{ExtensionPlanner, PhysicalPlanner};
 <span class="kw">use </span>datafusion_common::tree_node::{Transformed, TreeNode, TreeNodeVisitor, VisitRecursion};
-<span class="kw">use </span>datafusion_common::{DataFusionError, TableReference};
+<span class="kw">use </span>datafusion_common::TableReference;
 <span class="kw">use </span>datafusion_expr::{LogicalPlan, UserDefinedLogicalNode};
 <span class="kw">use </span>datafusion_optimizer::analyzer::Analyzer;
-<span class="kw">use </span>partition::manager::PartitionRuleManager;
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
+<span class="kw">use </span>store_api::storage::RegionId;
 <span class="kw">use </span>substrait::{DFLogicalSubstraitConvertor, SubstraitPlan};
 <span class="kw">pub use </span>table::metadata::TableType;
 <span class="kw">use </span>table::table::adapter::DfTableProviderAdapter;
@@ -296,23 +282,21 @@
 <span class="kw">use </span><span class="kw">crate</span>::dist_plan::merge_scan::{MergeScanExec, MergeScanLogicalPlan};
 <span class="kw">use </span><span class="kw">crate</span>::error;
 <span class="kw">use </span><span class="kw">crate</span>::error::{CatalogSnafu, TableNotFoundSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::region_query::RegionQueryHandlerRef;
 
 <span class="kw">pub struct </span>DistExtensionPlanner {
-    partition_manager: Arc&lt;PartitionRuleManager&gt;,
-    clients: Arc&lt;DatanodeClients&gt;,
     catalog_manager: CatalogManagerRef,
+    region_query_handler: RegionQueryHandlerRef,
 }
 
 <span class="kw">impl </span>DistExtensionPlanner {
     <span class="kw">pub fn </span>new(
-        partition_manager: Arc&lt;PartitionRuleManager&gt;,
-        clients: Arc&lt;DatanodeClients&gt;,
         catalog_manager: CatalogManagerRef,
+        region_query_handler: RegionQueryHandlerRef,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            partition_manager,
-            clients,
             catalog_manager,
+            region_query_handler,
         }
     }
 }
@@ -350,7 +334,7 @@
             </span><span class="kw">return </span>fallback(<span class="kw-2">&amp;</span>optimized_plan).<span class="kw">await</span>;
         };
 
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(peers) = <span class="self">self</span>.get_peers(<span class="kw-2">&amp;</span>table_name).<span class="kw">await else </span>{
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(regions) = <span class="self">self</span>.get_regions(<span class="kw-2">&amp;</span>table_name).<span class="kw">await else </span>{
             <span class="comment">// no peers found, going to execute them locally
             </span><span class="kw">return </span>fallback(<span class="kw-2">&amp;</span>optimized_plan).<span class="kw">await</span>;
         };
@@ -365,10 +349,10 @@
             </span>.into();
         <span class="kw">let </span>merge_scan_plan = MergeScanExec::new(
             table_name,
-            peers,
+            regions,
             substrait_plan,
             <span class="kw-2">&amp;</span>schema,
-            <span class="self">self</span>.clients.clone(),
+            <span class="self">self</span>.region_query_handler.clone(),
         )<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Arc::new(merge_scan_plan) <span class="kw">as _</span>))
     }
@@ -387,7 +371,7 @@
         plan.transform(<span class="kw-2">&amp;</span>|plan| TableNameRewriter::rewrite_table_name(plan, name))
     }
 
-    <span class="kw">async fn </span>get_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, table_name: <span class="kw-2">&amp;</span>TableName) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Peer&gt;&gt; {
+    <span class="kw">async fn </span>get_regions(<span class="kw-2">&amp;</span><span class="self">self</span>, table_name: <span class="kw-2">&amp;</span>TableName) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;RegionId&gt;&gt; {
         <span class="kw">let </span>table = <span class="self">self
             </span>.catalog_manager
             .table(
@@ -400,15 +384,7 @@
             </span>.with_context(|| TableNotFoundSnafu {
                 table: table_name.to_string(),
             })<span class="question-mark">?</span>;
-        <span class="kw">let </span>table_id = table.table_info().table_id();
-
-        <span class="self">self</span>.partition_manager
-            .find_table_region_leaders(table_id)
-            .<span class="kw">await
-            </span>.with_context(|<span class="kw">_</span>| error::RoutePartitionSnafu {
-                table: table_name.clone(),
-            })
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+        <span class="prelude-val">Ok</span>(table.table_info().region_ids())
     }
 
     <span class="comment">// TODO(ruihang): find a more elegant way to optimize input logical plan
@@ -449,8 +425,8 @@
                                 info.schema_name.clone(),
                                 info.name.clone(),
                             ));
-                            <span class="kw">return </span><span class="prelude-val">Ok</span>(VisitRecursion::Stop);
                         }
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(VisitRecursion::Stop);
                     }
                 }
                 <span class="kw">match </span><span class="kw-2">&amp;</span>scan.table_name {

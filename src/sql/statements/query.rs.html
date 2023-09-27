@@ -84,6 +84,7 @@
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -101,11 +102,12 @@
 </span><span class="kw">use </span>std::fmt;
 
 <span class="kw">use </span>sqlparser::ast::Query <span class="kw">as </span>SpQuery;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Error;
 
 <span class="doccomment">/// Query statement instance.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>Query {
     <span class="kw">pub </span>inner: SpQuery,
 }

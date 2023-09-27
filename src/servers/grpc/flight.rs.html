@@ -177,6 +177,11 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -329,23 +334,28 @@
         <span class="kw">let </span>ticket = request.into_inner().ticket;
         <span class="kw">let </span>request =
             GreptimeRequest::decode(ticket.as_ref()).context(error::InvalidFlightTicketSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>trace_id = request
+            .header
+            .as_ref()
+            .map(|h| h.trace_id)
+            .unwrap_or_default();
 
         <span class="kw">let </span>output = <span class="self">self</span>.handle_request(request).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>stream: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;FlightData, Status&gt;&gt; + Send + Sync&gt;&gt; =
-            to_flight_data_stream(output);
+            to_flight_data_stream(output, trace_id);
         <span class="prelude-val">Ok</span>(Response::new(stream))
     }
 }
 
-<span class="kw">fn </span>to_flight_data_stream(output: Output) -&gt; TonicStream&lt;FlightData&gt; {
+<span class="kw">fn </span>to_flight_data_stream(output: Output, trace_id: u64) -&gt; TonicStream&lt;FlightData&gt; {
     <span class="kw">match </span>output {
         Output::Stream(stream) =&gt; {
-            <span class="kw">let </span>stream = FlightRecordBatchStream::new(stream);
+            <span class="kw">let </span>stream = FlightRecordBatchStream::new(stream, trace_id);
             Box::pin(stream) <span class="kw">as _
         </span>}
         Output::RecordBatches(x) =&gt; {
-            <span class="kw">let </span>stream = FlightRecordBatchStream::new(x.as_stream());
+            <span class="kw">let </span>stream = FlightRecordBatchStream::new(x.as_stream(), trace_id);
             Box::pin(stream) <span class="kw">as _
         </span>}
         Output::AffectedRows(rows) =&gt; {

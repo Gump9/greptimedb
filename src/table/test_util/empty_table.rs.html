@@ -75,17 +75,6 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -102,20 +91,23 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_recordbatch::{EmptyRecordBatchStream, SendableRecordBatchStream};
+<span class="kw">use </span>datatypes::schema::SchemaRef;
+<span class="kw">use </span>store_api::data_source::DataSource;
 <span class="kw">use </span>store_api::storage::ScanRequest;
 
-<span class="kw">use </span><span class="kw">crate</span>::metadata::{TableInfo, TableInfoBuilder, TableInfoRef, TableMetaBuilder, TableType};
-<span class="kw">use </span><span class="kw">crate</span>::requests::{CreateTableRequest, InsertRequest};
-<span class="kw">use crate</span>::{<span class="prelude-ty">Result</span>, Table};
+<span class="kw">use </span><span class="kw">crate</span>::metadata::{
+    FilterPushDownType, TableInfo, TableInfoBuilder, TableMetaBuilder, TableType,
+};
+<span class="kw">use </span><span class="kw">crate</span>::requests::CreateTableRequest;
+<span class="kw">use </span><span class="kw">crate</span>::thin_table::{ThinTable, ThinTableAdapter};
+<span class="kw">use </span><span class="kw">crate</span>::TableRef;
 
-<span class="kw">pub struct </span>EmptyTable {
-    info: TableInfoRef,
-}
+<span class="kw">pub struct </span>EmptyTable;
 
 <span class="kw">impl </span>EmptyTable {
-    <span class="kw">pub fn </span>new(req: CreateTableRequest) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>table(req: CreateTableRequest) -&gt; TableRef {
         <span class="kw">let </span>schema = Arc::new(req.schema.try_into().unwrap());
         <span class="kw">let </span>table_meta = TableMetaBuilder::default()
             .schema(schema)
@@ -136,42 +128,28 @@
             .build()
             .unwrap();
 
-        <span class="self">Self </span>{
-            info: Arc::new(table_info),
-        }
+        <span class="self">Self</span>::from_table_info(<span class="kw-2">&amp;</span>table_info)
     }
 
-    <span class="kw">pub fn </span>from_table_info(info: <span class="kw-2">&amp;</span>TableInfo) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            info: Arc::new(info.clone()),
-        }
+    <span class="kw">pub fn </span>from_table_info(info: <span class="kw-2">&amp;</span>TableInfo) -&gt; TableRef {
+        <span class="kw">let </span>thin_table = ThinTable::new(Arc::new(info.clone()), FilterPushDownType::Unsupported);
+        <span class="kw">let </span>data_source = Arc::new(EmptyDataSource {
+            schema: info.meta.schema.clone(),
+        });
+        Arc::new(ThinTableAdapter::new(thin_table, data_source))
     }
 }
 
-<span class="attr">#[async_trait]
-</span><span class="kw">impl </span>Table <span class="kw">for </span>EmptyTable {
-    <span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>std::any::Any {
-        <span class="self">self </span><span class="kw">as _
-    </span>}
+<span class="kw">struct </span>EmptyDataSource {
+    schema: SchemaRef,
+}
 
-    <span class="kw">fn </span>schema(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; datatypes::schema::SchemaRef {
-        <span class="self">self</span>.info.meta.schema.clone()
-    }
-
-    <span class="kw">fn </span>table_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableInfoRef {
-        <span class="self">self</span>.info.clone()
-    }
-
-    <span class="kw">fn </span>table_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableType {
-        <span class="self">self</span>.info.table_type
-    }
-
-    <span class="kw">async fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, _request: InsertRequest) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
-        <span class="prelude-val">Ok</span>(<span class="number">0</span>)
-    }
-
-    <span class="kw">async fn </span>scan_to_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: ScanRequest) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
-        <span class="prelude-val">Ok</span>(Box::pin(EmptyRecordBatchStream::new(<span class="self">self</span>.schema())))
+<span class="kw">impl </span>DataSource <span class="kw">for </span>EmptyDataSource {
+    <span class="kw">fn </span>get_stream(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _request: ScanRequest,
+    ) -&gt; std::result::Result&lt;SendableRecordBatchStream, BoxedError&gt; {
+        <span class="prelude-val">Ok</span>(Box::pin(EmptyRecordBatchStream::new(<span class="self">self</span>.schema.clone())))
     }
 }
 </code></pre></div></section></main></body></html>

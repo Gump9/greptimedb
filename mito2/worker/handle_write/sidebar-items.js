@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MaybeStalling"],"fn":["maybe_fill_missing_columns","reject_write_requests","send_result"]};
+window.SIDEBAR_ITEMS = {"fn":["maybe_fill_missing_columns","reject_write_requests"]};

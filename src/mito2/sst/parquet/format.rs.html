@@ -582,6 +582,11 @@
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -720,6 +725,11 @@
     <span class="doccomment">/// Gets the converted arrow schema.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>arrow_schema(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SchemaRef {
         <span class="kw-2">&amp;</span><span class="self">self</span>.arrow_schema
+    }
+
+    <span class="doccomment">/// Gets the metadata of the SST.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>RegionMetadataRef {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.metadata
     }
 
     <span class="doccomment">/// Gets sorted projection indices to read `columns` from parquet files.

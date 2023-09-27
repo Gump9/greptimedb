@@ -1400,7 +1400,7 @@
 }
 
 <span class="doccomment">/// use to bind to Data Fusion&#39;s UDF function
-/// P.S: seems due to proc macro issues, can&#39;t just use #[pyfunction] in here
+/// P.S: seems due to proc macro issues, can&#39;t just use `#[pyfunction]` in here
 </span><span class="macro">macro_rules! </span>bind_call_unary_math_function {
     (<span class="macro-nonterminal">$DF_FUNC</span>: ident, <span class="macro-nonterminal">$vm</span>: ident $(,<span class="macro-nonterminal">$ARG</span>: ident)<span class="kw-2">*</span>) =&gt; {
         <span class="kw">fn </span>inner_fn($(<span class="macro-nonterminal">$ARG</span>: PyObjectRef,)* vm: <span class="kw-2">&amp;</span>VirtualMachine) -&gt; PyResult&lt;PyObjectRef&gt; {

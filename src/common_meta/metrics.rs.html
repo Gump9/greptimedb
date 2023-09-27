@@ -13,6 +13,13 @@
 <a href="#13" id="13">13</a>
 <a href="#14" id="14">14</a>
 <a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -28,4 +35,11 @@
 // limitations under the License.
 
 </span><span class="kw">pub const </span>METRIC_META_TXN_REQUEST: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta.txn_request&quot;</span>;
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_META_CREATE_CATALOG: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta.create_catalog&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_META_CREATE_SCHEMA: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta.create_schema&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_META_PROCEDURE_CREATE_TABLE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta.procedure.create_table&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_META_PROCEDURE_DROP_TABLE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta.procedure.drop_table&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_META_PROCEDURE_ALTER_TABLE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta.procedure.alter_table&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>METRIC_META_PROCEDURE_TRUNCATE_TABLE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;meta.procedure.truncate_table&quot;</span>;
 </code></pre></div></section></main></body></html>

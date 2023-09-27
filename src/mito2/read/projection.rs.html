@@ -179,6 +179,48 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -195,7 +237,8 @@
 
 </span><span class="doccomment">//! Utilities for projection.
 
-</span><span class="kw">use </span>std::sync::Arc;
+</span><span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>api::v1::SemanticType;
 <span class="kw">use </span>common_error::ext::BoxedError;
@@ -206,7 +249,7 @@
 <span class="kw">use </span>datatypes::value::ValueRef;
 <span class="kw">use </span>datatypes::vectors::VectorRef;
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
-<span class="kw">use </span>store_api::metadata::RegionMetadata;
+<span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 <span class="kw">use </span>store_api::storage::ColumnId;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{InvalidRequestSnafu, <span class="prelude-ty">Result</span>};
@@ -214,57 +257,45 @@
 <span class="kw">use </span><span class="kw">crate</span>::row_converter::{McmpRowCodec, RowCodec, SortField};
 
 <span class="doccomment">/// Handles projection and converts a projected [Batch] to a projected [RecordBatch].
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ProjectionMapper {
+</span><span class="kw">pub struct </span>ProjectionMapper {
+    <span class="doccomment">/// Metadata of the region.
+    </span>metadata: RegionMetadataRef,
     <span class="doccomment">/// Maps column in [RecordBatch] to index in [Batch].
     </span>batch_indices: Vec&lt;BatchIndex&gt;,
     <span class="doccomment">/// Decoder for primary key.
     </span>codec: McmpRowCodec,
     <span class="doccomment">/// Schema for converted [RecordBatch].
     </span>output_schema: SchemaRef,
-    <span class="doccomment">/// Id of columns to project.
+    <span class="doccomment">/// Ids of columns to project. It keeps ids in the same order as the `projection`
+    /// indices to build the mapper.
     </span>column_ids: Vec&lt;ColumnId&gt;,
+    <span class="doccomment">/// Ids of field columns in the [Batch].
+    </span>batch_fields: Vec&lt;ColumnId&gt;,
 }
 
 <span class="kw">impl </span>ProjectionMapper {
     <span class="doccomment">/// Returns a new mapper with projection.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
-        metadata: <span class="kw-2">&amp;</span>RegionMetadata,
+    </span><span class="kw">pub fn </span>new(
+        metadata: <span class="kw-2">&amp;</span>RegionMetadataRef,
         projection: <span class="kw">impl </span>Iterator&lt;Item = usize&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ProjectionMapper&gt; {
-        <span class="kw">let </span>projection_len = projection.size_hint().<span class="number">0</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>batch_indices = Vec::with_capacity(projection_len);
-        <span class="kw">let </span><span class="kw-2">mut </span>column_schemas = Vec::with_capacity(projection_len);
-        <span class="kw">let </span><span class="kw-2">mut </span>column_ids = Vec::with_capacity(projection_len);
-        <span class="kw">for </span>idx <span class="kw">in </span>projection {
+        <span class="kw">let </span>projection: Vec&lt;<span class="kw">_</span>&gt; = projection.collect();
+        <span class="kw">let </span><span class="kw-2">mut </span>column_schemas = Vec::with_capacity(projection.len());
+        <span class="kw">let </span><span class="kw-2">mut </span>column_ids = Vec::with_capacity(projection.len());
+        <span class="kw">for </span>idx <span class="kw">in </span><span class="kw-2">&amp;</span>projection {
             <span class="comment">// For each projection index, we get the column id for projection.
             </span><span class="kw">let </span>column = metadata
                 .column_metadatas
-                .get(idx)
+                .get(<span class="kw-2">*</span>idx)
                 .context(InvalidRequestSnafu {
                     region_id: metadata.region_id,
                     reason: <span class="macro">format!</span>(<span class="string">&quot;projection index {} is out of bound&quot;</span>, idx),
                 })<span class="question-mark">?</span>;
 
-            <span class="comment">// Get column index in a batch by its semantic type and column id.
-            </span><span class="kw">let </span>batch_index = <span class="kw">match </span>column.semantic_type {
-                SemanticType::Tag =&gt; {
-                    <span class="comment">// Safety: It is a primary key column.
-                    </span><span class="kw">let </span>index = metadata.primary_key_index(column.column_id).unwrap();
-                    BatchIndex::Tag(index)
-                }
-                SemanticType::Timestamp =&gt; BatchIndex::Timestamp,
-                SemanticType::Field =&gt; {
-                    <span class="comment">// Safety: It is a field column.
-                    </span><span class="kw">let </span>index = metadata.field_index(column.column_id).unwrap();
-                    BatchIndex::Field(index)
-                }
-            };
-            batch_indices.push(batch_index);
             column_ids.push(column.column_id);
             <span class="comment">// Safety: idx is valid.
-            </span>column_schemas.push(metadata.schema.column_schemas()[idx].clone());
+            </span>column_schemas.push(metadata.schema.column_schemas()[<span class="kw-2">*</span>idx].clone());
         }
-
         <span class="kw">let </span>codec = McmpRowCodec::new(
             metadata
                 .primary_key_columns()
@@ -273,23 +304,67 @@
         );
         <span class="comment">// Safety: Columns come from existing schema.
         </span><span class="kw">let </span>output_schema = Arc::new(Schema::new(column_schemas));
+        <span class="comment">// Get fields in each batch.
+        </span><span class="kw">let </span>batch_fields = Batch::projected_fields(metadata, <span class="kw-2">&amp;</span>column_ids);
+
+        <span class="comment">// Field column id to its index in batch.
+        </span><span class="kw">let </span>field_id_to_index: HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = batch_fields
+            .iter()
+            .enumerate()
+            .map(|(index, column_id)| (<span class="kw-2">*</span>column_id, index))
+            .collect();
+        <span class="comment">// For each projected column, compute its index in batches.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>batch_indices = Vec::with_capacity(projection.len());
+        <span class="kw">for </span>idx <span class="kw">in </span><span class="kw-2">&amp;</span>projection {
+            <span class="comment">// Safety: idx is valid.
+            </span><span class="kw">let </span>column = <span class="kw-2">&amp;</span>metadata.column_metadatas[<span class="kw-2">*</span>idx];
+            <span class="comment">// Get column index in a batch by its semantic type and column id.
+            </span><span class="kw">let </span>batch_index = <span class="kw">match </span>column.semantic_type {
+                SemanticType::Tag =&gt; {
+                    <span class="comment">// Safety: It is a primary key column.
+                    </span><span class="kw">let </span>index = metadata.primary_key_index(column.column_id).unwrap();
+                    <span class="comment">// We always read all primary key so the column always exists and the tag
+                    // index is always valid.
+                    </span>BatchIndex::Tag(index)
+                }
+                SemanticType::Timestamp =&gt; BatchIndex::Timestamp,
+                SemanticType::Field =&gt; {
+                    <span class="comment">// Safety: It is a field column so it should be in `field_id_to_index`.
+                    </span><span class="kw">let </span>index = field_id_to_index[<span class="kw-2">&amp;</span>column.column_id];
+                    BatchIndex::Field(index)
+                }
+            };
+            batch_indices.push(batch_index);
+        }
 
         <span class="prelude-val">Ok</span>(ProjectionMapper {
+            metadata: metadata.clone(),
             batch_indices,
             codec,
             output_schema,
             column_ids,
+            batch_fields,
         })
     }
 
     <span class="doccomment">/// Returns a new mapper without projection.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>all(metadata: <span class="kw-2">&amp;</span>RegionMetadata) -&gt; <span class="prelude-ty">Result</span>&lt;ProjectionMapper&gt; {
+    </span><span class="kw">pub fn </span>all(metadata: <span class="kw-2">&amp;</span>RegionMetadataRef) -&gt; <span class="prelude-ty">Result</span>&lt;ProjectionMapper&gt; {
         ProjectionMapper::new(metadata, <span class="number">0</span>..metadata.column_metadatas.len())
+    }
+
+    <span class="doccomment">/// Returns the metadata that created the mapper.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>RegionMetadataRef {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.metadata
     }
 
     <span class="doccomment">/// Returns ids of projected columns.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>column_ids(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[ColumnId] {
         <span class="kw-2">&amp;</span><span class="self">self</span>.column_ids
+    }
+
+    <span class="doccomment">/// Returns ids of fields in [Batch]es the mapper expects to convert.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>batch_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[ColumnId] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.batch_fields
     }
 
     <span class="doccomment">/// Returns the schema of converted [RecordBatch].
@@ -301,6 +376,13 @@
     ///
     /// The batch must match the `projection` using to build the mapper.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>convert(<span class="kw-2">&amp;</span><span class="self">self</span>, batch: <span class="kw-2">&amp;</span>Batch) -&gt; common_recordbatch::error::Result&lt;RecordBatch&gt; {
+        <span class="macro">debug_assert_eq!</span>(<span class="self">self</span>.batch_fields.len(), batch.fields().len());
+        <span class="macro">debug_assert!</span>(<span class="self">self
+            </span>.batch_fields
+            .iter()
+            .zip(batch.fields())
+            .all(|(id, batch_col)| <span class="kw-2">*</span>id == batch_col.column_id));
+
         <span class="kw">let </span>pk_values = <span class="self">self
             </span>.codec
             .decode(batch.primary_key())
@@ -360,4 +442,6 @@
     </span><span class="kw">let </span>base_vector = mutable_vector.to_vector();
     <span class="prelude-val">Ok</span>(base_vector.replicate(<span class="kw-2">&amp;</span>[num_rows]))
 }
-</code></pre></div></section></main></body></html>
+
+<span class="comment">// TODO(yingwen): Add tests for mapper.
+</span></code></pre></div></section></main></body></html>

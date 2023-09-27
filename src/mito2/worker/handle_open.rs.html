@@ -56,6 +56,25 @@
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -76,13 +95,16 @@
 
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_telemetry::info;
+<span class="kw">use </span>object_store::util::join_path;
+<span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>store_api::logstore::LogStore;
 <span class="kw">use </span>store_api::region_request::RegionOpenRequest;
 <span class="kw">use </span>store_api::storage::RegionId;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::Result;
+<span class="kw">use </span><span class="kw">crate</span>::error::{OpenDalSnafu, RegionNotFoundSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::region::opener::RegionOpener;
-<span class="kw">use </span><span class="kw">crate</span>::worker::RegionWorkerLoop;
+<span class="kw">use </span><span class="kw">crate</span>::worker::handle_drop::remove_region_dir_once;
+<span class="kw">use </span><span class="kw">crate</span>::worker::{RegionWorkerLoop, DROPPING_MARKER_FILE};
 
 <span class="kw">impl</span>&lt;S: LogStore&gt; RegionWorkerLoop&lt;S&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_open_request(
@@ -94,15 +116,31 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(Output::AffectedRows(<span class="number">0</span>));
         }
 
+        <span class="comment">// Check if this region is pending drop. And clean the entire dir if so.
+        </span><span class="kw">if </span>!<span class="self">self</span>.dropping_regions.is_region_exists(region_id)
+            &amp;&amp; <span class="self">self
+                </span>.object_store
+                .is_exist(<span class="kw-2">&amp;</span>join_path(<span class="kw-2">&amp;</span>request.region_dir, DROPPING_MARKER_FILE))
+                .<span class="kw">await
+                </span>.context(OpenDalSnafu)<span class="question-mark">?
+        </span>{
+            <span class="kw">let </span>result = remove_region_dir_once(<span class="kw-2">&amp;</span>request.region_dir, <span class="kw-2">&amp;</span><span class="self">self</span>.object_store).<span class="kw">await</span>;
+            <span class="macro">info!</span>(<span class="string">&quot;Region {} is dropped, result: {:?}&quot;</span>, region_id, result);
+            <span class="kw">return </span>RegionNotFoundSnafu { region_id }.fail();
+        }
+
         <span class="macro">info!</span>(<span class="string">&quot;Try to open region {}&quot;</span>, region_id);
 
         <span class="comment">// Open region from specific region dir.
         </span><span class="kw">let </span>region = RegionOpener::new(
             region_id,
+            <span class="kw-2">&amp;</span>request.region_dir,
             <span class="self">self</span>.memtable_builder.clone(),
             <span class="self">self</span>.object_store.clone(),
+            <span class="self">self</span>.scheduler.clone(),
         )
-        .region_dir(<span class="kw-2">&amp;</span>request.region_dir)
+        .options(request.options)
+        .cache(<span class="prelude-val">Some</span>(<span class="self">self</span>.cache_manager.clone()))
         .open(<span class="kw-2">&amp;</span><span class="self">self</span>.config, <span class="kw-2">&amp;</span><span class="self">self</span>.wal)
         .<span class="kw">await</span><span class="question-mark">?</span>;
 

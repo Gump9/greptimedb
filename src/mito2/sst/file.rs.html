@@ -237,6 +237,23 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -357,6 +374,12 @@
             inner: Arc::new(FileHandleInner::new(meta, file_purger)),
         }
     }
+
+    <span class="doccomment">/// Returns the region id of the file.
+    </span><span class="kw">pub fn </span>region_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RegionId {
+        <span class="self">self</span>.inner.meta.region_id
+    }
+
     <span class="doccomment">/// Returns the file id.
     </span><span class="kw">pub fn </span>file_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FileId {
         <span class="self">self</span>.inner.meta.file_id
@@ -373,9 +396,20 @@
     }
 
     <span class="doccomment">/// Mark the file as deleted and will delete it on drop asynchronously
-    </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>mark_deleted(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.inner.deleted.store(<span class="bool-val">true</span>, Ordering::Relaxed);
+    }
+
+    <span class="kw">pub fn </span>compacting(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.inner.compacting.load(Ordering::Relaxed)
+    }
+
+    <span class="kw">pub fn </span>set_compacting(<span class="kw-2">&amp;</span><span class="self">self</span>, compacting: bool) {
+        <span class="self">self</span>.inner.compacting.store(compacting, Ordering::Relaxed);
+    }
+
+    <span class="kw">pub fn </span>meta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FileMeta {
+        <span class="self">self</span>.inner.meta.clone()
     }
 }
 

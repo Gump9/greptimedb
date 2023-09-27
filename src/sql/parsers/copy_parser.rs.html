@@ -388,6 +388,12 @@
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -452,8 +458,8 @@
         <span class="kw">let </span>(with, connection, location) = <span class="self">self</span>.parse_copy_to()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(CopyDatabaseArgument {
             database_name,
-            with,
-            connection,
+            with: with.into(),
+            connection: connection.into(),
             location,
         })
     }
@@ -472,8 +478,8 @@
             <span class="kw">let </span>(with, connection, location) = <span class="self">self</span>.parse_copy_to()<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(CopyTable::To(CopyTableArgument {
                 table_name,
-                with,
-                connection,
+                with: with.into(),
+                connection: connection.into(),
                 location,
             }))
         } <span class="kw">else </span>{
@@ -698,7 +704,10 @@
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_pattern) = test.expected_pattern {
                         <span class="macro">assert_eq!</span>(copy_table.pattern().unwrap(), expected_pattern);
                     }
-                    <span class="macro">assert_eq!</span>(copy_table.connection.clone(), test.expected_connection);
+                    <span class="macro">assert_eq!</span>(
+                        copy_table.connection.clone(),
+                        test.expected_connection.into()
+                    );
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
             }
@@ -738,7 +747,10 @@
                 Statement::Copy(<span class="kw">crate</span>::statements::copy::Copy::CopyTable(CopyTable::To(
                     copy_table,
                 ))) =&gt; {
-                    <span class="macro">assert_eq!</span>(copy_table.connection.clone(), test.expected_connection);
+                    <span class="macro">assert_eq!</span>(
+                        copy_table.connection.clone(),
+                        test.expected_connection.into()
+                    );
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
             }
@@ -764,7 +776,7 @@
             [(<span class="string">&quot;format&quot;</span>.to_string(), <span class="string">&quot;parquet&quot;</span>.to_string())]
                 .into_iter()
                 .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
-            stmt.with
+            stmt.with.map
         );
 
         <span class="macro">assert_eq!</span>(
@@ -774,7 +786,7 @@
             ]
             .into_iter()
             .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
-            stmt.connection
+            stmt.connection.map
         );
     }
 }

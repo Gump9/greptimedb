@@ -34,6 +34,10 @@
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -49,13 +53,15 @@
 // limitations under the License.
 
 </span><span class="attr">#![feature(btree_extract_if)]
+#![feature(async_closure)]
 
-</span><span class="kw">pub mod </span>error;
+</span><span class="kw">pub mod </span>cache_invalidator;
+<span class="kw">pub mod </span>datanode_manager;
+<span class="kw">pub mod </span>ddl;
+<span class="kw">pub mod </span>ddl_manager;
+<span class="kw">pub mod </span>distributed_time_constants;
+<span class="kw">pub mod </span>error;
 <span class="kw">pub mod </span>heartbeat;
-<span class="comment">// TODO(weny): Removes it
-</span><span class="attr">#[allow(deprecated)]
-</span><span class="kw">pub mod </span>helper;
-<span class="kw">pub mod </span>ident;
 <span class="kw">pub mod </span>instruction;
 <span class="kw">pub mod </span>key;
 <span class="kw">pub mod </span>kv_backend;
@@ -63,6 +69,8 @@
 <span class="kw">pub mod </span>peer;
 <span class="kw">pub mod </span>range_stream;
 <span class="kw">pub mod </span>rpc;
+<span class="kw">pub mod </span>sequence;
+<span class="kw">pub mod </span>state_store;
 <span class="kw">pub mod </span>table_name;
 <span class="kw">pub mod </span>util;
 

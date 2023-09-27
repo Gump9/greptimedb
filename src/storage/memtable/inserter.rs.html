@@ -272,7 +272,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::metrics::MEMTABLE_WRITE_ELAPSED;
 <span class="kw">use </span><span class="kw">crate</span>::write_batch::{Mutation, Payload};
 
-<span class="doccomment">/// Wraps logic of inserting key/values in [WriteBatch] to [Memtable].
+<span class="doccomment">/// Wraps logic of inserting key/values in [WriteBatch](crate::write_batch::WriteBatch) to [Memtable](crate::memtable::Memtable).
 </span><span class="kw">pub struct </span>Inserter {
     <span class="doccomment">/// Sequence of the batch to be inserted.
     </span>sequence: SequenceNumber,
@@ -290,7 +290,7 @@
 
     <span class="doccomment">/// Insert write batch payload into memtable.
     ///
-    /// Won&#39;t do schema validation if not configured. Caller (mostly the [`RegionWriter`]) should ensure the
+    /// Won&#39;t do schema validation if not configured. Caller (mostly the `RegionWriter` should ensure the
     /// schemas of `memtable` are consistent with `payload`&#39;s.
     </span><span class="kw">pub fn </span>insert_memtable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, payload: <span class="kw-2">&amp;</span>Payload, memtable: <span class="kw-2">&amp;</span>MemtableRef) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>_timer = <span class="macro">common_telemetry::timer!</span>(MEMTABLE_WRITE_ELAPSED);

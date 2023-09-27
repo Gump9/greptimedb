@@ -68,15 +68,15 @@
 </span><span class="kw">pub trait </span>UserProvider: Send + Sync {
     <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str;
 
-    <span class="doccomment">/// [`authenticate`] checks whether a user is valid and allowed to access the database.
+    <span class="doccomment">/// Checks whether a user is valid and allowed to access the database.
     </span><span class="kw">async fn </span>authenticate(<span class="kw-2">&amp;</span><span class="self">self</span>, id: Identity&lt;<span class="lifetime">&#39;_</span>&gt;, password: Password&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;UserInfoRef&gt;;
 
-    <span class="doccomment">/// [`authorize`] checks whether a connection request
+    <span class="doccomment">/// Checks whether a connection request
     /// from a certain user to a certain catalog/schema is legal.
-    /// This method should be called after [`authenticate`].
+    /// This method should be called after [authenticate()](UserProvider::authenticate()).
     </span><span class="kw">async fn </span>authorize(<span class="kw-2">&amp;</span><span class="self">self</span>, catalog: <span class="kw-2">&amp;</span>str, schema: <span class="kw-2">&amp;</span>str, user_info: <span class="kw-2">&amp;</span>UserInfoRef) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// [`auth`] is a combination of [`authenticate`] and [`authorize`].
+    <span class="doccomment">/// Combination of [authenticate()](UserProvider::authenticate()) and [authorize()](UserProvider::authorize()).
     /// In most cases it&#39;s preferred for both convenience and performance.
     </span><span class="kw">async fn </span>auth(
         <span class="kw-2">&amp;</span><span class="self">self</span>,

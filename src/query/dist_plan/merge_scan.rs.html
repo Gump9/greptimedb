@@ -318,9 +318,6 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -340,14 +337,10 @@
 
 <span class="kw">use </span>arrow_schema::{Schema <span class="kw">as </span>ArrowSchema, SchemaRef <span class="kw">as </span>ArrowSchemaRef};
 <span class="kw">use </span>async_stream::stream;
-<span class="kw">use </span>client::client_manager::DatanodeClients;
-<span class="kw">use </span>client::Database;
 <span class="kw">use </span>common_base::bytes::Bytes;
 <span class="kw">use </span>common_error::ext::BoxedError;
-<span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::table_name::TableName;
 <span class="kw">use </span>common_query::physical_plan::TaskContext;
-<span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_recordbatch::adapter::DfRecordBatchStreamAdapter;
 <span class="kw">use </span>common_recordbatch::error::ExternalSnafu;
 <span class="kw">use </span>common_recordbatch::{
@@ -362,9 +355,12 @@
 <span class="kw">use </span>datafusion_physical_expr::PhysicalSortExpr;
 <span class="kw">use </span>datatypes::schema::{Schema, SchemaRef};
 <span class="kw">use </span>futures_util::StreamExt;
+<span class="kw">use </span>greptime_proto::v1::region::QueryRequest;
 <span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>store_api::storage::RegionId;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{ConvertSchemaSnafu, RemoteRequestSnafu, UnexpectedOutputKindSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::error::ConvertSchemaSnafu;
+<span class="kw">use </span><span class="kw">crate</span>::region_query::RegionQueryHandlerRef;
 
 <span class="attr">#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 </span><span class="kw">pub struct </span>MergeScanLogicalPlan {
@@ -431,45 +427,52 @@
     }
 }
 
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>MergeScanExec {
+<span class="kw">pub struct </span>MergeScanExec {
     table: TableName,
-    peers: Vec&lt;Peer&gt;,
+    regions: Vec&lt;RegionId&gt;,
     substrait_plan: Bytes,
     schema: SchemaRef,
     arrow_schema: ArrowSchemaRef,
-    clients: Arc&lt;DatanodeClients&gt;,
+    region_query_handler: RegionQueryHandlerRef,
     metric: ExecutionPlanMetricsSet,
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>MergeScanExec {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">&quot;MergeScanExec&quot;</span>)
+            .field(<span class="string">&quot;table&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.table)
+            .field(<span class="string">&quot;regions&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.regions)
+            .field(<span class="string">&quot;schema&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.schema)
+            .finish()
+    }
 }
 
 <span class="kw">impl </span>MergeScanExec {
     <span class="kw">pub fn </span>new(
         table: TableName,
-        peers: Vec&lt;Peer&gt;,
+        regions: Vec&lt;RegionId&gt;,
         substrait_plan: Bytes,
         arrow_schema: <span class="kw-2">&amp;</span>ArrowSchema,
-        clients: Arc&lt;DatanodeClients&gt;,
+        region_query_handler: RegionQueryHandlerRef,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>arrow_schema_without_metadata = <span class="self">Self</span>::arrow_schema_without_metadata(arrow_schema);
         <span class="kw">let </span>schema_without_metadata =
             <span class="self">Self</span>::arrow_schema_to_schema(arrow_schema_without_metadata.clone())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             table,
-            peers,
+            regions,
             substrait_plan,
             schema: schema_without_metadata,
             arrow_schema: arrow_schema_without_metadata,
-            clients,
+            region_query_handler,
             metric: ExecutionPlanMetricsSet::new(),
         })
     }
 
-    <span class="kw">pub fn </span>to_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, context: Arc&lt;TaskContext&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
+    <span class="kw">pub fn </span>to_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _context: Arc&lt;TaskContext&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
         <span class="kw">let </span>substrait_plan = <span class="self">self</span>.substrait_plan.to_vec();
-        <span class="kw">let </span>peers = <span class="self">self</span>.peers.clone();
-        <span class="kw">let </span>clients = <span class="self">self</span>.clients.clone();
-        <span class="kw">let </span>table = <span class="self">self</span>.table.clone();
-        <span class="kw">let </span>trace_id = context.task_id().and_then(|id| id.parse().ok());
+        <span class="kw">let </span>regions = <span class="self">self</span>.regions.clone();
+        <span class="kw">let </span>region_query_handler = <span class="self">self</span>.region_query_handler.clone();
         <span class="kw">let </span>metric = MergeScanMetric::new(<span class="kw-2">&amp;</span><span class="self">self</span>.metric);
 
         <span class="kw">let </span>stream = Box::pin(<span class="macro">stream!</span>({
@@ -477,26 +480,17 @@
             <span class="kw">let </span><span class="kw-2">mut </span>ready_timer = metric.ready_time().timer();
             <span class="kw">let </span><span class="kw-2">mut </span>first_consume_timer = <span class="prelude-val">Some</span>(metric.first_consume_time().timer());
 
-            <span class="kw">for </span>peer <span class="kw">in </span>peers {
-                <span class="kw">let </span>client = clients.get_client(<span class="kw-2">&amp;</span>peer).<span class="kw">await</span>;
-                <span class="kw">let </span>database = Database::new(<span class="kw-2">&amp;</span>table.catalog_name, <span class="kw-2">&amp;</span>table.schema_name, client);
-                <span class="kw">let </span>output: Output = database
-                    .logical_plan(substrait_plan.clone(), trace_id)
-                    .<span class="kw">await
-                    </span>.context(RemoteRequestSnafu)
-                    .map_err(BoxedError::new)
-                    .context(ExternalSnafu)<span class="question-mark">?</span>;
-
-                <span class="kw">let </span>Output::Stream(<span class="kw-2">mut </span>stream) = output <span class="kw">else </span>{
-                    <span class="kw">yield </span>UnexpectedOutputKindSnafu {
-                        expected: <span class="string">&quot;Stream&quot;</span>,
-                        got: <span class="string">&quot;RecordBatches or AffectedRows&quot;</span>,
-                    }
-                    .fail()
-                    .map_err(BoxedError::new)
-                    .context(ExternalSnafu);
-                    <span class="kw">return</span>;
+            <span class="kw">for </span>region_id <span class="kw">in </span>regions {
+                <span class="kw">let </span>request = QueryRequest {
+                    header: <span class="prelude-val">None</span>,
+                    region_id: region_id.into(),
+                    plan: substrait_plan.clone(),
                 };
+                <span class="kw">let </span><span class="kw-2">mut </span>stream = region_query_handler
+                    .do_get(request)
+                    .<span class="kw">await
+                    </span>.map_err(BoxedError::new)
+                    .context(ExternalSnafu)<span class="question-mark">?</span>;
 
                 ready_timer.stop();
 
@@ -599,8 +593,8 @@
 <span class="kw">impl </span>DisplayAs <span class="kw">for </span>MergeScanExec {
     <span class="kw">fn </span>fmt_as(<span class="kw-2">&amp;</span><span class="self">self</span>, _t: DisplayFormatType, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
         <span class="macro">write!</span>(f, <span class="string">&quot;MergeScanExec: peers=[&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">for </span>peer <span class="kw">in </span><span class="self">self</span>.peers.iter() {
-            <span class="macro">write!</span>(f, <span class="string">&quot;{}, &quot;</span>, peer)<span class="question-mark">?</span>;
+        <span class="kw">for </span>region_id <span class="kw">in </span><span class="self">self</span>.regions.iter() {
+            <span class="macro">write!</span>(f, <span class="string">&quot;{}, &quot;</span>, region_id)<span class="question-mark">?</span>;
         }
         <span class="macro">write!</span>(f, <span class="string">&quot;]&quot;</span>)
     }

@@ -214,6 +214,7 @@
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -243,7 +244,7 @@
 <span class="kw">use </span>common_error::status_code::StatusCode;
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_runtime::Runtime;
-<span class="kw">use </span>common_telemetry::logging;
+<span class="kw">use </span>common_telemetry::{logging, TRACE_ID};
 <span class="kw">use </span>metrics::{histogram, increment_counter};
 <span class="kw">use </span>session::context::{QueryContextBuilder, QueryContextRef};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
@@ -290,6 +291,7 @@
         <span class="kw">let </span>request_type = request_type(<span class="kw-2">&amp;</span>query).to_string();
         <span class="kw">let </span>db = query_ctx.get_db_string();
         <span class="kw">let </span>timer = RequestTimer::new(db.clone(), request_type);
+        <span class="kw">let </span>trace_id = query_ctx.trace_id();
 
         <span class="comment">// Executes requests in another runtime to
         // 1. prevent the execution from being cancelled unexpected by Tonic runtime;
@@ -298,7 +300,7 @@
         //   - Obtaining a `JoinHandle` to get the panic message (if there&#39;s any).
         //     From its docs, `JoinHandle` is cancel safe. The task keeps running even it&#39;s handle been dropped.
         // 2. avoid the handler blocks the gRPC runtime incidentally.
-        </span><span class="kw">let </span>handle = <span class="self">self</span>.runtime.spawn(<span class="kw">async move </span>{
+        </span><span class="kw">let </span>handle = <span class="self">self</span>.runtime.spawn(TRACE_ID.scope(trace_id, <span class="kw">async move </span>{
             handler.do_query(query, query_ctx).<span class="kw">await</span>.map_err(|e| {
                 <span class="kw">if </span>e.status_code().should_log_error() {
                     <span class="macro">logging::error!</span>(e; <span class="string">&quot;Failed to handle request&quot;</span>);
@@ -308,7 +310,7 @@
                 }
                 e
             })
-        });
+        }));
 
         handle.<span class="kw">await</span>.context(JoinTaskSnafu).map_err(|e| {
             timer.record(e.status_code());
@@ -386,7 +388,7 @@
     QueryContextBuilder::default()
         .current_catalog(catalog.to_string())
         .current_schema(schema.to_string())
-        .try_trace_id(header.and_then(|h: <span class="kw-2">&amp;</span>RequestHeader| h.trace_id))
+        .try_trace_id(header.map(|h| h.trace_id))
         .build()
 }
 

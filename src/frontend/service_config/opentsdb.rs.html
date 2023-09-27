@@ -28,6 +28,8 @@
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -46,6 +48,7 @@
 
 <span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>OpentsdbOptions {
+    <span class="kw">pub </span>enable: bool,
     <span class="kw">pub </span>addr: String,
     <span class="kw">pub </span>runtime_size: usize,
 }
@@ -53,6 +56,7 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>OpentsdbOptions {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            enable: <span class="bool-val">true</span>,
             addr: <span class="string">&quot;127.0.0.1:4242&quot;</span>.to_string(),
             runtime_size: <span class="number">2</span>,
         }

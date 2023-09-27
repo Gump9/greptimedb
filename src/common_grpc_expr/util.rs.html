@@ -304,9 +304,11 @@
 
         <span class="kw">let </span>column_def = ColumnDef {
             name: column_name.to_string(),
-            datatype,
+            data_type: datatype,
             is_nullable,
             default_constraint: <span class="macro">vec!</span>[],
+            semantic_type,
+            comment: String::new(),
         };
         column_defs.push(column_def);
     }
@@ -326,8 +328,6 @@
         create_if_not_exists: <span class="bool-val">true</span>,
         table_options: Default::default(),
         table_id: table_id.map(|id| api::v1::TableId { id }),
-        <span class="comment">// TODO(hl): region number should be allocated by frontend
-        </span>region_numbers: <span class="macro">vec!</span>[<span class="number">0</span>],
         engine: engine.to_string(),
     };
 
@@ -342,16 +342,16 @@
         .into_iter()
         .filter(|expr| schema.column_schema_by_name(expr.column_name).is_none())
         .map(|expr| {
-            <span class="kw">let </span>is_key = expr.semantic_type == SemanticType::Tag <span class="kw">as </span>i32;
             <span class="kw">let </span>column_def = <span class="prelude-val">Some</span>(ColumnDef {
                 name: expr.column_name.to_string(),
-                datatype: expr.datatype,
+                data_type: expr.datatype,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: expr.semantic_type,
+                comment: String::new(),
             });
             AddColumn {
                 column_def,
-                is_key,
                 location: <span class="prelude-val">None</span>,
             }
         })

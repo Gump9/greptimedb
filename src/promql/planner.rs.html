@@ -2114,6 +2114,10 @@
 <a href="#2114" id="2114">2114</a>
 <a href="#2115" id="2115">2115</a>
 <a href="#2116" id="2116">2116</a>
+<a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -3491,8 +3495,8 @@
 </span><span class="kw">mod </span>test {
     <span class="kw">use </span>std::time::{Duration, UNIX_EPOCH};
 
-    <span class="kw">use </span>catalog::local::MemoryCatalogManager;
-    <span class="kw">use </span>catalog::{CatalogManager, RegisterTableRequest};
+    <span class="kw">use </span>catalog::memory::MemoryCatalogManager;
+    <span class="kw">use </span>catalog::RegisterTableRequest;
     <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
     <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
     <span class="kw">use </span>datatypes::schema::{ColumnSchema, Schema};
@@ -3545,18 +3549,17 @@
             .meta(table_meta)
             .build()
             .unwrap();
-        <span class="kw">let </span>table = Arc::new(EmptyTable::from_table_info(<span class="kw-2">&amp;</span>table_info));
+        <span class="kw">let </span>table = EmptyTable::from_table_info(<span class="kw-2">&amp;</span>table_info);
         <span class="kw">let </span>catalog_list = MemoryCatalogManager::with_default_setup();
         <span class="macro">assert!</span>(catalog_list
-            .register_table(RegisterTableRequest {
+            .register_table_sync(RegisterTableRequest {
                 catalog: DEFAULT_CATALOG_NAME.to_string(),
                 schema: DEFAULT_SCHEMA_NAME.to_string(),
                 table_name,
                 table_id: <span class="number">1024</span>,
                 table,
             })
-            .<span class="kw">await
-            </span>.is_ok());
+            .is_ok());
         DfTableSourceProvider::new(catalog_list, <span class="bool-val">false</span>, QueryContext::arc().as_ref())
     }
 
@@ -4002,10 +4005,9 @@
     }
 
     <span class="attr">#[tokio::test]
-    #[ignore = <span class="string">&quot;pure literal arithmetic is not supported yet&quot;</span>]
     </span><span class="kw">async fn </span>binary_op_literal_literal() {
         <span class="kw">let </span>query = <span class="string">r#&quot;1 + 1&quot;#</span>;
-        <span class="kw">let </span>expected = String::from(<span class="string">&quot;&quot;</span>);
+        <span class="kw">let </span>expected = String::from(<span class="string">&quot;EmptyMetric: range=[0..100000000], interval=[5000] [time:Timestamp(Millisecond, None), value:Float64;N]&quot;</span>);
 
         indie_query_plan_compare(query, expected).<span class="kw">await</span>;
     }
@@ -4026,10 +4028,16 @@
     }
 
     <span class="attr">#[tokio::test]
-    #[ignore = <span class="string">&quot;pure literal arithmetic is not supported yet&quot;</span>]
     </span><span class="kw">async fn </span>bool_with_additional_arithmetic() {
         <span class="kw">let </span>query = <span class="string">&quot;some_metric + (1 == bool 2)&quot;</span>;
-        <span class="kw">let </span>expected = String::from(<span class="string">&quot;&quot;</span>);
+        <span class="kw">let </span>expected = String::from(
+            <span class="string">&quot;Projection: some_metric.tag_0, some_metric.timestamp, some_metric.field_0 + CAST(Float64(1) = Float64(2) AS Float64) AS field_0 + Float64(1) = Float64(2) [tag_0:Utf8, timestamp:Timestamp(Millisecond, None), field_0 + Float64(1) = Float64(2):Float64;N]\
+            \n  PromInstantManipulate: range=[0..100000000], lookback=[1000], interval=[5000], time index=[timestamp] [tag_0:Utf8, timestamp:Timestamp(Millisecond, None), field_0:Float64;N]\
+            \n    PromSeriesNormalize: offset=[0], time index=[timestamp], filter NaN: [false] [tag_0:Utf8, timestamp:Timestamp(Millisecond, None), field_0:Float64;N]\
+            \n      PromSeriesDivide: tags=[\&quot;tag_0\&quot;] [tag_0:Utf8, timestamp:Timestamp(Millisecond, None), field_0:Float64;N]\
+            \n        Sort: some_metric.tag_0 DESC NULLS LAST, some_metric.timestamp DESC NULLS LAST [tag_0:Utf8, timestamp:Timestamp(Millisecond, None), field_0:Float64;N]\
+            \n          TableScan: some_metric, unsupported_filters=[timestamp &gt;= TimestampMillisecond(-1000, None), timestamp &lt;= TimestampMillisecond(100001000, None)] [tag_0:Utf8, timestamp:Timestamp(Millisecond, None), field_0:Float64;N]&quot;
+        </span>);
 
         indie_query_plan_compare(query, expected).<span class="kw">await</span>;
     }

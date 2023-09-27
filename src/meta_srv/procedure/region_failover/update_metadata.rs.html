@@ -397,6 +397,15 @@
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -412,7 +421,7 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>common_meta::key::table_route::NextTableRouteKey;
+<span class="kw">use </span>common_meta::key::table_route::TableRouteKey;
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::rpc::router::RegionRoute;
 <span class="kw">use </span>common_meta::RegionIdent;
@@ -422,18 +431,22 @@
 
 <span class="kw">use </span><span class="kw">super</span>::invalidate_cache::InvalidateCache;
 <span class="kw">use super</span>::{RegionFailoverContext, State};
-<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, RetryLaterSnafu};
+<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, RetryLaterSnafu, TableRouteNotFoundSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::lock::keys::table_metadata_lock_key;
 <span class="kw">use </span><span class="kw">crate</span>::lock::Opts;
 
 <span class="attr">#[derive(Serialize, Deserialize, Debug)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>UpdateRegionMetadata {
     candidate: Peer,
+    region_storage_path: String,
 }
 
 <span class="kw">impl </span>UpdateRegionMetadata {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(candidate: Peer) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ candidate }
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(candidate: Peer, region_storage_path: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            candidate,
+            region_storage_path,
+        }
     }
 
     <span class="doccomment">/// Updates the metadata of the table.
@@ -456,7 +469,8 @@
         ctx: <span class="kw-2">&amp;</span>RegionFailoverContext,
         failed_region: <span class="kw-2">&amp;</span>RegionIdent,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>table_id = failed_region.table_ident.table_id;
+        <span class="kw">let </span>table_id = failed_region.table_id;
+        <span class="kw">let </span>engine = <span class="kw-2">&amp;</span>failed_region.engine;
 
         <span class="kw">let </span>table_route_value = ctx
             .table_metadata_manager
@@ -464,9 +478,7 @@
             .get(table_id)
             .<span class="kw">await
             </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?
-            </span>.with_context(|| error::TableRouteNotFoundSnafu {
-                table_name: failed_region.table_ident.table_ref().to_string(),
-            })<span class="question-mark">?</span>;
+            </span>.context(TableRouteNotFoundSnafu { table_id })<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>new_region_routes = table_route_value.region_routes.clone();
 
@@ -478,13 +490,19 @@
         }
 
         pretty_log_table_route_change(
-            NextTableRouteKey::new(table_id).to_string(),
+            TableRouteKey::new(table_id).to_string(),
             <span class="kw-2">&amp;</span>new_region_routes,
             failed_region,
         );
 
         ctx.table_metadata_manager
-            .update_table_route(table_id, table_route_value, new_region_routes)
+            .update_table_route(
+                table_id,
+                engine,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.region_storage_path,
+                table_route_value,
+                new_region_routes,
+            )
             .<span class="kw">await
             </span>.context(error::UpdateTableRouteSnafu)<span class="question-mark">?</span>;
 
@@ -564,7 +582,7 @@
         <span class="kw">let </span>env = TestingEnvBuilder::new().build().<span class="kw">await</span>;
         <span class="kw">let </span>failed_region = env.failed_region(<span class="number">1</span>).<span class="kw">await</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>state = UpdateRegionMetadata::new(Peer::new(<span class="number">2</span>, <span class="string">&quot;&quot;</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>state = UpdateRegionMetadata::new(Peer::new(<span class="number">2</span>, <span class="string">&quot;&quot;</span>), env.path.clone());
 
         <span class="kw">let </span>next_state = state.next(<span class="kw-2">&amp;</span>env.context, <span class="kw-2">&amp;</span>failed_region).<span class="kw">await</span>.unwrap();
         <span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{next_state:?}&quot;</span>), <span class="string">&quot;InvalidateCache&quot;</span>);
@@ -577,13 +595,13 @@
         <span class="kw">async fn </span>test(env: TestingEnv, failed_region: u32, candidate: u64) -&gt; Vec&lt;RegionRoute&gt; {
             <span class="kw">let </span>failed_region = env.failed_region(failed_region).<span class="kw">await</span>;
 
-            <span class="kw">let </span>state = UpdateRegionMetadata::new(Peer::new(candidate, <span class="string">&quot;&quot;</span>));
+            <span class="kw">let </span>state = UpdateRegionMetadata::new(Peer::new(candidate, <span class="string">&quot;&quot;</span>), env.path.clone());
             state
                 .update_table_route(<span class="kw-2">&amp;</span>env.context, <span class="kw-2">&amp;</span>failed_region)
                 .<span class="kw">await
                 </span>.unwrap();
 
-            <span class="kw">let </span>table_id = failed_region.table_ident.table_id;
+            <span class="kw">let </span>table_id = failed_region.table_id;
 
             env.context
                 .table_metadata_manager
@@ -714,18 +732,18 @@
             <span class="kw">let </span>failed_region_1 = env.failed_region(<span class="number">1</span>).<span class="kw">await</span>;
             <span class="kw">let </span>failed_region_2 = env.failed_region(<span class="number">2</span>).<span class="kw">await</span>;
 
-            <span class="kw">let </span>table_id = failed_region_1.table_ident.table_id;
-
+            <span class="kw">let </span>table_id = failed_region_1.table_id;
+            <span class="kw">let </span>path = env.path.clone();
             <span class="kw">let _ </span>= futures::future::join_all(<span class="macro">vec!</span>[
                 tokio::spawn(<span class="kw">async move </span>{
-                    <span class="kw">let </span>state = UpdateRegionMetadata::new(Peer::new(<span class="number">2</span>, <span class="string">&quot;&quot;</span>));
+                    <span class="kw">let </span>state = UpdateRegionMetadata::new(Peer::new(<span class="number">2</span>, <span class="string">&quot;&quot;</span>), path);
                     state
                         .update_metadata(<span class="kw-2">&amp;</span>ctx_1, <span class="kw-2">&amp;</span>failed_region_1)
                         .<span class="kw">await
                         </span>.unwrap();
                 }),
                 tokio::spawn(<span class="kw">async move </span>{
-                    <span class="kw">let </span>state = UpdateRegionMetadata::new(Peer::new(<span class="number">3</span>, <span class="string">&quot;&quot;</span>));
+                    <span class="kw">let </span>state = UpdateRegionMetadata::new(Peer::new(<span class="number">3</span>, <span class="string">&quot;&quot;</span>), env.path.clone());
                     state
                         .update_metadata(<span class="kw-2">&amp;</span>ctx_2, <span class="kw-2">&amp;</span>failed_region_2)
                         .<span class="kw">await

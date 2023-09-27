@@ -780,6 +780,81 @@
 <a href="#780" id="780">780</a>
 <a href="#781" id="781">781</a>
 <a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -805,7 +880,10 @@
     TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
     TimestampSecondArray,
 };
-<span class="kw">use </span>arrow_array::{IntervalDayTimeArray, IntervalMonthDayNanoArray, IntervalYearMonthArray};
+<span class="kw">use </span>arrow_array::{
+    DurationMicrosecondArray, DurationMillisecondArray, DurationNanosecondArray,
+    DurationSecondArray, IntervalDayTimeArray, IntervalMonthDayNanoArray, IntervalYearMonthArray,
+};
 <span class="kw">use </span>arrow_schema::DataType;
 <span class="kw">use </span>serde_json::Value <span class="kw">as </span>JsonValue;
 <span class="kw">use </span>snafu::OptionExt;
@@ -963,6 +1041,45 @@
                 arrow_schema::IntervalUnit::MonthDayNano =&gt; array
                     .as_any()
                     .downcast_ref::&lt;IntervalMonthDayNanoArray&gt;()
+                    .unwrap()
+                    .to_data(),
+            },
+            arrow_type =&gt; {
+                <span class="kw">return </span>CastTypeSnafu {
+                    msg: <span class="macro">format!</span>(
+                        <span class="string">&quot;Failed to cast arrow array {:?} to interval vector&quot;</span>,
+                        arrow_type,
+                    ),
+                }
+                .fail()<span class="question-mark">?</span>;
+            }
+        };
+        <span class="kw">let </span>concrete_array = PrimitiveArray::&lt;T::ArrowPrimitive&gt;::from(array_data);
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new(concrete_array))
+    }
+
+    <span class="kw">pub fn </span>try_from_arrow_duration_array(array: <span class="kw">impl </span>AsRef&lt;<span class="kw">dyn </span>Array&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>array = array.as_ref();
+        <span class="kw">let </span>array_data = <span class="kw">match </span>array.data_type() {
+            DataType::Duration(unit) =&gt; <span class="kw">match </span>unit {
+                arrow_schema::TimeUnit::Second =&gt; array
+                    .as_any()
+                    .downcast_ref::&lt;DurationSecondArray&gt;()
+                    .unwrap()
+                    .to_data(),
+                arrow_schema::TimeUnit::Millisecond =&gt; array
+                    .as_any()
+                    .downcast_ref::&lt;DurationMillisecondArray&gt;()
+                    .unwrap()
+                    .to_data(),
+                arrow_schema::TimeUnit::Microsecond =&gt; array
+                    .as_any()
+                    .downcast_ref::&lt;DurationMicrosecondArray&gt;()
+                    .unwrap()
+                    .to_data(),
+                arrow_schema::TimeUnit::Nanosecond =&gt; array
+                    .as_any()
+                    .downcast_ref::&lt;DurationNanosecondArray&gt;()
                     .unwrap()
                     .to_data(),
             },
@@ -1320,7 +1437,7 @@
         Time64NanosecondArray,
     };
     <span class="kw">use </span>arrow::datatypes::DataType <span class="kw">as </span>ArrowDataType;
-    <span class="kw">use </span>arrow_array::{IntervalDayTimeArray, IntervalYearMonthArray};
+    <span class="kw">use </span>arrow_array::{DurationSecondArray, IntervalDayTimeArray, IntervalYearMonthArray};
     <span class="kw">use </span>serde_json;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -1328,9 +1445,11 @@
     <span class="kw">use </span><span class="kw">crate</span>::serialize::Serializable;
     <span class="kw">use </span><span class="kw">crate</span>::types::Int64Type;
     <span class="kw">use </span><span class="kw">crate</span>::vectors::{
-        IntervalDayTimeVector, IntervalYearMonthVector, TimeMicrosecondVector,
-        TimeMillisecondVector, TimeNanosecondVector, TimeSecondVector, TimestampMicrosecondVector,
-        TimestampMillisecondVector, TimestampNanosecondVector, TimestampSecondVector,
+        DurationMicrosecondVector, DurationMillisecondVector, DurationNanosecondVector,
+        DurationSecondVector, IntervalDayTimeVector, IntervalYearMonthVector,
+        TimeMicrosecondVector, TimeMillisecondVector, TimeNanosecondVector, TimeSecondVector,
+        TimestampMicrosecondVector, TimestampMillisecondVector, TimestampNanosecondVector,
+        TimestampSecondVector,
     };
 
     <span class="kw">fn </span>check_vec(v: Int32Vector) {
@@ -1558,6 +1677,37 @@
         <span class="kw">let </span>vector = IntervalYearMonthVector::try_from_arrow_interval_array(array).unwrap();
         <span class="macro">assert_eq!</span>(
             IntervalYearMonthVector::from_values(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]),
+            vector
+        );
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_try_from_arrow_duration_array() {
+        <span class="kw">let </span>array: ArrayRef = Arc::new(DurationSecondArray::from(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]));
+        <span class="kw">let </span>vector = DurationSecondVector::try_from_arrow_duration_array(array).unwrap();
+        <span class="macro">assert_eq!</span>(
+            DurationSecondVector::from_values(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]),
+            vector
+        );
+
+        <span class="kw">let </span>array: ArrayRef = Arc::new(DurationMillisecondArray::from(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]));
+        <span class="kw">let </span>vector = DurationMillisecondVector::try_from_arrow_duration_array(array).unwrap();
+        <span class="macro">assert_eq!</span>(
+            DurationMillisecondVector::from_values(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]),
+            vector
+        );
+
+        <span class="kw">let </span>array: ArrayRef = Arc::new(DurationMicrosecondArray::from(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]));
+        <span class="kw">let </span>vector = DurationMicrosecondVector::try_from_arrow_duration_array(array).unwrap();
+        <span class="macro">assert_eq!</span>(
+            DurationMicrosecondVector::from_values(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]),
+            vector
+        );
+
+        <span class="kw">let </span>array: ArrayRef = Arc::new(DurationNanosecondArray::from(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]));
+        <span class="kw">let </span>vector = DurationNanosecondVector::try_from_arrow_duration_array(array).unwrap();
+        <span class="macro">assert_eq!</span>(
+            DurationNanosecondVector::from_values(<span class="macro">vec!</span>[<span class="number">1000</span>, <span class="number">2000</span>, <span class="number">3000</span>]),
             vector
         );
     }

@@ -3,7 +3,7 @@
     atomic_write_dir: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.PathBuf.html" title="struct std::path::PathBuf">PathBuf</a>&gt;,
     enable_path_check: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>POSIX file system support.</p>
-<h2 id="capabilities"><a href="#capabilities">Capabilities</a></h2>
+<h3 id="capabilities"><a href="#capabilities">Capabilities</a></h3>
 <p>This service can be used to:</p>
 <ul>
 <li><input disabled="" type="checkbox" checked=""/>
@@ -31,12 +31,13 @@ list</li>
 <li><input disabled="" type="checkbox" checked=""/>
 blocking</li>
 </ul>
-<h2 id="configuration"><a href="#configuration">Configuration</a></h2>
+<h3 id="configuration"><a href="#configuration">Configuration</a></h3>
 <ul>
 <li><code>root</code>: Set the work dir for backend.</li>
+<li></li>
 </ul>
-<p>Refer to public API docs for more information.</p>
-<h2 id="example"><a href="#example">Example</a></h2><h4 id="via-builder"><a href="#via-builder">Via Builder</a></h4>
+<p>You can refer to <a href="struct.Fs.html" title="struct object_store::services::Fs"><code>FsBuilder</code></a>’s docs for more information</p>
+<h3 id="example"><a href="#example">Example</a></h3><h4 id="via-builder"><a href="#via-builder">Via Builder</a></h4>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Result;
@@ -59,6 +60,11 @@ blocking</li>
 }</code></pre></div>
 </div></details><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.root" class="structfield small-section-header"><a href="#structfield.root" class="anchor field">§</a><code>root: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.PathBuf.html" title="struct std::path::PathBuf">PathBuf</a>&gt;</code></span><span id="structfield.atomic_write_dir" class="structfield small-section-header"><a href="#structfield.atomic_write_dir" class="anchor field">§</a><code>atomic_write_dir: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.PathBuf.html" title="struct std::path::PathBuf">PathBuf</a>&gt;</code></span><span id="structfield.enable_path_check" class="structfield small-section-header"><a href="#structfield.enable_path_check" class="anchor field">§</a><code>enable_path_check: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-FsBuilder" class="impl"><a href="#impl-FsBuilder" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.Fs.html" title="struct object_store::services::Fs">FsBuilder</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.root" class="method"><h4 class="code-header">pub fn <a href="#method.root" class="fn">root</a>(&amp;mut self, root: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>) -&gt; &amp;mut <a class="struct" href="struct.Fs.html" title="struct object_store::services::Fs">FsBuilder</a></h4></section></summary><div class="docblock"><p>Set root for backend.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.atomic_write_dir" class="method"><h4 class="code-header">pub fn <a href="#method.atomic_write_dir" class="fn">atomic_write_dir</a>(&amp;mut self, dir: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>) -&gt; &amp;mut <a class="struct" href="struct.Fs.html" title="struct object_store::services::Fs">FsBuilder</a></h4></section></summary><div class="docblock"><p>Set temp dir for atomic write.</p>
+<h5 id="notes"><a href="#notes">Notes</a></h5>
+<ul>
+<li>When append is enabled, we will not use atomic write
+to avoid data loss and performance issue.</li>
+</ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.enable_path_check" class="method"><h4 class="code-header">pub fn <a href="#method.enable_path_check" class="fn">enable_path_check</a>(&amp;mut self) -&gt; &amp;mut <a class="struct" href="struct.Fs.html" title="struct object_store::services::Fs">FsBuilder</a></h4></section></summary><div class="docblock"><p>OpenDAL requires all input path are normalized to make sure the
 behavior is consistent. By enable path check, we can make sure
 fs will behave the same as other services.</p>

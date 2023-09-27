@@ -1150,7 +1150,7 @@
         <span class="kw">let </span>procedure = loader(<span class="kw-2">&amp;</span>message.data)
             .map_err(|e| {
                 <span class="macro">logging::error!</span>(
-                    <span class="string">&quot;Failed to load procedure data, key: {}, source: {}&quot;</span>,
+                    <span class="string">&quot;Failed to load procedure data, key: {}, source: {:?}&quot;</span>,
                     procedure_id,
                     e
                 );

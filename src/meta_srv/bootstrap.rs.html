@@ -189,11 +189,6 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -256,7 +251,7 @@
     <span class="kw">pub async fn </span>new(opts: MetaSrvOptions) -&gt; <span class="prelude-ty">Result</span>&lt;MetaSrvInstance&gt; {
         <span class="kw">let </span>meta_srv = build_meta_srv(<span class="kw-2">&amp;</span>opts).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>http_srv = Arc::new(
-            HttpServerBuilder::new(opts.http_opts.clone())
+            HttpServerBuilder::new(opts.http.clone())
                 .with_metrics_handler(MetricsHandler)
                 .with_greptime_config_options(opts.to_toml_string())
                 .build(),
@@ -278,14 +273,9 @@
 
         <span class="kw">let </span>meta_srv =
             bootstrap_meta_srv_with_router(<span class="kw-2">&amp;</span><span class="self">self</span>.opts.bind_addr, router(<span class="self">self</span>.meta_srv.clone()), rx);
-        <span class="kw">let </span>addr = <span class="self">self
-            </span>.opts
-            .http_opts
-            .addr
-            .parse()
-            .context(error::ParseAddrSnafu {
-                addr: <span class="kw-2">&amp;</span><span class="self">self</span>.opts.http_opts.addr,
-            })<span class="question-mark">?</span>;
+        <span class="kw">let </span>addr = <span class="self">self</span>.opts.http.addr.parse().context(error::ParseAddrSnafu {
+            addr: <span class="kw-2">&amp;</span><span class="self">self</span>.opts.http.addr,
+        })<span class="question-mark">?</span>;
         <span class="kw">let </span>http_srv = <span class="self">self</span>.http_srv.start(addr);
         <span class="macro">select! </span>{
             v = meta_srv =&gt; v<span class="question-mark">?</span>,

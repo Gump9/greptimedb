@@ -164,6 +164,13 @@
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -182,8 +189,10 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>common_catalog::consts::DEFAULT_CATALOG_NAME;
+<span class="kw">use </span>common_telemetry::timer;
 <span class="kw">use </span>futures::stream::BoxStream;
 <span class="kw">use </span>futures::StreamExt;
+<span class="kw">use </span>metrics::increment_counter;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 
@@ -191,7 +200,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::key::{TableMetaKey, CATALOG_NAME_KEY_PATTERN, CATALOG_NAME_KEY_PREFIX};
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackendRef;
 <span class="kw">use </span><span class="kw">crate</span>::range_stream::{PaginationStream, DEFAULT_PAGE_SIZE};
-<span class="kw">use </span><span class="kw">crate</span>::rpc::store::{PutRequest, RangeRequest};
+<span class="kw">use </span><span class="kw">crate</span>::rpc::store::RangeRequest;
 <span class="kw">use </span><span class="kw">crate</span>::rpc::KeyValue;
 
 <span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
@@ -267,22 +276,27 @@
     }
 
     <span class="doccomment">/// Creates `CatalogNameKey`.
-    </span><span class="kw">pub async fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>, catalog: CatalogNameKey&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>raw_key = catalog.as_raw_key();
+    </span><span class="kw">pub async fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>, catalog: CatalogNameKey&lt;<span class="lifetime">&#39;_</span>&gt;, if_not_exists: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>_timer = <span class="macro">timer!</span>(<span class="kw">crate</span>::metrics::METRIC_META_CREATE_CATALOG);
 
-        <span class="kw">let </span>req = PutRequest::new()
-            .with_key(raw_key)
-            .with_value(CatalogNameValue.try_as_raw_value()<span class="question-mark">?</span>);
-        <span class="self">self</span>.kv_backend.put(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>raw_key = catalog.as_raw_key();
+        <span class="kw">let </span>raw_value = CatalogNameValue.try_as_raw_value()<span class="question-mark">?</span>;
+        <span class="kw">if </span><span class="self">self
+            </span>.kv_backend
+            .put_conditionally(raw_key, raw_value, if_not_exists)
+            .<span class="kw">await</span><span class="question-mark">?
+        </span>{
+            <span class="macro">increment_counter!</span>(<span class="kw">crate</span>::metrics::METRIC_META_CREATE_CATALOG);
+        }
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub async fn </span>exist(<span class="kw-2">&amp;</span><span class="self">self</span>, catalog: CatalogNameKey&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+    <span class="kw">pub async fn </span>exists(<span class="kw-2">&amp;</span><span class="self">self</span>, catalog: CatalogNameKey&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
         <span class="kw">let </span>raw_key = catalog.as_raw_key();
 
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.kv_backend.get(<span class="kw-2">&amp;</span>raw_key).<span class="kw">await</span><span class="question-mark">?</span>.is_some())
-    }
+        <span class="self">self</span>.kv_backend.exists(<span class="kw-2">&amp;</span>raw_key).<span class="kw">await
+    </span>}
 
     <span class="kw">pub async fn </span>catalog_names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BoxStream&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;String&gt;&gt; {
         <span class="kw">let </span>start_key = CatalogNameKey::range_start_key();
@@ -321,13 +335,13 @@
 
         <span class="kw">let </span>catalog_key = CatalogNameKey::new(<span class="string">&quot;my-catalog&quot;</span>);
 
-        manager.create(catalog_key).<span class="kw">await</span>.unwrap();
+        manager.create(catalog_key, <span class="bool-val">false</span>).<span class="kw">await</span>.unwrap();
 
-        <span class="macro">assert!</span>(manager.exist(catalog_key).<span class="kw">await</span>.unwrap());
+        <span class="macro">assert!</span>(manager.exists(catalog_key).<span class="kw">await</span>.unwrap());
 
         <span class="kw">let </span>wrong_catalog_key = CatalogNameKey::new(<span class="string">&quot;my-wrong&quot;</span>);
 
-        <span class="macro">assert!</span>(!manager.exist(wrong_catalog_key).<span class="kw">await</span>.unwrap());
+        <span class="macro">assert!</span>(!manager.exists(wrong_catalog_key).<span class="kw">await</span>.unwrap());
     }
 }
 </code></pre></div></section></main></body></html>

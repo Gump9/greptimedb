@@ -88,10 +88,10 @@
 <span class="kw">pub async fn </span>alive_datanodes(
     cluster_id: u64,
     meta_peer_client: <span class="kw-2">&amp;</span>MetaPeerClientRef,
-    lease_secs: i64,
+    lease_secs: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;LeaseKey, LeaseValue&gt;&gt; {
     <span class="kw">let </span>lease_filter = |<span class="kw">_</span>: <span class="kw-2">&amp;</span>LeaseKey, v: <span class="kw-2">&amp;</span>LeaseValue| {
-        time_util::current_time_millis() - v.timestamp_millis &lt; lease_secs * <span class="number">1000
+        ((time_util::current_time_millis() - v.timestamp_millis) <span class="kw">as </span>u64) &lt; lease_secs * <span class="number">1000
     </span>};
 
     filter_datanodes(cluster_id, meta_peer_client, lease_filter).<span class="kw">await

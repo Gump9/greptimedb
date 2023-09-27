@@ -94,17 +94,6 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -120,23 +109,20 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>catalog::remote::KvCacheInvalidatorRef;
+<span class="kw">use </span>common_meta::cache_invalidator::{
+    CacheInvalidator, Context, KvCacheInvalidatorRef, TableMetadataCacheInvalidator,
+};
 <span class="kw">use </span>common_meta::error::Result <span class="kw">as </span>MetaResult;
 <span class="kw">use </span>common_meta::heartbeat::handler::{
     HandleControl, HeartbeatResponseHandler, HeartbeatResponseHandlerContext,
 };
-<span class="kw">use </span>common_meta::ident::TableIdent;
 <span class="kw">use </span>common_meta::instruction::{Instruction, InstructionReply, SimpleReply};
-<span class="kw">use </span>common_meta::key::table_info::TableInfoKey;
-<span class="kw">use </span>common_meta::key::table_name::TableNameKey;
-<span class="kw">use </span>common_meta::key::TableMetaKey;
 <span class="kw">use </span>common_telemetry::error;
-<span class="kw">use </span>partition::manager::TableRouteCacheInvalidatorRef;
+<span class="kw">use </span>futures::future::Either;
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>InvalidateTableCacheHandler {
-    backend_cache_invalidator: KvCacheInvalidatorRef,
-    table_route_cache_invalidator: TableRouteCacheInvalidatorRef,
+    table_metadata_cache_invalidator: TableMetadataCacheInvalidator,
 }
 
 <span class="attr">#[async_trait]
@@ -144,22 +130,38 @@
     <span class="kw">fn </span>is_acceptable(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>HeartbeatResponseHandlerContext) -&gt; bool {
         <span class="macro">matches!</span>(
             ctx.incoming_message.as_ref(),
-            <span class="prelude-val">Some</span>((<span class="kw">_</span>, Instruction::InvalidateTableCache { .. }))
+            <span class="prelude-val">Some</span>((<span class="kw">_</span>, Instruction::InvalidateTableIdCache { .. }))
+                | <span class="prelude-val">Some</span>((<span class="kw">_</span>, Instruction::InvalidateTableNameCache { .. }))
         )
     }
 
     <span class="kw">async fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;mut </span>HeartbeatResponseHandlerContext) -&gt; MetaResult&lt;HandleControl&gt; {
-        <span class="comment">// TODO(weny): considers introducing a macro
-        </span><span class="kw">let </span><span class="prelude-val">Some</span>((meta, Instruction::InvalidateTableCache(table_ident))) =
-            ctx.incoming_message.take()
-        <span class="kw">else </span>{
-            <span class="macro">unreachable!</span>(<span class="string">&quot;InvalidateTableCacheHandler: should be guarded by &#39;is_acceptable&#39;&quot;</span>);
+        <span class="kw">let </span>mailbox = ctx.mailbox.clone();
+        <span class="kw">let </span>cache_invalidator = <span class="self">self</span>.table_metadata_cache_invalidator.clone();
+
+        <span class="kw">let </span>(meta, invalidator) = <span class="kw">match </span>ctx.incoming_message.take() {
+            <span class="prelude-val">Some</span>((meta, Instruction::InvalidateTableIdCache(table_id))) =&gt; (
+                meta,
+                Either::Left(<span class="kw">async move </span>{
+                    cache_invalidator
+                        .invalidate_table_id(<span class="kw-2">&amp;</span>Context::default(), table_id)
+                        .<span class="kw">await
+                </span>}),
+            ),
+            <span class="prelude-val">Some</span>((meta, Instruction::InvalidateTableNameCache(table_name))) =&gt; (
+                meta,
+                Either::Right(<span class="kw">async move </span>{
+                    cache_invalidator
+                        .invalidate_table_name(<span class="kw-2">&amp;</span>Context::default(), table_name)
+                        .<span class="kw">await
+                </span>}),
+            ),
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;InvalidateTableCacheHandler: should be guarded by &#39;is_acceptable&#39;&quot;</span>),
         };
 
-        <span class="kw">let </span>mailbox = ctx.mailbox.clone();
-        <span class="kw">let </span>self_ref = <span class="self">self</span>.clone();
         <span class="kw">let </span>_handle = common_runtime::spawn_bg(<span class="kw">async move </span>{
-            self_ref.invalidate_table_cache(table_ident).<span class="kw">await</span>;
+            <span class="comment">// Local cache invalidation always succeeds.
+            </span><span class="kw">let _ </span>= invalidator.<span class="kw">await</span>;
 
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = mailbox
                 .send((
@@ -180,36 +182,12 @@
 }
 
 <span class="kw">impl </span>InvalidateTableCacheHandler {
-    <span class="kw">pub fn </span>new(
-        backend_cache_invalidator: KvCacheInvalidatorRef,
-        table_route_cache_invalidator: TableRouteCacheInvalidatorRef,
-    ) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(backend_cache_invalidator: KvCacheInvalidatorRef) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            backend_cache_invalidator,
-            table_route_cache_invalidator,
+            table_metadata_cache_invalidator: TableMetadataCacheInvalidator::new(
+                backend_cache_invalidator,
+            ),
         }
-    }
-
-    <span class="kw">async fn </span>invalidate_table_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, table_ident: TableIdent) {
-        <span class="kw">let </span>table_id = table_ident.table_id;
-        <span class="self">self</span>.backend_cache_invalidator
-            .invalidate_key(<span class="kw-2">&amp;</span>TableInfoKey::new(table_id).as_raw_key())
-            .<span class="kw">await</span>;
-
-        <span class="self">self</span>.backend_cache_invalidator
-            .invalidate_key(
-                <span class="kw-2">&amp;</span>TableNameKey::new(
-                    <span class="kw-2">&amp;</span>table_ident.catalog,
-                    <span class="kw-2">&amp;</span>table_ident.schema,
-                    <span class="kw-2">&amp;</span>table_ident.table,
-                )
-                .as_raw_key(),
-            )
-            .<span class="kw">await</span>;
-
-        <span class="self">self</span>.table_route_cache_invalidator
-            .invalidate_table_route(table_id)
-            .<span class="kw">await</span>;
     }
 }
 </code></pre></div></section></main></body></html>

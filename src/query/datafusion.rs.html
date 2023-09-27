@@ -711,6 +711,14 @@
 <a href="#711" id="711">711</a>
 <a href="#712" id="712">712</a>
 <a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -767,8 +775,8 @@
 <span class="kw">pub use </span><span class="kw">crate</span>::datafusion::planner::DfContextProviderAdapter;
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     CatalogSnafu, CreateRecordBatchSnafu, CreateSchemaSnafu, DataFusionSnafu,
-    MissingTimestampColumnSnafu, QueryExecutionSnafu, <span class="prelude-ty">Result</span>, TableNotFoundSnafu,
-    UnimplementedSnafu, UnsupportedExprSnafu,
+    MissingTableMutationHandlerSnafu, MissingTimestampColumnSnafu, QueryExecutionSnafu, <span class="prelude-ty">Result</span>,
+    TableNotFoundSnafu, UnimplementedSnafu, UnsupportedExprSnafu,
 };
 <span class="kw">use </span><span class="kw">crate</span>::executor::QueryExecutor;
 <span class="kw">use </span><span class="kw">crate</span>::logical_optimizer::LogicalOptimizer;
@@ -828,7 +836,7 @@
         <span class="kw">let </span>table = <span class="self">self</span>.find_table(<span class="kw-2">&amp;</span>table_name).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>output = <span class="self">self
-            </span>.exec_query_plan(LogicalPlan::DfPlan((<span class="kw-2">*</span>dml.input).clone()), query_ctx)
+            </span>.exec_query_plan(LogicalPlan::DfPlan((<span class="kw-2">*</span>dml.input).clone()), query_ctx.clone())
             .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="kw">match </span>output {
             Output::RecordBatches(batches) =&gt; batches.as_stream(),
@@ -845,8 +853,14 @@
                 .context(QueryExecutionSnafu)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>rows = <span class="kw">match </span>dml.op {
-                WriteOp::Insert =&gt; <span class="self">Self</span>::insert(<span class="kw-2">&amp;</span>table_name, <span class="kw-2">&amp;</span>table, column_vectors).<span class="kw">await</span><span class="question-mark">?</span>,
-                WriteOp::Delete =&gt; <span class="self">Self</span>::delete(<span class="kw-2">&amp;</span>table_name, <span class="kw-2">&amp;</span>table, column_vectors).<span class="kw">await</span><span class="question-mark">?</span>,
+                WriteOp::Insert =&gt; {
+                    <span class="self">self</span>.insert(<span class="kw-2">&amp;</span>table_name, column_vectors, query_ctx.clone())
+                        .<span class="kw">await</span><span class="question-mark">?
+                </span>}
+                WriteOp::Delete =&gt; {
+                    <span class="self">self</span>.delete(<span class="kw-2">&amp;</span>table_name, <span class="kw-2">&amp;</span>table, column_vectors, query_ctx.clone())
+                        .<span class="kw">await</span><span class="question-mark">?
+                </span>}
                 <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;guarded by the &#39;ensure!&#39; at the beginning&quot;</span>),
             };
             affected_rows += rows;
@@ -855,9 +869,11 @@
     }
 
     <span class="kw">async fn </span>delete&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         table_name: <span class="kw-2">&amp;</span>ResolvedTableReference&lt;<span class="lifetime">&#39;a</span>&gt;,
         table: <span class="kw-2">&amp;</span>TableRef,
         column_vectors: HashMap&lt;String, VectorRef&gt;,
+        query_ctx: QueryContextRef,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
         <span class="kw">let </span>catalog_name = table_name.catalog.to_string();
         <span class="kw">let </span>schema_name = table_name.schema.to_string();
@@ -887,32 +903,32 @@
             key_column_values: column_vectors,
         };
 
-        table
-            .delete(request)
+        <span class="self">self</span>.state
+            .table_mutation_handler()
+            .context(MissingTableMutationHandlerSnafu)<span class="question-mark">?
+            </span>.delete(request, query_ctx)
             .<span class="kw">await
-            </span>.map_err(BoxedError::new)
-            .context(QueryExecutionSnafu)
-    }
+    </span>}
 
     <span class="kw">async fn </span>insert&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         table_name: <span class="kw-2">&amp;</span>ResolvedTableReference&lt;<span class="lifetime">&#39;a</span>&gt;,
-        table: <span class="kw-2">&amp;</span>TableRef,
         column_vectors: HashMap&lt;String, VectorRef&gt;,
+        query_ctx: QueryContextRef,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
         <span class="kw">let </span>request = InsertRequest {
             catalog_name: table_name.catalog.to_string(),
             schema_name: table_name.schema.to_string(),
             table_name: table_name.table.to_string(),
             columns_values: column_vectors,
-            region_number: <span class="number">0</span>,
         };
 
-        table
-            .insert(request)
+        <span class="self">self</span>.state
+            .table_mutation_handler()
+            .context(MissingTableMutationHandlerSnafu)<span class="question-mark">?
+            </span>.insert(request, query_ctx)
             .<span class="kw">await
-            </span>.map_err(BoxedError::new)
-            .context(QueryExecutionSnafu)
-    }
+    </span>}
 
     <span class="kw">async fn </span>find_table(<span class="kw-2">&amp;</span><span class="self">self</span>, table_name: <span class="kw-2">&amp;</span>ResolvedTableReference&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;TableRef&gt; {
         <span class="kw">let </span>catalog_name = table_name.catalog.as_ref();
@@ -1199,7 +1215,7 @@
     <span class="kw">use </span>std::borrow::Cow::Borrowed;
     <span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">use </span>catalog::{CatalogManager, RegisterTableRequest};
+    <span class="kw">use </span>catalog::RegisterTableRequest;
     <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, NUMBERS_TABLE_ID};
     <span class="kw">use </span>common_query::Output;
     <span class="kw">use </span>common_recordbatch::{util, RecordBatch};
@@ -1220,7 +1236,7 @@
     <span class="kw">use </span><span class="kw">crate</span>::query_engine::{QueryEngineFactory, QueryEngineRef};
 
     <span class="kw">async fn </span>create_test_engine() -&gt; QueryEngineRef {
-        <span class="kw">let </span>catalog_manager = catalog::local::new_memory_catalog_manager().unwrap();
+        <span class="kw">let </span>catalog_manager = catalog::memory::new_memory_catalog_manager().unwrap();
         <span class="kw">let </span>req = RegisterTableRequest {
             catalog: DEFAULT_CATALOG_NAME.to_string(),
             schema: DEFAULT_SCHEMA_NAME.to_string(),
@@ -1228,9 +1244,9 @@
             table_id: NUMBERS_TABLE_ID,
             table: NumbersTable::table(NUMBERS_TABLE_ID),
         };
-        <span class="kw">let _ </span>= catalog_manager.register_table(req).<span class="kw">await</span>.unwrap();
+        catalog_manager.register_table_sync(req).unwrap();
 
-        QueryEngineFactory::new(catalog_manager, <span class="bool-val">false</span>).query_engine()
+        QueryEngineFactory::new(catalog_manager, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>).query_engine()
     }
 
     <span class="attr">#[tokio::test]

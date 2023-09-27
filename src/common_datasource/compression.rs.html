@@ -179,6 +179,7 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -201,12 +202,13 @@
 <span class="kw">use </span>async_compression::tokio::write;
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures::Stream;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>strum::EnumIter;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncWriteExt, BufReader};
 <span class="kw">use </span>tokio_util::io::{ReaderStream, StreamReader};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, <span class="prelude-ty">Result</span>};
-<span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
+<span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Serialize, Deserialize)]
 </span><span class="kw">pub enum </span>CompressionType {
     <span class="doccomment">/// Gzip-ed file
     </span>Gzip,

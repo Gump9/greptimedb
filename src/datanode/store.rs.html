@@ -133,6 +133,40 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -155,26 +189,26 @@
 <span class="kw">mod </span>oss;
 <span class="kw">mod </span>s3;
 
-<span class="kw">use </span>std::path;
 <span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>std::{env, path};
 
 <span class="kw">use </span>common_base::readable_size::ReadableSize;
 <span class="kw">use </span>common_telemetry::logging::info;
 <span class="kw">use </span>object_store::layers::{LoggingLayer, LruCacheLayer, MetricsLayer, RetryLayer, TracingLayer};
 <span class="kw">use </span>object_store::services::Fs <span class="kw">as </span>FsBuilder;
-<span class="kw">use </span>object_store::{util, ObjectStore, ObjectStoreBuilder};
+<span class="kw">use </span>object_store::util::normalize_dir;
+<span class="kw">use </span>object_store::{util, HttpClient, ObjectStore, ObjectStoreBuilder};
 <span class="kw">use </span>snafu::prelude::<span class="kw-2">*</span>;
 
-<span class="kw">use </span><span class="kw">crate</span>::datanode::{ObjectStoreConfig, DEFAULT_OBJECT_STORE_CACHE_SIZE};
+<span class="kw">use </span><span class="kw">crate</span>::config::{DatanodeOptions, ObjectStoreConfig, DEFAULT_OBJECT_STORE_CACHE_SIZE};
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new_object_store(
-    data_home: <span class="kw-2">&amp;</span>str,
-    store_config: <span class="kw-2">&amp;</span>ObjectStoreConfig,
-) -&gt; <span class="prelude-ty">Result</span>&lt;ObjectStore&gt; {
-    <span class="kw">let </span>object_store = <span class="kw">match </span>store_config {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>new_object_store(opts: <span class="kw-2">&amp;</span>DatanodeOptions) -&gt; <span class="prelude-ty">Result</span>&lt;ObjectStore&gt; {
+    <span class="kw">let </span>data_home = normalize_dir(<span class="kw-2">&amp;</span>opts.storage.data_home);
+    <span class="kw">let </span>object_store = <span class="kw">match </span><span class="kw-2">&amp;</span>opts.storage.store {
         ObjectStoreConfig::File(file_config) =&gt; {
-            fs::new_fs_object_store(data_home, file_config).<span class="kw">await
+            fs::new_fs_object_store(<span class="kw-2">&amp;</span>data_home, file_config).<span class="kw">await
         </span>}
         ObjectStoreConfig::S3(s3_config) =&gt; s3::new_s3_object_store(s3_config).<span class="kw">await</span>,
         ObjectStoreConfig::Oss(oss_config) =&gt; oss::new_oss_object_store(oss_config).<span class="kw">await</span>,
@@ -185,8 +219,9 @@
     }<span class="question-mark">?</span>;
 
     <span class="comment">// Enable retry layer and cache layer for non-fs object storages
-    </span><span class="kw">let </span>object_store = <span class="kw">if </span>!<span class="macro">matches!</span>(store_config, ObjectStoreConfig::File(..)) {
-        <span class="kw">let </span>object_store = create_object_store_with_cache(object_store, store_config).<span class="kw">await</span><span class="question-mark">?</span>;
+    </span><span class="kw">let </span>object_store = <span class="kw">if </span>!<span class="macro">matches!</span>(opts.storage.store, ObjectStoreConfig::File(..)) {
+        <span class="kw">let </span>object_store =
+            create_object_store_with_cache(object_store, <span class="kw-2">&amp;</span>opts.storage.store).<span class="kw">await</span><span class="question-mark">?</span>;
         object_store.layer(RetryLayer::new().with_jitter())
     } <span class="kw">else </span>{
         object_store
@@ -267,5 +302,38 @@
     }
 
     <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_http_client() -&gt; <span class="prelude-ty">Result</span>&lt;HttpClient&gt; {
+    <span class="kw">let </span>http_builder = {
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = reqwest::ClientBuilder::new();
+
+        <span class="comment">// Pool max idle per host controls connection pool size.
+        // Default to no limit, set to `0` for disable it.
+        </span><span class="kw">let </span>pool_max_idle_per_host = env::var(<span class="string">&quot;_GREPTIMEDB_HTTP_POOL_MAX_IDLE_PER_HOST&quot;</span>)
+            .ok()
+            .and_then(|v| v.parse::&lt;usize&gt;().ok())
+            .unwrap_or(usize::MAX);
+        builder = builder.pool_max_idle_per_host(pool_max_idle_per_host);
+
+        <span class="comment">// Connect timeout default to 30s.
+        </span><span class="kw">let </span>connect_timeout = env::var(<span class="string">&quot;_GREPTIMEDB_HTTP_CONNECT_TIMEOUT&quot;</span>)
+            .ok()
+            .and_then(|v| v.parse::&lt;u64&gt;().ok())
+            .unwrap_or(<span class="number">30</span>);
+        builder = builder.connect_timeout(Duration::from_secs(connect_timeout));
+
+        <span class="comment">// Pool connection idle timeout default to 90s.
+        </span><span class="kw">let </span>idle_timeout = env::var(<span class="string">&quot;_GREPTIMEDB_HTTP_POOL_IDLE_TIMEOUT&quot;</span>)
+            .ok()
+            .and_then(|v| v.parse::&lt;u64&gt;().ok())
+            .unwrap_or(<span class="number">90</span>);
+
+        builder = builder.pool_idle_timeout(Duration::from_secs(idle_timeout));
+
+        builder
+    };
+
+    HttpClient::build(http_builder).context(error::InitBackendSnafu)
 }
 </code></pre></div></section></main></body></html>

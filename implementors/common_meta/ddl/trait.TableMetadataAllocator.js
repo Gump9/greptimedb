@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"frontend":[["impl <a class=\"trait\" href=\"common_meta/ddl/trait.TableMetadataAllocator.html\" title=\"trait common_meta::ddl::TableMetadataAllocator\">TableMetadataAllocator</a> for <a class=\"struct\" href=\"frontend/instance/standalone/struct.StandaloneTableMetadataCreator.html\" title=\"struct frontend::instance::standalone::StandaloneTableMetadataCreator\">StandaloneTableMetadataCreator</a>"]],
+"meta_srv":[["impl <a class=\"trait\" href=\"common_meta/ddl/trait.TableMetadataAllocator.html\" title=\"trait common_meta::ddl::TableMetadataAllocator\">TableMetadataAllocator</a> for <a class=\"struct\" href=\"meta_srv/table_meta_alloc/struct.MetaSrvTableMetadataAllocator.html\" title=\"struct meta_srv::table_meta_alloc::MetaSrvTableMetadataAllocator\">MetaSrvTableMetadataAllocator</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

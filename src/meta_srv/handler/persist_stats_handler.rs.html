@@ -374,12 +374,12 @@
     <span class="kw">use </span>std::sync::Arc;
 
     <span class="kw">use </span>common_meta::key::TableMetadataManager;
+    <span class="kw">use </span>common_meta::sequence::Sequence;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::cluster::MetaPeerClientBuilder;
     <span class="kw">use </span><span class="kw">crate</span>::handler::{HeartbeatMailbox, Pushers};
     <span class="kw">use </span><span class="kw">crate</span>::keys::StatKey;
-    <span class="kw">use </span><span class="kw">crate</span>::sequence::Sequence;
     <span class="kw">use </span><span class="kw">crate</span>::service::store::cached_kv::LeaderCachedKvStore;
     <span class="kw">use </span><span class="kw">crate</span>::service::store::kv::KvBackendAdapter;
     <span class="kw">use </span><span class="kw">crate</span>::service::store::memory::MemStore;
@@ -390,7 +390,7 @@
         <span class="kw">let </span>kv_store = Arc::new(MemStore::new());
         <span class="kw">let </span>leader_cached_kv_store =
             Arc::new(LeaderCachedKvStore::with_always_leader(kv_store.clone()));
-        <span class="kw">let </span>seq = Sequence::new(<span class="string">&quot;test_seq&quot;</span>, <span class="number">0</span>, <span class="number">10</span>, kv_store.clone());
+        <span class="kw">let </span>seq = Sequence::new(<span class="string">&quot;test_seq&quot;</span>, <span class="number">0</span>, <span class="number">10</span>, KvBackendAdapter::wrap(kv_store.clone()));
         <span class="kw">let </span>mailbox = HeartbeatMailbox::create(Pushers::default(), seq);
         <span class="kw">let </span>meta_peer_client = MetaPeerClientBuilder::default()
             .election(<span class="prelude-val">None</span>)
@@ -430,7 +430,7 @@
         <span class="kw">let </span>val: StatValue = kv.value.try_into().unwrap();
         <span class="comment">// first new stat must be set in kv store immediately
         </span><span class="macro">assert_eq!</span>(<span class="number">1</span>, val.stats.len());
-        <span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="number">1</span>), val.stats[<span class="number">0</span>].region_num);
+        <span class="macro">assert_eq!</span>(<span class="number">1</span>, val.stats[<span class="number">0</span>].region_num);
 
         handle_request_many_times(ctx.clone(), <span class="kw-2">&amp;</span>handler, <span class="number">10</span>).<span class="kw">await</span>;
 
@@ -453,7 +453,7 @@
                 stat: <span class="prelude-val">Some</span>(Stat {
                     cluster_id: <span class="number">3</span>,
                     id: <span class="number">101</span>,
-                    region_num: <span class="prelude-val">Some</span>(i <span class="kw">as _</span>),
+                    region_num: i <span class="kw">as _</span>,
                     ..Default::default()
                 }),
                 ..Default::default()

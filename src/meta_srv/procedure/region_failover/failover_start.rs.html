@@ -131,15 +131,6 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -157,7 +148,6 @@
 </span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
-<span class="kw">use </span>common_meta::ident::TableIdent;
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::RegionIdent;
 <span class="kw">use </span>common_telemetry::info;
@@ -190,15 +180,7 @@
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>selector_ctx = ctx.selector_ctx.clone();
-        <span class="kw">let </span>TableIdent {
-            catalog,
-            schema,
-            table,
-            ..
-        } = <span class="kw-2">&amp;</span>failed_region.table_ident;
-        selector_ctx.catalog = <span class="prelude-val">Some</span>(catalog.to_string());
-        selector_ctx.schema = <span class="prelude-val">Some</span>(schema.to_string());
-        selector_ctx.table = <span class="prelude-val">Some</span>(table.to_string());
+        selector_ctx.table_id = <span class="prelude-val">Some</span>(failed_region.table_id);
 
         <span class="kw">let </span>cluster_id = failed_region.cluster_id;
         <span class="kw">let </span>candidates = ctx

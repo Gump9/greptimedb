@@ -216,6 +216,63 @@
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -230,7 +287,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>arrow::datatypes::{
+</span><span class="kw">use </span>std::str::FromStr;
+
+<span class="kw">use </span>arrow::datatypes::{
     DataType <span class="kw">as </span>ArrowDataType, TimeUnit <span class="kw">as </span>ArrowTimeUnit,
     TimestampMicrosecondType <span class="kw">as </span>ArrowTimestampMicrosecondType,
     TimestampMillisecondType <span class="kw">as </span>ArrowTimestampMillisecondType,
@@ -345,9 +404,16 @@
                     Box::new([&lt;Timestamp <span class="macro-nonterminal">$unit </span>Vector Builder&gt;]::with_capacity(capacity))
                 }
 
-                <span class="kw">fn </span>is_timestamp_compatible(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-                    <span class="bool-val">true
-                </span>}
+                <span class="kw">fn </span>try_cast(<span class="kw-2">&amp;</span><span class="self">self</span>, from: Value)-&gt; <span class="prelude-ty">Option</span>&lt;Value&gt;{
+                    <span class="kw">match </span>from {
+                        Value::Timestamp(v) =&gt; v.convert_to(TimeUnit::<span class="macro-nonterminal">$unit</span>).map(Value::Timestamp),
+                        Value::String(v) =&gt; Timestamp::from_str(v.as_utf8()).map(Value::Timestamp).ok(),
+                        Value::Int64(v) =&gt; <span class="prelude-val">Some</span>(Value::Timestamp(Timestamp::new(v, TimeUnit::<span class="macro-nonterminal">$unit</span>))),
+                        Value::DateTime(v) =&gt; Timestamp::new_second(v.val()).convert_to(TimeUnit::<span class="macro-nonterminal">$unit</span>).map(Value::Timestamp),
+                        Value::Date(v) =&gt; Timestamp::new_second(v.to_secs()).convert_to(TimeUnit::<span class="macro-nonterminal">$unit</span>).map(Value::Timestamp),
+                        <span class="kw">_ </span>=&gt; <span class="prelude-val">None
+                    </span>}
+                }
             }
 
             <span class="kw">impl </span>LogicalPrimitiveType <span class="kw">for </span>[&lt;Timestamp <span class="macro-nonterminal">$unit </span>Type&gt;] {
@@ -412,6 +478,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>common_time::{Date, DateTime};
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
@@ -432,6 +500,52 @@
             TimeUnit::Nanosecond,
             TimestampType::Nanosecond(TimestampNanosecondType).unit()
         );
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_timestamp_cast() {
+        std::env::set_var(<span class="string">&quot;TZ&quot;</span>, <span class="string">&quot;Asia/Shanghai&quot;</span>);
+        <span class="comment">// String -&gt; TimestampSecond
+        </span><span class="kw">let </span>s = Value::String(<span class="string">&quot;2021-01-01 01:02:03&quot;</span>.to_string().into());
+        <span class="kw">let </span>ts = ConcreteDataType::timestamp_second_datatype()
+            .try_cast(s)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(ts, Value::Timestamp(Timestamp::new_second(<span class="number">1609434123</span>)));
+        <span class="comment">// String cast failed
+        </span><span class="kw">let </span>s = Value::String(<span class="string">&quot;12345&quot;</span>.to_string().into());
+        <span class="kw">let </span>ts = ConcreteDataType::timestamp_second_datatype().try_cast(s);
+        <span class="macro">assert_eq!</span>(ts, <span class="prelude-val">None</span>);
+
+        <span class="kw">let </span>n = Value::Int64(<span class="number">1694589525</span>);
+        <span class="comment">// Int64 -&gt; TimestampSecond
+        </span><span class="kw">let </span>ts = ConcreteDataType::timestamp_second_datatype()
+            .try_cast(n)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(ts, Value::Timestamp(Timestamp::new_second(<span class="number">1694589525</span>)));
+
+        <span class="comment">// Datetime -&gt; TimestampSecond
+        </span><span class="kw">let </span>dt = Value::DateTime(DateTime::from(<span class="number">1234567</span>));
+        <span class="kw">let </span>ts = ConcreteDataType::timestamp_second_datatype()
+            .try_cast(dt)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(ts, Value::Timestamp(Timestamp::new_second(<span class="number">1234567</span>)));
+
+        <span class="comment">// Date -&gt; TimestampMillisecond
+        </span><span class="kw">let </span>d = Value::Date(Date::from_str(<span class="string">&quot;1970-01-01&quot;</span>).unwrap());
+        <span class="kw">let </span>ts = ConcreteDataType::timestamp_millisecond_datatype()
+            .try_cast(d)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(ts, Value::Timestamp(Timestamp::new_millisecond(<span class="number">0</span>)));
+
+        <span class="comment">// TimestampSecond -&gt; TimestampMicrosecond
+        </span><span class="kw">let </span>second = Value::Timestamp(Timestamp::new_second(<span class="number">123</span>));
+        <span class="kw">let </span>microsecond = ConcreteDataType::timestamp_microsecond_datatype()
+            .try_cast(second)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(
+            microsecond,
+            Value::Timestamp(Timestamp::new_microsecond(<span class="number">123 </span>* <span class="number">1000000</span>))
+        )
     }
 }
 </code></pre></div></section></main></body></html>

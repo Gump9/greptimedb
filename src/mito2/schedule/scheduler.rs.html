@@ -289,9 +289,7 @@
 <span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tokio_util::sync::CancellationToken;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{
-    InvalidFlumeSenderSnafu, InvalidSchedulerStateSnafu, <span class="prelude-ty">Result</span>, StopSchedulerSnafu,
-};
+<span class="kw">use </span><span class="kw">crate</span>::error::{InvalidSchedulerStateSnafu, InvalidSenderSnafu, <span class="prelude-ty">Result</span>, StopSchedulerSnafu};
 
 <span class="kw">pub type </span>Job = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;;
 
@@ -302,7 +300,7 @@
 
 <span class="doccomment">/// [Scheduler] defines a set of API to schedule Jobs
 </span><span class="attr">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>Scheduler {
+</span><span class="kw">pub trait </span>Scheduler: Send + Sync {
     <span class="doccomment">/// Schedules a Job
     </span><span class="kw">fn </span>schedule(<span class="kw-2">&amp;</span><span class="self">self</span>, job: Job) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
@@ -310,10 +308,12 @@
     </span><span class="kw">async fn </span>stop(<span class="kw-2">&amp;</span><span class="self">self</span>, await_termination: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
 
+<span class="kw">pub type </span>SchedulerRef = Arc&lt;<span class="kw">dyn </span>Scheduler&gt;;
+
 <span class="doccomment">/// Request scheduler based on local state.
 </span><span class="kw">pub struct </span>LocalScheduler {
     <span class="doccomment">/// Sends jobs to flume bounded channel
-    </span>sender: RwLock&lt;<span class="prelude-ty">Option</span>&lt;flume::Sender&lt;Job&gt;&gt;&gt;,
+    </span>sender: RwLock&lt;<span class="prelude-ty">Option</span>&lt;async_channel::Sender&lt;Job&gt;&gt;&gt;,
     <span class="doccomment">/// Task handles
     </span>handles: Mutex&lt;Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
     <span class="doccomment">/// Token used to halt the scheduler
@@ -323,10 +323,11 @@
 }
 
 <span class="kw">impl </span>LocalScheduler {
-    <span class="doccomment">/// cap: flume bounded cap
+    <span class="doccomment">/// Starts a new scheduler.
+    ///
     /// concurrency: the number of bounded receiver
     </span><span class="kw">pub fn </span>new(concurrency: usize) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>(tx, rx) = flume::unbounded();
+        <span class="kw">let </span>(tx, rx) = async_channel::unbounded();
         <span class="kw">let </span>token = CancellationToken::new();
         <span class="kw">let </span>state = Arc::new(AtomicU8::new(STATE_RUNNING));
 
@@ -342,7 +343,7 @@
                         <span class="kw">_ </span>= child.cancelled() =&gt; {
                             <span class="kw">break</span>;
                         }
-                        req_opt = receiver.recv_async() =&gt;{
+                        req_opt = receiver.recv() =&gt;{
                             <span class="kw">if let </span><span class="prelude-val">Ok</span>(job) = req_opt {
                                 job.<span class="kw">await</span>;
                             }
@@ -352,7 +353,7 @@
                 <span class="comment">// When task scheduler is cancelled, we will wait all task finished
                 </span><span class="kw">if </span>state_clone.load(Ordering::Relaxed) == STATE_AWAIT_TERMINATION {
                     <span class="comment">// recv_async waits until all sender&#39;s been dropped.
-                    </span><span class="kw">while let </span><span class="prelude-val">Ok</span>(job) = receiver.recv_async().<span class="kw">await </span>{
+                    </span><span class="kw">while let </span><span class="prelude-val">Ok</span>(job) = receiver.recv().<span class="kw">await </span>{
                         job.<span class="kw">await</span>;
                     }
                     state_clone.store(STATE_STOP, Ordering::Relaxed);
@@ -370,7 +371,7 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>running(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    </span><span class="kw">fn </span>is_running(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.state.load(Ordering::Relaxed) == STATE_RUNNING
     }
 }
@@ -378,25 +379,20 @@
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Scheduler <span class="kw">for </span>LocalScheduler {
     <span class="kw">fn </span>schedule(<span class="kw-2">&amp;</span><span class="self">self</span>, job: Job) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">ensure!</span>(
-            <span class="self">self</span>.state.load(Ordering::Relaxed) == STATE_RUNNING,
-            InvalidSchedulerStateSnafu
-        );
+        <span class="macro">ensure!</span>(<span class="self">self</span>.is_running(), InvalidSchedulerStateSnafu);
+
         <span class="self">self</span>.sender
             .read()
             .unwrap()
             .as_ref()
             .context(InvalidSchedulerStateSnafu)<span class="question-mark">?
-            </span>.send(job)
-            .map_err(|<span class="kw">_</span>| InvalidFlumeSenderSnafu {}.build())
+            </span>.try_send(job)
+            .map_err(|<span class="kw">_</span>| InvalidSenderSnafu {}.build())
     }
 
     <span class="doccomment">/// if await_termination is true, scheduler will wait all tasks finished before stopping
     </span><span class="kw">async fn </span>stop(<span class="kw-2">&amp;</span><span class="self">self</span>, await_termination: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">ensure!</span>(
-            <span class="self">self</span>.state.load(Ordering::Relaxed) == STATE_RUNNING,
-            InvalidSchedulerStateSnafu
-        );
+        <span class="macro">ensure!</span>(<span class="self">self</span>.is_running(), InvalidSchedulerStateSnafu);
         <span class="kw">let </span>state = <span class="kw">if </span>await_termination {
             STATE_AWAIT_TERMINATION
         } <span class="kw">else </span>{
@@ -419,7 +415,11 @@
 <span class="kw">impl </span>Drop <span class="kw">for </span>LocalScheduler {
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">if </span><span class="self">self</span>.state.load(Ordering::Relaxed) != STATE_STOP {
-            <span class="macro">logging::error!</span>(<span class="string">&quot;scheduler must be stopped before dropping, which means the state of scheduler must be STATE_STOP&quot;</span>);
+            <span class="macro">logging::warn!</span>(<span class="string">&quot;scheduler should be stopped before dropping, which means the state of scheduler must be STATE_STOP&quot;</span>);
+
+            <span class="comment">// We didn&#39;t call `stop()` so we cancel all background workers here.
+            </span><span class="self">self</span>.sender.write().unwrap().take();
+            <span class="self">self</span>.cancel_token.cancel();
         }
     }
 }

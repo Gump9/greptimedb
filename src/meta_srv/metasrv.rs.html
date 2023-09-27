@@ -383,6 +383,7 @@
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -404,10 +405,11 @@
 <span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>api::v1::meta::Peer;
-<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>common_greptimedb_telemetry::GreptimeDBTelemetryTask;
 <span class="kw">use </span>common_grpc::channel_manager;
+<span class="kw">use </span>common_meta::ddl::DdlTaskExecutorRef;
 <span class="kw">use </span>common_meta::key::TableMetadataManagerRef;
+<span class="kw">use </span>common_meta::sequence::SequenceRef;
 <span class="kw">use </span>common_procedure::options::ProcedureConfig;
 <span class="kw">use </span>common_procedure::ProcedureManagerRef;
 <span class="kw">use </span>common_telemetry::logging::LoggingOptions;
@@ -415,22 +417,20 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>servers::http::HttpOptions;
 <span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>table::metadata::TableId;
 <span class="kw">use </span>tokio::sync::broadcast::error::RecvError;
 
 <span class="kw">use </span><span class="kw">crate</span>::cluster::MetaPeerClientRef;
-<span class="kw">use </span><span class="kw">crate</span>::ddl::DdlManagerRef;
 <span class="kw">use </span><span class="kw">crate</span>::election::{Election, LeaderChangeMessage};
-<span class="kw">use </span><span class="kw">crate</span>::error::{RecoverProcedureSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{InitMetadataSnafu, RecoverProcedureSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::handler::HeartbeatHandlerGroup;
 <span class="kw">use </span><span class="kw">crate</span>::lock::DistLockRef;
-<span class="kw">use </span><span class="kw">crate</span>::metadata_service::MetadataServiceRef;
 <span class="kw">use </span><span class="kw">crate</span>::pubsub::{PublishRef, SubscribeManagerRef};
 <span class="kw">use </span><span class="kw">crate</span>::selector::{Selector, SelectorType};
-<span class="kw">use </span><span class="kw">crate</span>::sequence::SequenceRef;
 <span class="kw">use </span><span class="kw">crate</span>::service::mailbox::MailboxRef;
 <span class="kw">use </span><span class="kw">crate</span>::service::store::kv::{KvStoreRef, ResettableKvStoreRef};
 <span class="kw">pub const </span>TABLE_ID_SEQ: <span class="kw-2">&amp;</span>str = <span class="string">&quot;table_id&quot;</span>;
-<span class="kw">const </span>METASRV_HOME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/tmp/metasrv&quot;</span>;
+<span class="kw">pub const </span>METASRV_HOME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/tmp/metasrv&quot;</span>;
 
 <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -438,11 +438,10 @@
     <span class="kw">pub </span>bind_addr: String,
     <span class="kw">pub </span>server_addr: String,
     <span class="kw">pub </span>store_addr: String,
-    <span class="kw">pub </span>datanode_lease_secs: i64,
     <span class="kw">pub </span>selector: SelectorType,
     <span class="kw">pub </span>use_memory_store: bool,
-    <span class="kw">pub </span>disable_region_failover: bool,
-    <span class="kw">pub </span>http_opts: HttpOptions,
+    <span class="kw">pub </span>enable_region_failover: bool,
+    <span class="kw">pub </span>http: HttpOptions,
     <span class="kw">pub </span>logging: LoggingOptions,
     <span class="kw">pub </span>procedure: ProcedureConfig,
     <span class="kw">pub </span>datanode: DatanodeOptions,
@@ -456,11 +455,10 @@
             bind_addr: <span class="string">&quot;127.0.0.1:3002&quot;</span>.to_string(),
             server_addr: <span class="string">&quot;127.0.0.1:3002&quot;</span>.to_string(),
             store_addr: <span class="string">&quot;127.0.0.1:2379&quot;</span>.to_string(),
-            datanode_lease_secs: <span class="number">15</span>,
             selector: SelectorType::default(),
             use_memory_store: <span class="bool-val">false</span>,
-            disable_region_failover: <span class="bool-val">false</span>,
-            http_opts: HttpOptions::default(),
+            enable_region_failover: <span class="bool-val">true</span>,
+            http: HttpOptions::default(),
             logging: LoggingOptions {
                 dir: <span class="macro">format!</span>(<span class="string">&quot;{METASRV_HOME}/logs&quot;</span>),
                 ..Default::default()
@@ -480,6 +478,10 @@
     <span class="kw">pub fn </span>to_toml_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         toml::to_string(<span class="kw-2">&amp;</span><span class="self">self</span>).unwrap()
     }
+}
+
+<span class="kw">pub struct </span>MetasrvInfo {
+    <span class="kw">pub </span>server_addr: String,
 }
 
 <span class="comment">// Options for datanode.
@@ -542,13 +544,11 @@
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>SelectorContext {
-    <span class="kw">pub </span>datanode_lease_secs: i64,
     <span class="kw">pub </span>server_addr: String,
+    <span class="kw">pub </span>datanode_lease_secs: u64,
     <span class="kw">pub </span>kv_store: KvStoreRef,
     <span class="kw">pub </span>meta_peer_client: MetaPeerClientRef,
-    <span class="kw">pub </span>catalog: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="kw">pub </span>schema: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="kw">pub </span>table: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="kw">pub </span>table_id: <span class="prelude-ty">Option</span>&lt;TableId&gt;,
 }
 
 <span class="kw">pub type </span>SelectorRef = Arc&lt;<span class="kw">dyn </span>Selector&lt;Context = SelectorContext, Output = Vec&lt;Peer&gt;&gt;&gt;;
@@ -570,9 +570,8 @@
     election: <span class="prelude-ty">Option</span>&lt;ElectionRef&gt;,
     lock: DistLockRef,
     procedure_manager: ProcedureManagerRef,
-    metadata_service: MetadataServiceRef,
     mailbox: MailboxRef,
-    ddl_manager: DdlManagerRef,
+    ddl_executor: DdlTaskExecutorRef,
     table_metadata_manager: TableMetadataManagerRef,
     greptimedb_telemetry_task: Arc&lt;GreptimeDBTelemetryTask&gt;,
     pubsub: <span class="prelude-ty">Option</span>&lt;(PublishRef, SubscribeManagerRef)&gt;,
@@ -613,9 +612,10 @@
                                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = procedure_manager.recover().<span class="kw">await </span>{
                                         <span class="macro">error!</span>(<span class="string">&quot;Failed to recover procedures, error: {e}&quot;</span>);
                                     }
-                                    <span class="kw">let _ </span>= task_handler.start(common_runtime::bg_runtime())
-                                    .map_err(|e| {
-                                        <span class="macro">debug!</span>(<span class="string">&quot;Failed to start greptimedb telemetry task, error: {e}&quot;</span>);
+                                    <span class="kw">let _ </span>= task_handler.start().map_err(|e| {
+                                        <span class="macro">debug!</span>(
+                                            <span class="string">&quot;Failed to start greptimedb telemetry task, error: {e}&quot;
+                                        </span>);
                                     });
                                 }
                                 LeaderChangeMessage::StepDown(leader) =&gt; {
@@ -669,10 +669,11 @@
     }
 
     <span class="kw">async fn </span>create_default_schema_if_not_exist(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.metadata_service
-            .create_schema(DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, <span class="bool-val">true</span>)
+        <span class="self">self</span>.table_metadata_manager
+            .init()
             .<span class="kw">await
-    </span>}
+            </span>.context(InitMetadataSnafu)
+    }
 
     <span class="kw">pub fn </span>shutdown(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.started.store(<span class="bool-val">false</span>, Ordering::Relaxed);
@@ -723,8 +724,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.mailbox
     }
 
-    <span class="kw">pub fn </span>ddl_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DdlManagerRef {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.ddl_manager
+    <span class="kw">pub fn </span>ddl_executor(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DdlTaskExecutorRef {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.ddl_executor
     }
 
     <span class="kw">pub fn </span>procedure_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProcedureManagerRef {
@@ -753,6 +754,7 @@
         <span class="kw">let </span>mailbox = <span class="self">self</span>.mailbox.clone();
         <span class="kw">let </span>election = <span class="self">self</span>.election.clone();
         <span class="kw">let </span>skip_all = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
+        <span class="kw">let </span>table_metadata_manager = <span class="self">self</span>.table_metadata_manager.clone();
 
         Context {
             server_addr,
@@ -764,7 +766,7 @@
             election,
             skip_all,
             is_infancy: <span class="bool-val">false</span>,
-            table_metadata_manager: <span class="self">self</span>.table_metadata_manager.clone(),
+            table_metadata_manager,
         }
     }
 }

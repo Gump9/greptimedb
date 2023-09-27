@@ -292,6 +292,18 @@
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -323,9 +335,9 @@
 <span class="kw">use </span>sqlparser::parser::Parser;
 
 <span class="doccomment">/// TQL extension parser, including:
-/// - TQL EVAL &lt;query&gt;
-/// - TQL EXPLAIN &lt;query&gt;
-/// - TQL ANALYZE &lt;query&gt;
+/// - `TQL EVAL &lt;query&gt;`
+/// - `TQL EXPLAIN &lt;query&gt;`
+/// - `TQL ANALYZE &lt;query&gt;`
 </span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ParserContext&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>parse_tql(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Statement&gt; {
         <span class="kw">let _ </span>= <span class="self">self</span>.parser.next_token();
@@ -460,6 +472,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>snafu::ErrorCompat;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::dialect::GreptimeDbDialect;
     <span class="attr">#[test]
@@ -578,12 +592,22 @@
         <span class="comment">// Invalid duration
         </span><span class="kw">let </span>sql = <span class="string">&quot;TQL EVAL (1676887657, 1676887659, 1m) http_requests_total{environment=~&#39;staging|testing|development&#39;,method!=&#39;GET&#39;} @ 1609746000 offset 5m&quot;</span>;
         <span class="kw">let </span>result = ParserContext::create_with_dialect(sql, <span class="kw-2">&amp;</span>GreptimeDbDialect {}).unwrap_err();
-        <span class="macro">assert!</span>(result.to_string().contains(<span class="string">&quot;Expected ), found: m&quot;</span>));
+        <span class="macro">assert!</span>(result
+            .iter_chain()
+            .last()
+            .unwrap()
+            .to_string()
+            .contains(<span class="string">&quot;Expected ), found: m&quot;</span>));
 
         <span class="comment">// missing end
         </span><span class="kw">let </span>sql = <span class="string">&quot;TQL EVAL (1676887657, &#39;1m&#39;) http_requests_total{environment=~&#39;staging|testing|development&#39;,method!=&#39;GET&#39;} @ 1609746000 offset 5m&quot;</span>;
         <span class="kw">let </span>result = ParserContext::create_with_dialect(sql, <span class="kw-2">&amp;</span>GreptimeDbDialect {}).unwrap_err();
-        <span class="macro">assert!</span>(result.to_string().contains(<span class="string">&quot;Expected ,, found: )&quot;</span>));
+        <span class="macro">assert!</span>(result
+            .iter_chain()
+            .last()
+            .unwrap()
+            .to_string()
+            .contains(<span class="string">&quot;Expected ,, found: )&quot;</span>));
     }
 }
 </code></pre></div></section></main></body></html>

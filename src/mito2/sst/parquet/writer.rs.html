@@ -126,6 +126,37 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -143,6 +174,7 @@
 </span><span class="doccomment">//! Parquet writer.
 
 </span><span class="kw">use </span>common_telemetry::debug;
+<span class="kw">use </span>common_time::Timestamp;
 <span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>parquet::basic::{Compression, Encoding, ZstdLevel};
 <span class="kw">use </span>parquet::file::metadata::KeyValue;
@@ -153,15 +185,15 @@
 <span class="kw">use </span>store_api::storage::consts::SEQUENCE_COLUMN_NAME;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{InvalidMetadataSnafu, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span><span class="kw">crate</span>::read::Source;
+<span class="kw">use </span><span class="kw">crate</span>::read::{Batch, Source};
 <span class="kw">use </span><span class="kw">crate</span>::sst::parquet::format::WriteFormat;
 <span class="kw">use </span><span class="kw">crate</span>::sst::parquet::{SstInfo, WriteOptions, PARQUET_METADATA_KEY};
 <span class="kw">use </span><span class="kw">crate</span>::sst::stream_writer::BufferedWriter;
 
 <span class="doccomment">/// Parquet SST writer.
-</span><span class="kw">pub struct </span>ParquetWriter&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>ParquetWriter {
     <span class="doccomment">/// SST output file path.
-    </span>file_path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    </span>file_path: String,
     <span class="doccomment">/// Input data source.
     </span>source: Source,
     <span class="doccomment">/// Region metadata of the source and the target SST.
@@ -169,10 +201,10 @@
     object_store: ObjectStore,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ParquetWriter&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl </span>ParquetWriter {
     <span class="doccomment">/// Creates a new parquet SST writer.
     </span><span class="kw">pub fn </span>new(
-        file_path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+        file_path: String,
         metadata: RegionMetadataRef,
         source: Source,
         object_store: ObjectStore,
@@ -215,7 +247,7 @@
 
         <span class="kw">let </span>write_format = WriteFormat::new(<span class="self">self</span>.metadata.clone());
         <span class="kw">let </span><span class="kw-2">mut </span>buffered_writer = BufferedWriter::try_new(
-            <span class="self">self</span>.file_path.to_string(),
+            <span class="self">self</span>.file_path.clone(),
             <span class="self">self</span>.object_store.clone(),
             write_format.arrow_schema(),
             <span class="prelude-val">Some</span>(writer_props),
@@ -223,13 +255,13 @@
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
+        <span class="kw">let </span><span class="kw-2">mut </span>stats = SourceStats::default();
         <span class="kw">while let </span><span class="prelude-val">Some</span>(batch) = <span class="self">self</span>.source.next_batch().<span class="kw">await</span><span class="question-mark">? </span>{
+            stats.update(<span class="kw-2">&amp;</span>batch);
             <span class="kw">let </span>arrow_batch = write_format.convert_batch(<span class="kw-2">&amp;</span>batch)<span class="question-mark">?</span>;
 
             buffered_writer.write(<span class="kw-2">&amp;</span>arrow_batch).<span class="kw">await</span><span class="question-mark">?</span>;
         }
-        <span class="comment">// Get stats from the source.
-        </span><span class="kw">let </span>stats = <span class="self">self</span>.source.stats();
 
         <span class="kw">if </span>stats.num_rows == <span class="number">0 </span>{
             <span class="macro">debug!</span>(
@@ -242,7 +274,8 @@
         }
 
         <span class="kw">let </span>(_file_meta, file_size) = buffered_writer.close().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>time_range = (stats.min_timestamp, stats.max_timestamp);
+        <span class="comment">// Safety: num rows &gt; 0 so we must have min/max.
+        </span><span class="kw">let </span>time_range = stats.time_range.unwrap();
 
         <span class="comment">// object_store.write will make sure all bytes are written or an error is raised.
         </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(SstInfo {
@@ -250,6 +283,35 @@
             file_size,
             num_rows: stats.num_rows,
         }))
+    }
+}
+
+<span class="attr">#[derive(Default)]
+</span><span class="kw">struct </span>SourceStats {
+    <span class="doccomment">/// Number of rows fetched.
+    </span>num_rows: usize,
+    <span class="doccomment">/// Time range of fetched batches.
+    </span>time_range: <span class="prelude-ty">Option</span>&lt;(Timestamp, Timestamp)&gt;,
+}
+
+<span class="kw">impl </span>SourceStats {
+    <span class="kw">fn </span>update(<span class="kw-2">&amp;mut </span><span class="self">self</span>, batch: <span class="kw-2">&amp;</span>Batch) {
+        <span class="kw">if </span>batch.is_empty() {
+            <span class="kw">return</span>;
+        }
+
+        <span class="self">self</span>.num_rows += batch.num_rows();
+        <span class="comment">// Safety: batch is not empty.
+        </span><span class="kw">let </span>(min_in_batch, max_in_batch) = (
+            batch.first_timestamp().unwrap(),
+            batch.last_timestamp().unwrap(),
+        );
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(time_range) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.time_range {
+            time_range.<span class="number">0 </span>= time_range.<span class="number">0</span>.min(min_in_batch);
+            time_range.<span class="number">1 </span>= time_range.<span class="number">1</span>.max(max_in_batch);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.time_range = <span class="prelude-val">Some</span>((min_in_batch, max_in_batch));
+        }
     }
 }
 

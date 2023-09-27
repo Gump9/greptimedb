@@ -339,7 +339,7 @@
 <span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>MemtableStats {
     <span class="doccomment">/// The  estimated bytes allocated by this memtable from heap. Result
-    /// of this method may be larger than the estimated based on [`num_rows`] because
+    /// of this method may be larger than the estimated based on `num_rows` because
     /// of the implementor&#39;s pre-alloc behavior.
     </span><span class="kw">pub </span>estimated_bytes: usize,
     <span class="doccomment">/// The max timestamp that this memtable contains.
@@ -562,7 +562,7 @@
     }
 }
 
-<span class="doccomment">/// Default memtable builder that builds [BTreeMemtable].
+<span class="doccomment">/// Default memtable builder that builds `BTreeMemtable`.
 </span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>DefaultMemtableBuilder {
     memtable_id: AtomicU32,

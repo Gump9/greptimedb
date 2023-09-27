@@ -75,6 +75,30 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -103,6 +127,15 @@
 <span class="kw">const </span>SESSION_TOKEN: <span class="kw-2">&amp;</span>str = <span class="string">&quot;session_token&quot;</span>;
 <span class="kw">const </span>REGION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;region&quot;</span>;
 <span class="kw">const </span>ENABLE_VIRTUAL_HOST_STYLE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;enable_virtual_host_style&quot;</span>;
+
+<span class="kw">pub fn </span>is_supported_in_s3(key: <span class="kw-2">&amp;</span>str) -&gt; bool {
+    key == ENDPOINT
+        || key == ACCESS_KEY_ID
+        || key == SECRET_ACCESS_KEY
+        || key == SESSION_TOKEN
+        || key == REGION
+        || key == ENABLE_VIRTUAL_HOST_STYLE
+}
 
 <span class="kw">pub fn </span>build_s3_backend(
     host: <span class="kw-2">&amp;</span>str,
@@ -151,5 +184,20 @@
     <span class="prelude-val">Ok</span>(ObjectStore::new(builder)
         .context(error::BuildBackendSnafu)<span class="question-mark">?
         </span>.finish())
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_is_supported_in_s3() {
+        <span class="macro">assert!</span>(is_supported_in_s3(ENDPOINT));
+        <span class="macro">assert!</span>(is_supported_in_s3(ACCESS_KEY_ID));
+        <span class="macro">assert!</span>(is_supported_in_s3(SECRET_ACCESS_KEY));
+        <span class="macro">assert!</span>(is_supported_in_s3(SESSION_TOKEN));
+        <span class="macro">assert!</span>(is_supported_in_s3(REGION));
+        <span class="macro">assert!</span>(is_supported_in_s3(ENABLE_VIRTUAL_HOST_STYLE));
+        <span class="macro">assert!</span>(!is_supported_in_s3(<span class="string">&quot;foo&quot;</span>))
+    }
 }
 </code></pre></div></section></main></body></html>

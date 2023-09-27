@@ -868,7 +868,7 @@
         serde_json::from_slice(value)
             .map_err(|e| {
                 <span class="comment">// `e` doesn&#39;t impl ErrorExt so we print it as normal error.
-                </span><span class="macro">logging::error!</span>(<span class="string">&quot;Failed to parse value, key: {:?}, source: {}&quot;</span>, key, e);
+                </span><span class="macro">logging::error!</span>(<span class="string">&quot;Failed to parse value, key: {:?}, source: {:?}&quot;</span>, key, e);
                 e
             })
             .ok()

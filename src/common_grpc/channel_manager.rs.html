@@ -631,6 +631,18 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -663,7 +675,9 @@
 
 <span class="kw">const </span>RECYCLE_CHANNEL_INTERVAL_SECS: u64 = <span class="number">60</span>;
 <span class="kw">pub const </span>DEFAULT_GRPC_REQUEST_TIMEOUT_SECS: u64 = <span class="number">10</span>;
-<span class="kw">pub const </span>DEFAULT_GRPC_CONNECT_TIMEOUT_SECS: u64 = <span class="number">10</span>;
+<span class="kw">pub const </span>DEFAULT_GRPC_CONNECT_TIMEOUT_SECS: u64 = <span class="number">1</span>;
+<span class="kw">pub const </span>DEFAULT_MAX_GRPC_RECV_MESSAGE_SIZE: usize = <span class="number">512 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
+<span class="kw">pub const </span>DEFAULT_MAX_GRPC_SEND_MESSAGE_SIZE: usize = <span class="number">512 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
 <span class="macro">lazy_static! </span>{
     <span class="kw">static </span><span class="kw-2">ref </span>ID: AtomicU64 = AtomicU64::new(<span class="number">0</span>);
@@ -880,6 +894,10 @@
     <span class="kw">pub </span>tcp_keepalive: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     <span class="kw">pub </span>tcp_nodelay: bool,
     <span class="kw">pub </span>client_tls: <span class="prelude-ty">Option</span>&lt;ClientTlsOption&gt;,
+    <span class="comment">// Max gRPC receiving(decoding) message size
+    </span><span class="kw">pub </span>max_recv_message_size: usize,
+    <span class="comment">// Max gRPC sending(encoding) message size
+    </span><span class="kw">pub </span>max_send_message_size: usize,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>ChannelConfig {
@@ -898,6 +916,8 @@
             tcp_keepalive: <span class="prelude-val">None</span>,
             tcp_nodelay: <span class="bool-val">true</span>,
             client_tls: <span class="prelude-val">None</span>,
+            max_recv_message_size: DEFAULT_MAX_GRPC_RECV_MESSAGE_SIZE,
+            max_send_message_size: DEFAULT_MAX_GRPC_SEND_MESSAGE_SIZE,
         }
     }
 }
@@ -1162,6 +1182,8 @@
                 tcp_keepalive: <span class="prelude-val">None</span>,
                 tcp_nodelay: <span class="bool-val">true</span>,
                 client_tls: <span class="prelude-val">None</span>,
+                max_recv_message_size: DEFAULT_MAX_GRPC_RECV_MESSAGE_SIZE,
+                max_send_message_size: DEFAULT_MAX_GRPC_SEND_MESSAGE_SIZE,
             },
             default_cfg
         );
@@ -1204,6 +1226,8 @@
                     client_cert_path: <span class="string">&quot;some_cert_path&quot;</span>.to_string(),
                     client_key_path: <span class="string">&quot;some_key_path&quot;</span>.to_string(),
                 }),
+                max_recv_message_size: DEFAULT_MAX_GRPC_RECV_MESSAGE_SIZE,
+                max_send_message_size: DEFAULT_MAX_GRPC_SEND_MESSAGE_SIZE,
             },
             cfg
         );

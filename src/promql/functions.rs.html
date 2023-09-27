@@ -289,7 +289,7 @@
 /// that reduces the numerical error further in cases
 /// where the numbers being summed have a large difference in magnitude
 /// Prometheus&#39;s implementation:
-/// https://github.com/prometheus/prometheus/blob/f55ab2217984770aa1eecd0f2d5f54580029b1c0/promql/functions.go#L782)
+/// &lt;https://github.com/prometheus/prometheus/blob/f55ab2217984770aa1eecd0f2d5f54580029b1c0/promql/functions.go#L782&gt;
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compensated_sum_inc(inc: f64, sum: f64, <span class="kw-2">mut </span>compensation: f64) -&gt; (f64, f64) {
     <span class="kw">let </span>new_sum = sum + inc;
     <span class="kw">if </span>sum.abs() &gt;= inc.abs() {
@@ -302,7 +302,7 @@
 
 <span class="doccomment">/// linear_regression performs a least-square linear regression analysis on the
 /// times and values. It return the slope and intercept based on times and values.
-/// Prometheus&#39;s implementation: https://github.com/prometheus/prometheus/blob/90b2f7a540b8a70d8d81372e6692dcbb67ccbaaa/promql/functions.go#L793-L837
+/// Prometheus&#39;s implementation: &lt;https://github.com/prometheus/prometheus/blob/90b2f7a540b8a70d8d81372e6692dcbb67ccbaaa/promql/functions.go#L793-L837&gt;
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>linear_regression(
     times: <span class="kw-2">&amp;</span>TimestampMillisecondArray,
     values: <span class="kw-2">&amp;</span>Float64Array,

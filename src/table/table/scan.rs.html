@@ -188,6 +188,15 @@
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -214,11 +223,13 @@
 <span class="kw">use </span>common_recordbatch::error::Result <span class="kw">as </span>RecordBatchResult;
 <span class="kw">use </span>common_recordbatch::{RecordBatch, RecordBatchStream, SendableRecordBatchStream};
 <span class="kw">use </span>datafusion::execution::context::TaskContext;
-<span class="kw">use </span>datafusion::physical_plan::metrics::{BaselineMetrics, ExecutionPlanMetricsSet, MetricsSet};
+<span class="kw">use </span>datafusion::physical_plan::metrics::{ExecutionPlanMetricsSet, MetricsSet};
 <span class="kw">use </span>datafusion_physical_expr::PhysicalSortExpr;
 <span class="kw">use </span>datatypes::schema::SchemaRef;
 <span class="kw">use </span>futures::{Stream, StreamExt};
 <span class="kw">use </span>snafu::OptionExt;
+
+<span class="kw">use </span><span class="kw">crate</span>::table::metrics::MemoryUsageMetrics;
 
 <span class="doccomment">/// Adapt greptime&#39;s [SendableRecordBatchStream] to GreptimeDB&#39;s [PhysicalPlan].
 </span><span class="kw">pub struct </span>StreamScanAdapter {
@@ -287,10 +298,10 @@
     ) -&gt; QueryResult&lt;SendableRecordBatchStream&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="self">self</span>.stream.lock().unwrap();
         <span class="kw">let </span>stream = stream.take().context(query_error::ExecuteRepeatedlySnafu)<span class="question-mark">?</span>;
-        <span class="kw">let </span>baseline_metric = BaselineMetrics::new(<span class="kw-2">&amp;</span><span class="self">self</span>.metric, partition);
+        <span class="kw">let </span>mem_usage_metrics = MemoryUsageMetrics::new(<span class="kw-2">&amp;</span><span class="self">self</span>.metric, partition);
         <span class="prelude-val">Ok</span>(Box::pin(StreamWithMetricWrapper {
             stream,
-            metric: baseline_metric,
+            metric: mem_usage_metrics,
         }))
     }
 
@@ -301,7 +312,7 @@
 
 <span class="kw">pub struct </span>StreamWithMetricWrapper {
     stream: SendableRecordBatchStream,
-    metric: BaselineMetrics,
+    metric: MemoryUsageMetrics,
 }
 
 <span class="kw">impl </span>Stream <span class="kw">for </span>StreamWithMetricWrapper {
@@ -309,9 +320,16 @@
 
     <span class="kw">fn </span>poll_next(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
         <span class="kw">let </span>this = <span class="self">self</span>.get_mut();
-        <span class="kw">let </span>_timer = this.metric.elapsed_compute().timer();
         <span class="kw">let </span>poll = this.stream.poll_next_unpin(cx);
-        <span class="kw">if let </span>Poll::Ready(Option::Some(Result::Ok(record_batch))) = <span class="kw-2">&amp;</span>poll {
+        <span class="kw">if let </span>Poll::Ready(<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(record_batch))) = <span class="kw-2">&amp;</span>poll {
+            <span class="kw">let </span>batch_mem_size = record_batch
+                .columns()
+                .iter()
+                .map(|vec_ref| vec_ref.memory_size())
+                .sum::&lt;usize&gt;();
+            <span class="comment">// we don&#39;t record elapsed time here
+            // since it&#39;s calling storage api involving I/O ops
+            </span>this.metric.record_mem_usage(batch_mem_size);
             this.metric.record_output(record_batch.num_rows());
         }
 

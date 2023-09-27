@@ -94,6 +94,7 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -110,6 +111,7 @@
 
 </span><span class="kw">use </span>datafusion_sql::parser::Statement <span class="kw">as </span>DfStatement;
 <span class="kw">use </span>sqlparser::ast::Statement <span class="kw">as </span>SpStatement;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{ConvertToDfStatementSnafu, Error};
 <span class="kw">use </span><span class="kw">crate</span>::statements::alter::AlterTable;
@@ -126,7 +128,7 @@
 
 <span class="doccomment">/// Tokens parsed by `DFParser` are converted into these values.
 </span><span class="attr">#[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub enum </span>Statement {
     <span class="comment">// Query
     </span>Query(Box&lt;Query&gt;),

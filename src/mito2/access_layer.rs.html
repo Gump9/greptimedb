@@ -57,6 +57,39 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -75,45 +108,78 @@
 
 <span class="kw">use </span>object_store::{util, ObjectStore};
 <span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{DeleteSstSnafu, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span><span class="kw">crate</span>::sst::file::FileId;
+<span class="kw">use </span><span class="kw">crate</span>::read::Source;
+<span class="kw">use </span><span class="kw">crate</span>::sst::file::{FileHandle, FileId};
+<span class="kw">use </span><span class="kw">crate</span>::sst::parquet::reader::ParquetReaderBuilder;
+<span class="kw">use </span><span class="kw">crate</span>::sst::parquet::writer::ParquetWriter;
 
 <span class="kw">pub type </span>AccessLayerRef = Arc&lt;AccessLayer&gt;;
 
-<span class="doccomment">/// Sst access layer.
+<span class="doccomment">/// A layer to access SST files under the same directory.
 </span><span class="kw">pub struct </span>AccessLayer {
-    sst_dir: String,
+    region_dir: String,
     object_store: ObjectStore,
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>AccessLayer {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;AccessLayer&quot;</span>)
-            .field(<span class="string">&quot;sst_dir&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sst_dir)
+            .field(<span class="string">&quot;region_dir&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.region_dir)
             .finish()
     }
 }
 
 <span class="kw">impl </span>AccessLayer {
-    <span class="kw">pub fn </span>new(sst_dir: <span class="kw-2">&amp;</span>str, object_store: ObjectStore) -&gt; AccessLayer {
+    <span class="doccomment">/// Returns a new [AccessLayer] for specific `region_dir`.
+    </span><span class="kw">pub fn </span>new(region_dir: <span class="kw">impl </span>Into&lt;String&gt;, object_store: ObjectStore) -&gt; AccessLayer {
         AccessLayer {
-            sst_dir: sst_dir.to_string(),
+            region_dir: region_dir.into(),
             object_store,
         }
     }
 
-    <span class="kw">fn </span>sst_file_path(<span class="kw-2">&amp;</span><span class="self">self</span>, file_name: <span class="kw-2">&amp;</span>str) -&gt; String {
-        util::join_path(<span class="kw-2">&amp;</span><span class="self">self</span>.sst_dir, file_name)
+    <span class="doccomment">/// Returns the directory of the region.
+    </span><span class="kw">pub fn </span>region_dir(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.region_dir
+    }
+
+    <span class="doccomment">/// Returns the object store of the layer.
+    </span><span class="kw">pub fn </span>object_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ObjectStore {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.object_store
     }
 
     <span class="doccomment">/// Deletes a SST file with given file id.
-    </span><span class="kw">pub async fn </span>delete_sst(<span class="kw-2">&amp;</span><span class="self">self</span>, file_id: FileId) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>delete_sst(<span class="kw-2">&amp;</span><span class="self">self</span>, file_id: FileId) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.sst_file_path(<span class="kw-2">&amp;</span>file_id.as_parquet());
         <span class="self">self</span>.object_store
             .delete(<span class="kw-2">&amp;</span>path)
             .<span class="kw">await
             </span>.context(DeleteSstSnafu { file_id })
+    }
+
+    <span class="doccomment">/// Returns a reader builder for specific `file`.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_sst(<span class="kw-2">&amp;</span><span class="self">self</span>, file: FileHandle) -&gt; ParquetReaderBuilder {
+        ParquetReaderBuilder::new(<span class="self">self</span>.region_dir.clone(), file, <span class="self">self</span>.object_store.clone())
+    }
+
+    <span class="doccomment">/// Returns a new parquet writer to write the SST for specific `file_id`.
+    </span><span class="comment">// TODO(hl): maybe rename to [sst_writer].
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_sst(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        file_id: FileId,
+        metadata: RegionMetadataRef,
+        source: Source,
+    ) -&gt; ParquetWriter {
+        <span class="kw">let </span>path = <span class="self">self</span>.sst_file_path(<span class="kw-2">&amp;</span>file_id.as_parquet());
+        ParquetWriter::new(path, metadata, source, <span class="self">self</span>.object_store.clone())
+    }
+
+    <span class="doccomment">/// Returns the `file_path` for the `file_name` in the object store.
+    </span><span class="kw">fn </span>sst_file_path(<span class="kw-2">&amp;</span><span class="self">self</span>, file_name: <span class="kw-2">&amp;</span>str) -&gt; String {
+        util::join_path(<span class="kw-2">&amp;</span><span class="self">self</span>.region_dir, file_name)
     }
 }
 </code></pre></div></section></main></body></html>

@@ -300,6 +300,7 @@
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -315,12 +316,13 @@
 // limitations under the License.
 </span><span class="kw">use </span>sqlparser::ast::{ObjectName, Query, SetExpr, Statement, UnaryOperator, Values};
 <span class="kw">use </span>sqlparser::parser::ParserError;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
 <span class="kw">use </span><span class="kw">crate</span>::ast::{Expr, Value};
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::statements::query::Query <span class="kw">as </span>GtQuery;
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>Insert {
     <span class="comment">// Can only be sqlparser::ast::Statement::Insert variant
     </span><span class="kw">pub </span>inner: Statement,

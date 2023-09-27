@@ -70,6 +70,8 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -94,8 +96,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::keys::{LeaseKey, LeaseValue};
 <span class="kw">use </span><span class="kw">crate</span>::metasrv::Context;
 
-<span class="attr">#[derive(Default)]
-</span><span class="kw">pub struct </span>KeepLeaseHandler;
+<span class="kw">pub struct </span>KeepLeaseHandler;
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>HeartbeatHandler <span class="kw">for </span>KeepLeaseHandler {
@@ -110,12 +111,15 @@
         _acc: <span class="kw-2">&amp;mut </span>HeartbeatAccumulator,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>HeartbeatRequest { header, peer, .. } = req;
+        <span class="kw">let </span><span class="prelude-val">Some</span>(header) = <span class="kw-2">&amp;</span>header <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        };
         <span class="kw">let </span><span class="prelude-val">Some</span>(peer) = <span class="kw-2">&amp;</span>peer <span class="kw">else </span>{
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         };
 
         <span class="kw">let </span>key = LeaseKey {
-            cluster_id: header.as_ref().map_or(<span class="number">0</span>, |h| h.cluster_id),
+            cluster_id: header.cluster_id,
             node_id: peer.id,
         };
         <span class="kw">let </span>value = LeaseValue {

@@ -77,6 +77,44 @@
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -93,17 +131,20 @@
 
 </span><span class="doccomment">//! Configurations.
 
-</span><span class="kw">use </span>common_base::readable_size::ReadableSize;
+</span><span class="kw">use </span>std::time::Duration;
+
+<span class="kw">use </span>common_base::readable_size::ReadableSize;
 <span class="kw">use </span>common_datasource::compression::CompressionType;
 <span class="kw">use </span>common_telemetry::warn;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// Default region worker num.
 </span><span class="kw">const </span>DEFAULT_NUM_WORKERS: usize = <span class="number">1</span>;
-<span class="doccomment">/// Default region write buffer size.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>DEFAULT_WRITE_BUFFER_SIZE: ReadableSize = ReadableSize::mb(<span class="number">32</span>);
+<span class="doccomment">/// Default max running background job.
+</span><span class="kw">const </span>DEFAULT_MAX_BG_JOB: usize = <span class="number">4</span>;
 
 <span class="doccomment">/// Configuration for [MitoEngine](crate::engine::MitoEngine).
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
 </span><span class="kw">pub struct </span>MitoConfig {
     <span class="comment">// Worker configs:
     </span><span class="doccomment">/// Number of region workers (default 1).
@@ -119,6 +160,23 @@
     </span><span class="kw">pub </span>manifest_checkpoint_distance: u64,
     <span class="doccomment">/// Manifest compression type (default uncompressed).
     </span><span class="kw">pub </span>manifest_compress_type: CompressionType,
+
+    <span class="comment">// Background job configs:
+    </span><span class="doccomment">/// Max number of running background jobs (default 4).
+    </span><span class="kw">pub </span>max_background_jobs: usize,
+
+    <span class="comment">// Flush configs:
+    </span><span class="doccomment">/// Interval to auto flush a region if it has not flushed yet (default 30 min).
+    </span><span class="attr">#[serde(with = <span class="string">&quot;humantime_serde&quot;</span>)]
+    </span><span class="kw">pub </span>auto_flush_interval: Duration,
+    <span class="doccomment">/// Global write buffer size threshold to trigger flush (default 1G).
+    </span><span class="kw">pub </span>global_write_buffer_size: ReadableSize,
+    <span class="doccomment">/// Global write buffer size threshold to reject write requests (default 2G).
+    </span><span class="kw">pub </span>global_write_buffer_reject_size: ReadableSize,
+
+    <span class="comment">// Cache configs:
+    </span><span class="doccomment">/// Cache size for SST metadata (default 128MB). Setting it to 0 to disable cache.
+    </span><span class="kw">pub </span>sst_meta_cache_size: ReadableSize,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>MitoConfig {
@@ -129,6 +187,11 @@
             worker_request_batch_size: <span class="number">64</span>,
             manifest_checkpoint_distance: <span class="number">10</span>,
             manifest_compress_type: CompressionType::Uncompressed,
+            max_background_jobs: DEFAULT_MAX_BG_JOB,
+            auto_flush_interval: Duration::from_secs(<span class="number">30 </span>* <span class="number">60</span>),
+            global_write_buffer_size: ReadableSize::gb(<span class="number">1</span>),
+            global_write_buffer_reject_size: ReadableSize::gb(<span class="number">2</span>),
+            sst_meta_cache_size: ReadableSize::mb(<span class="number">128</span>),
         }
     }
 }
@@ -153,6 +216,19 @@
         </span><span class="kw">if </span><span class="self">self</span>.worker_channel_size == <span class="number">0 </span>{
             <span class="macro">warn!</span>(<span class="string">&quot;Sanitize channel size 0 to 1&quot;</span>);
             <span class="self">self</span>.worker_channel_size = <span class="number">1</span>;
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.max_background_jobs == <span class="number">0 </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;Sanitize max background jobs 0 to {}&quot;</span>, DEFAULT_MAX_BG_JOB);
+            <span class="self">self</span>.max_background_jobs = DEFAULT_MAX_BG_JOB;
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.global_write_buffer_reject_size &lt;= <span class="self">self</span>.global_write_buffer_size {
+            <span class="self">self</span>.global_write_buffer_reject_size = <span class="self">self</span>.global_write_buffer_size * <span class="number">2</span>;
+            <span class="macro">warn!</span>(
+                <span class="string">&quot;Sanitize global write buffer reject size to {}&quot;</span>,
+                <span class="self">self</span>.global_write_buffer_reject_size
+            );
         }
     }
 }

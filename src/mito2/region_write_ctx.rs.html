@@ -183,11 +183,6 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -210,11 +205,11 @@
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>store_api::logstore::LogStore;
 <span class="kw">use </span>store_api::storage::{RegionId, SequenceNumber};
-<span class="kw">use </span>tokio::sync::oneshot::Sender;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{Error, <span class="prelude-ty">Result</span>, WriteGroupSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::memtable::KeyValues;
 <span class="kw">use </span><span class="kw">crate</span>::region::version::{VersionControlData, VersionControlRef, VersionRef};
+<span class="kw">use </span><span class="kw">crate</span>::request::OptionOutputTx;
 <span class="kw">use </span><span class="kw">crate</span>::wal::{EntryId, WalWriter};
 
 <span class="doccomment">/// Context to keep region metadata and buffer write requests.
@@ -224,14 +219,14 @@
     <span class="doccomment">/// Error to send to the waiter.
     </span>err: <span class="prelude-ty">Option</span>&lt;Arc&lt;Error&gt;&gt;,
     <span class="doccomment">/// Sender to send write result to the waiter for this mutation.
-    </span>sender: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;&gt;,
+    </span>sender: OptionOutputTx,
     <span class="doccomment">/// Number of rows to be written.
     </span>num_rows: usize,
 }
 
 <span class="kw">impl </span>WriteNotify {
     <span class="doccomment">/// Creates a new notify from the `sender`.
-    </span><span class="kw">fn </span>new(sender: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;&gt;, num_rows: usize) -&gt; WriteNotify {
+    </span><span class="kw">fn </span>new(sender: OptionOutputTx, num_rows: usize) -&gt; WriteNotify {
         WriteNotify {
             err: <span class="prelude-val">None</span>,
             sender,
@@ -241,15 +236,14 @@
 
     <span class="doccomment">/// Send result to the waiter.
     </span><span class="kw">fn </span>notify_result(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">let </span><span class="prelude-val">Some</span>(sender) = <span class="self">self</span>.sender.take() <span class="kw">else </span>{
-            <span class="kw">return</span>;
-        };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(err) = <span class="kw-2">&amp;</span><span class="self">self</span>.err {
             <span class="comment">// Try to send the error to waiters.
-            </span><span class="kw">let _ </span>= sender.send(<span class="prelude-val">Err</span>(err.clone()).context(WriteGroupSnafu));
+            </span><span class="self">self</span>.sender
+                .send_mut(<span class="prelude-val">Err</span>(err.clone()).context(WriteGroupSnafu));
         } <span class="kw">else </span>{
             <span class="comment">// Send success result.
-            </span><span class="kw">let _ </span>= sender.send(<span class="prelude-val">Ok</span>(Output::AffectedRows(<span class="self">self</span>.num_rows)));
+            </span><span class="self">self</span>.sender
+                .send_mut(<span class="prelude-val">Ok</span>(Output::AffectedRows(<span class="self">self</span>.num_rows)));
         }
     }
 }
@@ -292,6 +286,7 @@
             version,
             committed_sequence,
             last_entry_id,
+            ..
         } = version_control.current();
 
         RegionWriteCtx {
@@ -305,13 +300,8 @@
         }
     }
 
-    <span class="doccomment">/// Push [SenderWriteRequest] to the context.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>push_mutation(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        op_type: i32,
-        rows: <span class="prelude-ty">Option</span>&lt;Rows&gt;,
-        tx: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;&gt;,
-    ) {
+    <span class="doccomment">/// Push mutation to the context.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>push_mutation(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op_type: i32, rows: <span class="prelude-ty">Option</span>&lt;Rows&gt;, tx: OptionOutputTx) {
         <span class="kw">let </span>num_rows = rows.as_ref().map(|rows| rows.rows.len()).unwrap_or(<span class="number">0</span>);
         <span class="self">self</span>.wal_entry.mutations.push(Mutation {
             op_type,

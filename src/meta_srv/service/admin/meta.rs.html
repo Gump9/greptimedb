@@ -192,6 +192,7 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -208,6 +209,7 @@
 
 </span><span class="kw">use </span>std::collections::HashMap;
 
+<span class="kw">use </span>common_catalog::parse_full_table_name;
 <span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_meta::key::table_name::TableNameKey;
 <span class="kw">use </span>common_meta::key::TableMetadataManagerRef;
@@ -329,10 +331,10 @@
                     param: <span class="string">&quot;full_table_name&quot;</span>,
                 })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>key: TableNameKey = table_name
-            .as_str()
-            .try_into()
-            .context(TableMetadataManagerSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(catalog, schema, table) =
+            parse_full_table_name(table_name).context(error::InvalidFullTableNameSnafu)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>key = TableNameKey::new(catalog, schema, table);
 
         <span class="kw">let </span><span class="kw-2">mut </span>result = HashMap::with_capacity(<span class="number">2</span>);
 

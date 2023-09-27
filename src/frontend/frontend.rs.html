@@ -117,15 +117,15 @@
     <span class="kw">pub </span>mode: Mode,
     <span class="kw">pub </span>node_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub </span>heartbeat: HeartbeatOptions,
-    <span class="kw">pub </span>http_options: <span class="prelude-ty">Option</span>&lt;HttpOptions&gt;,
-    <span class="kw">pub </span>grpc_options: <span class="prelude-ty">Option</span>&lt;GrpcOptions&gt;,
-    <span class="kw">pub </span>mysql_options: <span class="prelude-ty">Option</span>&lt;MysqlOptions&gt;,
-    <span class="kw">pub </span>postgres_options: <span class="prelude-ty">Option</span>&lt;PostgresOptions&gt;,
-    <span class="kw">pub </span>opentsdb_options: <span class="prelude-ty">Option</span>&lt;OpentsdbOptions&gt;,
-    <span class="kw">pub </span>influxdb_options: <span class="prelude-ty">Option</span>&lt;InfluxdbOptions&gt;,
-    <span class="kw">pub </span>prom_store_options: <span class="prelude-ty">Option</span>&lt;PromStoreOptions&gt;,
-    <span class="kw">pub </span>otlp_options: <span class="prelude-ty">Option</span>&lt;OtlpOptions&gt;,
-    <span class="kw">pub </span>meta_client_options: <span class="prelude-ty">Option</span>&lt;MetaClientOptions&gt;,
+    <span class="kw">pub </span>http: HttpOptions,
+    <span class="kw">pub </span>grpc: GrpcOptions,
+    <span class="kw">pub </span>mysql: MysqlOptions,
+    <span class="kw">pub </span>postgres: PostgresOptions,
+    <span class="kw">pub </span>opentsdb: OpentsdbOptions,
+    <span class="kw">pub </span>influxdb: InfluxdbOptions,
+    <span class="kw">pub </span>prom_store: PromStoreOptions,
+    <span class="kw">pub </span>otlp: OtlpOptions,
+    <span class="kw">pub </span>meta_client: <span class="prelude-ty">Option</span>&lt;MetaClientOptions&gt;,
     <span class="kw">pub </span>logging: LoggingOptions,
     <span class="kw">pub </span>datanode: DatanodeOptions,
 }
@@ -135,16 +135,16 @@
         <span class="self">Self </span>{
             mode: Mode::Standalone,
             node_id: <span class="prelude-val">None</span>,
-            heartbeat: HeartbeatOptions::default(),
-            http_options: <span class="prelude-val">Some</span>(HttpOptions::default()),
-            grpc_options: <span class="prelude-val">Some</span>(GrpcOptions::default()),
-            mysql_options: <span class="prelude-val">Some</span>(MysqlOptions::default()),
-            postgres_options: <span class="prelude-val">Some</span>(PostgresOptions::default()),
-            opentsdb_options: <span class="prelude-val">Some</span>(OpentsdbOptions::default()),
-            influxdb_options: <span class="prelude-val">Some</span>(InfluxdbOptions::default()),
-            prom_store_options: <span class="prelude-val">Some</span>(PromStoreOptions::default()),
-            otlp_options: <span class="prelude-val">Some</span>(OtlpOptions::default()),
-            meta_client_options: <span class="prelude-val">None</span>,
+            heartbeat: HeartbeatOptions::frontend_default(),
+            http: HttpOptions::default(),
+            grpc: GrpcOptions::default(),
+            mysql: MysqlOptions::default(),
+            postgres: PostgresOptions::default(),
+            opentsdb: OpentsdbOptions::default(),
+            influxdb: InfluxdbOptions::default(),
+            prom_store: PromStoreOptions::default(),
+            otlp: OtlpOptions::default(),
+            meta_client: <span class="prelude-val">None</span>,
             logging: LoggingOptions::default(),
             datanode: DatanodeOptions::default(),
         }
@@ -153,7 +153,7 @@
 
 <span class="kw">impl </span>FrontendOptions {
     <span class="kw">pub fn </span>env_list_keys() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str]&gt; {
-        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;meta_client_options.metasrv_addrs&quot;</span>])
+        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;meta_client.metasrv_addrs&quot;</span>])
     }
 
     <span class="kw">pub fn </span>to_toml_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {

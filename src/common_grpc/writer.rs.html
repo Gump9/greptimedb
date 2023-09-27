@@ -479,7 +479,7 @@
         <span class="comment">// It is safe to use unwrap here, because values has been initialized in mut_column()
         </span><span class="kw">let </span>values = column.values.as_mut().unwrap();
         values
-            .ts_millisecond_values
+            .timestamp_millisecond_values
             .push(to_ms_ts(value.<span class="number">1</span>, value.<span class="number">0</span>));
         <span class="self">self</span>.null_masks[idx].push(<span class="bool-val">false</span>);
         <span class="prelude-val">Ok</span>(())
@@ -777,7 +777,7 @@
         <span class="macro">assert_eq!</span>(SemanticType::Timestamp <span class="kw">as </span>i32, column.semantic_type);
         <span class="macro">assert_eq!</span>(
             <span class="macro">vec!</span>[<span class="number">101011000</span>, <span class="number">102011001</span>, <span class="number">103011002</span>],
-            column.values.as_ref().unwrap().ts_millisecond_values
+            column.values.as_ref().unwrap().timestamp_millisecond_values
         );
         verify_null_mask(<span class="kw-2">&amp;</span>column.null_mask, <span class="macro">vec!</span>[<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>]);
 

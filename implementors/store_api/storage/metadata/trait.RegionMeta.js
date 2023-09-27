@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"storage":[["impl RegionMeta for <a class=\"struct\" href=\"storage/metadata/struct.RegionMetaImpl.html\" title=\"struct storage::metadata::RegionMetaImpl\">RegionMetaImpl</a>"]]
+"storage":[["impl <a class=\"trait\" href=\"store_api/storage/metadata/trait.RegionMeta.html\" title=\"trait store_api::storage::metadata::RegionMeta\">RegionMeta</a> for <a class=\"struct\" href=\"storage/metadata/struct.RegionMetaImpl.html\" title=\"struct storage::metadata::RegionMetaImpl\">RegionMetaImpl</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -123,6 +123,16 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -140,11 +150,13 @@
 </span><span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
 <span class="kw">use </span>common_error::{GREPTIME_ERROR_CODE, GREPTIME_ERROR_MSG};
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>snafu::{Location, Snafu};
 <span class="kw">use </span>tonic::Status;
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
     <span class="attr">#[snafu(display(<span class="string">&quot;Illegal GRPC client state: {}&quot;</span>, err_msg))]
     </span>IllegalGrpcClientState { err_msg: String, location: Location },
@@ -158,7 +170,14 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;No leader, should ask leader first&quot;</span>))]
     </span>NoLeader { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create gRPC channel, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Ask leader timeout&quot;</span>))]
+    </span>AskLeaderTimeout {
+        location: Location,
+        <span class="attr">#[snafu(source)]
+        </span>error: tokio::time::error::Elapsed,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create gRPC channel&quot;</span>))]
     </span>CreateChannel {
         location: Location,
         source: common_grpc::error::Error,
@@ -173,19 +192,19 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed create heartbeat stream to server&quot;</span>))]
     </span>CreateHeartbeatStream { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid response header, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid response header&quot;</span>))]
     </span>InvalidResponseHeader {
         location: Location,
         source: common_meta::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Metasrv request, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Metasrv request&quot;</span>))]
     </span>ConvertMetaRequest {
         location: Location,
         source: common_meta::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Metasrv response, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Metasrv response&quot;</span>))]
     </span>ConvertMetaResponse {
         location: Location,
         source: common_meta::error::Error,
@@ -208,6 +227,7 @@
             Error::IllegalGrpcClientState { .. }
             | Error::AskLeader { .. }
             | Error::NoLeader { .. }
+            | Error::AskLeaderTimeout { .. }
             | Error::NotStarted { .. }
             | Error::SendHeartbeat { .. }
             | Error::CreateHeartbeatStream { .. }

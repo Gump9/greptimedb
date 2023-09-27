@@ -478,7 +478,7 @@
 }
 
 <span class="doccomment">/// Owned scalar value
-/// primitive types, bool, Vec&lt;u8&gt; ...
+/// e.g. primitive types, bool, `Vec&lt;u8&gt;` ...
 </span><span class="kw">pub trait </span>Scalar: <span class="lifetime">&#39;static </span>+ Sized + Default + Any
 <span class="kw">where
     for</span>&lt;<span class="lifetime">&#39;a</span>&gt; <span class="self">Self</span>::VectorType: ScalarVector&lt;RefItem&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="self">Self</span>::RefType&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,

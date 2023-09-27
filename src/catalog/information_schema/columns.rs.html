@@ -422,7 +422,7 @@
 
         <span class="kw">for </span>schema_name <span class="kw">in </span>catalog_manager.schema_names(<span class="kw-2">&amp;</span>catalog_name).<span class="kw">await</span><span class="question-mark">? </span>{
             <span class="kw">if </span>!catalog_manager
-                .schema_exist(<span class="kw-2">&amp;</span>catalog_name, <span class="kw-2">&amp;</span>schema_name)
+                .schema_exists(<span class="kw-2">&amp;</span>catalog_name, <span class="kw-2">&amp;</span>schema_name)
                 .<span class="kw">await</span><span class="question-mark">?
             </span>{
                 <span class="kw">continue</span>;

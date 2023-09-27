@@ -337,7 +337,7 @@
     }
 }
 
-<span class="doccomment">/// Refer to https://github.com/prometheus/prometheus/blob/6e2905a4d4ff9b47b1f6d201333f5bd53633f921/promql/quantile.go#L357-L386
+<span class="doccomment">/// Refer to &lt;https://github.com/prometheus/prometheus/blob/6e2905a4d4ff9b47b1f6d201333f5bd53633f921/promql/quantile.go#L357-L386&gt;
 </span><span class="kw">fn </span>quantile_impl(values: <span class="kw-2">&amp;</span>[f64], quantile: f64) -&gt; <span class="prelude-ty">Option</span>&lt;f64&gt; {
     <span class="kw">if </span>quantile.is_nan() || values.is_empty() {
         <span class="kw">return </span><span class="prelude-val">Some</span>(f64::NAN);

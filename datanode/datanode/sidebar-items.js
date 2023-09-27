@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_DATA_HOME","DEFAULT_OBJECT_STORE_CACHE_SIZE"],"enum":["ObjectStoreConfig"],"struct":["AzblobConfig","CompactionConfig","Datanode","DatanodeOptions","FileConfig","FlushConfig","GcsConfig","OssConfig","ProcedureConfig","RegionManifestConfig","S3Config","StorageConfig","WalConfig"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_OBJECT_STORE_CACHE_SIZE","OPEN_REGION_PARALLELISM"],"struct":["Datanode","DatanodeBuilder","ProcedureConfig"]};

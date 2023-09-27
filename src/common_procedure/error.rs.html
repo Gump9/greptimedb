@@ -194,6 +194,8 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -214,26 +216,26 @@
 
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>snafu::{Location, Snafu};
 
 <span class="kw">use </span><span class="kw">crate</span>::procedure::ProcedureId;
 
 <span class="doccomment">/// Procedure error.
-</span><span class="attr">#[derive(Debug, Snafu)]
+</span><span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to execute procedure due to external error, source: {}&quot;</span>,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute procedure due to external error&quot;</span>))]
     </span>External { source: BoxedError },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Loader {} is already registered&quot;</span>, name))]
     </span>LoaderConflict { name: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to serialize to json, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to serialize to json&quot;</span>))]
     </span>ToJson {
-        source: serde_json::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: serde_json::Error,
         location: Location,
     },
 
@@ -243,83 +245,85 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to put state, key: &#39;{key}&#39;, source: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to put state, key: &#39;{key}&#39;&quot;</span>))]
     </span>PutState {
         key: String,
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete {}, source: {}&quot;</span>, key, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete {}&quot;</span>, key))]
     </span>DeleteState {
         key: String,
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete keys: &#39;{keys}&#39;, source: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete keys: &#39;{keys}&#39;&quot;</span>))]
     </span>DeleteStates {
         keys: String,
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list state, path: &#39;{path}&#39;, source: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list state, path: &#39;{path}&#39;&quot;</span>))]
     </span>ListState {
         path: String,
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize from json, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize from json&quot;</span>))]
     </span>FromJson {
-        source: serde_json::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: serde_json::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Procedure exec failed, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Procedure exec failed&quot;</span>))]
     </span>RetryLater { source: BoxedError },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Procedure panics, procedure_id: {}&quot;</span>, procedure_id))]
     </span>ProcedurePanic { procedure_id: ProcedureId },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to wait watcher, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to wait watcher&quot;</span>))]
     </span>WaitWatcher {
-        source: tokio::sync::watch::error::RecvError,
+        <span class="attr">#[snafu(source)]
+        </span>error: tokio::sync::watch::error::RecvError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute procedure, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute procedure&quot;</span>))]
     </span>ProcedureExec {
         source: Arc&lt;Error&gt;,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Procedure retry exceeded max times, procedure_id: {}, source:{}&quot;</span>,
-        procedure_id,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Procedure retry exceeded max times, procedure_id: {}&quot;</span>, procedure_id))]
     </span>RetryTimesExceeded {
         source: Arc&lt;Error&gt;,
         procedure_id: ProcedureId,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Corrupted data, error: {source}&quot;</span>))]
-    </span>CorruptedData { source: FromUtf8Error },
+    <span class="attr">#[snafu(display(<span class="string">&quot;Corrupted data, error: &quot;</span>))]
+    </span>CorruptedData {
+        <span class="attr">#[snafu(source)]
+        </span>error: FromUtf8Error,
+    },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start the remove_outdated_meta method, error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start the remove_outdated_meta method, error&quot;</span>))]
     </span>StartRemoveOutdatedMetaTask {
         source: common_runtime::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop the remove_outdated_meta method, error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop the remove_outdated_meta method, error&quot;</span>))]
     </span>StopRemoveOutdatedMetaTask {
         source: common_runtime::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Subprocedure {} failed, source: {}&quot;</span>, subprocedure_id, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Subprocedure {} failed&quot;</span>, subprocedure_id))]
     </span>SubprocedureFailed {
         subprocedure_id: ProcedureId,
         source: Arc&lt;Error&gt;,

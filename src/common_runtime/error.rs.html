@@ -74,31 +74,31 @@
 </span><span class="kw">use </span>std::any::Any;
 
 <span class="kw">use </span>common_error::ext::ErrorExt;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>snafu::{Location, Snafu};
 <span class="kw">use </span>tokio::task::JoinError;
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>(<span class="kw">crate</span>)))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build runtime, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build runtime&quot;</span>))]
     </span>BuildRuntime {
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Repeated task {} is already started&quot;</span>, name))]
     </span>IllegalState { name: String, location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to wait for repeated task {} to stop, source: {}&quot;</span>,
-        name,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to wait for repeated task {} to stop&quot;</span>, name))]
     </span>WaitGcTaskStop {
         name: String,
-        source: JoinError,
+        <span class="attr">#[snafu(source)]
+        </span>error: JoinError,
         location: Location,
     },
 }

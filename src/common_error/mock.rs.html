@@ -69,6 +69,14 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -90,7 +98,7 @@
 
 <span class="kw">use </span>snafu::Location;
 
-<span class="kw">use </span><span class="kw">crate</span>::ext::ErrorExt;
+<span class="kw">use </span><span class="kw">crate</span>::ext::{ErrorExt, StackError};
 <span class="kw">use </span><span class="kw">crate</span>::status_code::StatusCode;
 
 <span class="doccomment">/// A mock error mainly for test.
@@ -138,6 +146,14 @@
 
     <span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Any {
         <span class="self">self
+    </span>}
+}
+
+<span class="kw">impl </span>StackError <span class="kw">for </span>MockError {
+    <span class="kw">fn </span>debug_fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: usize, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;) {}
+
+    <span class="kw">fn </span>next(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>StackError&gt; {
+        <span class="prelude-val">None
     </span>}
 }
 </code></pre></div></section></main></body></html>

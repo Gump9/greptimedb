@@ -354,7 +354,7 @@
                 <span class="prelude-val">Ok</span>(Application::Metasrv(app))
             }
             (SubCommand::Standalone(cmd), Options::Standalone(opts)) =&gt; {
-                <span class="kw">let </span>app = cmd.build(opts.fe_opts, opts.dn_opts).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">let </span>app = cmd.build(<span class="kw-2">*</span>opts).<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(Application::Standalone(app))
             }
             (SubCommand::Cli(cmd), Options::Cli(<span class="kw">_</span>)) =&gt; {

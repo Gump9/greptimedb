@@ -132,6 +132,24 @@
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -147,13 +165,16 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>std::sync::{Arc, RwLock};
+<span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>api::v1::meta::heartbeat_client::HeartbeatClient;
 <span class="kw">use </span>api::v1::meta::{AskLeaderRequest, RequestHeader, Role};
 <span class="kw">use </span>common_grpc::channel_manager::ChannelManager;
+<span class="kw">use </span>common_meta::distributed_time_constants::META_KEEP_ALIVE_INTERVAL_SECS;
 <span class="kw">use </span>common_telemetry::warn;
 <span class="kw">use </span>rand::seq::SliceRandom;
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
+<span class="kw">use </span>tokio::time::timeout;
 <span class="kw">use </span>tonic::transport::Channel;
 
 <span class="kw">use </span><span class="kw">crate</span>::client::Id;
@@ -207,29 +228,44 @@
         };
         peers.shuffle(<span class="kw-2">&amp;mut </span>rand::thread_rng());
 
-        <span class="kw">let </span>header = RequestHeader::new(<span class="self">self</span>.id, <span class="self">self</span>.role);
-        <span class="kw">let </span><span class="kw-2">mut </span>leader = <span class="prelude-val">None</span>;
+        <span class="kw">let </span>req = AskLeaderRequest {
+            header: <span class="prelude-val">Some</span>(RequestHeader::new(<span class="self">self</span>.id, <span class="self">self</span>.role)),
+        };
+
+        <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tokio::sync::mpsc::channel(peers.len());
+
         <span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
-            <span class="kw">let </span>req = AskLeaderRequest {
-                header: <span class="prelude-val">Some</span>(header.clone()),
-            };
             <span class="kw">let </span><span class="kw-2">mut </span>client = <span class="self">self</span>.create_asker(addr)<span class="question-mark">?</span>;
-            <span class="kw">match </span>client.ask_leader(req).<span class="kw">await </span>{
-                <span class="prelude-val">Ok</span>(res) =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>(endpoint) = res.into_inner().leader <span class="kw">else </span>{
-                        <span class="macro">warn!</span>(<span class="string">&quot;No leader from: {addr}&quot;</span>);
-                        <span class="kw">continue</span>;
-                    };
-                    leader = <span class="prelude-val">Some</span>(endpoint.addr);
-                    <span class="kw">break</span>;
+            <span class="kw">let </span>tx_clone = tx.clone();
+            <span class="kw">let </span>req = req.clone();
+            <span class="kw">let </span>addr = addr.to_string();
+            tokio::spawn(<span class="kw">async move </span>{
+                <span class="kw">match </span>client.ask_leader(req).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(res) =&gt; {
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(endpoint) = res.into_inner().leader {
+                            <span class="kw">let _ </span>= tx_clone.send(endpoint.addr).<span class="kw">await</span>;
+                        } <span class="kw">else </span>{
+                            <span class="macro">warn!</span>(<span class="string">&quot;No leader from: {addr}&quot;</span>);
+                        };
+                    }
+                    <span class="prelude-val">Err</span>(status) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;Failed to ask leader from: {addr}, {status}&quot;</span>);
+                    }
                 }
-                <span class="prelude-val">Err</span>(status) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Failed to ask leader from: {addr}, {status}&quot;</span>);
-                }
-            }
+            });
         }
 
-        <span class="kw">let </span>leader = leader.context(error::NoLeaderSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>leader = timeout(
+            <span class="self">self</span>.channel_manager
+                .config()
+                .timeout
+                .unwrap_or(Duration::from_secs(META_KEEP_ALIVE_INTERVAL_SECS)),
+            rx.recv(),
+        )
+        .<span class="kw">await
+        </span>.context(error::AskLeaderTimeoutSnafu)<span class="question-mark">?
+        </span>.context(error::NoLeaderSnafu)<span class="question-mark">?</span>;
+
         <span class="kw">let </span><span class="kw-2">mut </span>leadership_group = <span class="self">self</span>.leadership_group.write().unwrap();
         leadership_group.leader = <span class="prelude-val">Some</span>(leader.clone());
 

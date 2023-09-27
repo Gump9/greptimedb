@@ -270,6 +270,44 @@
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -357,14 +395,25 @@
 </span><span class="kw">pub struct </span>DatanodeTableValue {
     <span class="kw">pub </span>table_id: TableId,
     <span class="kw">pub </span>regions: Vec&lt;RegionNumber&gt;,
+    <span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>engine: String,
+    <span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>region_storage_path: String,
     version: u64,
 }
 
 <span class="kw">impl </span>DatanodeTableValue {
-    <span class="kw">pub fn </span>new(table_id: TableId, regions: Vec&lt;RegionNumber&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(
+        table_id: TableId,
+        regions: Vec&lt;RegionNumber&gt;,
+        engine: String,
+        region_storage_path: String,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             table_id,
             regions,
+            engine,
+            region_storage_path,
             version: <span class="number">0</span>,
         }
     }
@@ -415,13 +464,20 @@
     </span><span class="kw">pub fn </span>build_create_txn(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         table_id: TableId,
+        engine: <span class="kw-2">&amp;</span>str,
+        region_storage_path: <span class="kw-2">&amp;</span>str,
         distribution: RegionDistribution,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Txn&gt; {
         <span class="kw">let </span>txns = distribution
             .into_iter()
             .map(|(datanode_id, regions)| {
                 <span class="kw">let </span>key = DatanodeTableKey::new(datanode_id, table_id);
-                <span class="kw">let </span>val = DatanodeTableValue::new(table_id, regions);
+                <span class="kw">let </span>val = DatanodeTableValue::new(
+                    table_id,
+                    regions,
+                    engine.to_string(),
+                    region_storage_path.to_string(),
+                );
 
                 <span class="prelude-val">Ok</span>(TxnOp::Put(key.as_raw_key(), val.try_as_raw_value()<span class="question-mark">?</span>))
             })
@@ -436,6 +492,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_update_txn(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         table_id: TableId,
+        engine: <span class="kw-2">&amp;</span>str,
+        region_storage_path: <span class="kw-2">&amp;</span>str,
         current_region_distribution: RegionDistribution,
         new_region_distribution: RegionDistribution,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Txn&gt; {
@@ -456,14 +514,26 @@
                 </span><span class="kw">if </span><span class="kw-2">*</span>current_region != regions {
                     <span class="kw">let </span>key = DatanodeTableKey::new(datanode, table_id);
                     <span class="kw">let </span>raw_key = key.as_raw_key();
-                    <span class="kw">let </span>val = DatanodeTableValue::new(table_id, regions).try_as_raw_value()<span class="question-mark">?</span>;
+                    <span class="kw">let </span>val = DatanodeTableValue::new(
+                        table_id,
+                        regions,
+                        engine.to_string(),
+                        region_storage_path.to_string(),
+                    )
+                    .try_as_raw_value()<span class="question-mark">?</span>;
                     opts.push(TxnOp::Put(raw_key, val));
                 }
             } <span class="kw">else </span>{
                 <span class="comment">// New datanodes
                 </span><span class="kw">let </span>key = DatanodeTableKey::new(datanode, table_id);
                 <span class="kw">let </span>raw_key = key.as_raw_key();
-                <span class="kw">let </span>val = DatanodeTableValue::new(table_id, regions).try_as_raw_value()<span class="question-mark">?</span>;
+                <span class="kw">let </span>val = DatanodeTableValue::new(
+                    table_id,
+                    regions,
+                    engine.to_string(),
+                    region_storage_path.to_string(),
+                )
+                .try_as_raw_value()<span class="question-mark">?</span>;
                 opts.push(TxnOp::Put(raw_key, val));
             }
         }
@@ -496,7 +566,6 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
@@ -511,15 +580,22 @@
         <span class="kw">let </span>value = DatanodeTableValue {
             table_id: <span class="number">42</span>,
             regions: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>],
+            engine: Default::default(),
+            region_storage_path: Default::default(),
             version: <span class="number">1</span>,
         };
-        <span class="kw">let </span>literal = <span class="string">br#&quot;{&quot;table_id&quot;:42,&quot;regions&quot;:[1,2,3],&quot;version&quot;:1}&quot;#</span>;
+        <span class="kw">let </span>literal = <span class="string">br#&quot;{&quot;table_id&quot;:42,&quot;regions&quot;:[1,2,3],&quot;engine&quot;:&quot;&quot;,&quot;region_storage_path&quot;:&quot;&quot;,&quot;version&quot;:1}&quot;#</span>;
 
         <span class="kw">let </span>raw_value = value.try_as_raw_value().unwrap();
         <span class="macro">assert_eq!</span>(raw_value, literal);
 
         <span class="kw">let </span>actual = DatanodeTableValue::try_from_raw_value(literal).unwrap();
         <span class="macro">assert_eq!</span>(actual, value);
+
+        <span class="comment">// test serde default
+        </span><span class="kw">let </span>raw_str = <span class="string">br#&quot;{&quot;table_id&quot;:42,&quot;regions&quot;:[1,2,3],&quot;version&quot;:1}&quot;#</span>;
+        <span class="kw">let </span>parsed = DatanodeTableValue::try_from_raw_value(raw_str);
+        <span class="macro">assert!</span>(parsed.is_ok());
     }
 
     <span class="attr">#[test]

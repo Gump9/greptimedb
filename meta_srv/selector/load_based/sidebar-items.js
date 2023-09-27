@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_REGION_NUMBER"],"fn":["contains_table"],"struct":["LoadBasedSelector"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_REGION_NUMBER"],"fn":["get_leader_peer_ids"],"struct":["LoadBasedSelector"]};

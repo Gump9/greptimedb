@@ -161,39 +161,6 @@
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -208,24 +175,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::collections::HashMap;
-
-<span class="kw">use </span>api::v1::meta::{HeartbeatRequest, RegionLease, Role};
+</span><span class="kw">use </span>api::v1::meta::{HeartbeatRequest, RegionLease, Role};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::handler::{HeartbeatAccumulator, HeartbeatHandler};
-<span class="kw">use </span><span class="kw">crate</span>::inactive_node_manager::InactiveNodeManager;
+<span class="kw">use </span><span class="kw">crate</span>::inactive_region_manager::InactiveRegionManager;
 <span class="kw">use </span><span class="kw">crate</span>::metasrv::Context;
 
-<span class="doccomment">/// The lease seconds of a region. It&#39;s set by two default heartbeat intervals (5 second × 2) plus
-/// two roundtrip time (2 second × 2 × 2), plus some extra buffer (2 second).
-</span><span class="comment">// TODO(LFC): Make region lease seconds calculated from Datanode heartbeat configuration.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>REGION_LEASE_SECONDS: u64 = <span class="number">20</span>;
+<span class="kw">pub struct </span>RegionLeaseHandler {
+    region_lease_seconds: u64,
+}
 
-<span class="attr">#[derive(Default)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RegionLeaseHandler;
+<span class="kw">impl </span>RegionLeaseHandler {
+    <span class="kw">pub fn </span>new(region_lease_seconds: u64) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            region_lease_seconds,
+        }
+    }
+}
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>HeartbeatHandler <span class="kw">for </span>RegionLeaseHandler {
@@ -243,37 +211,19 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>table_region_leases = HashMap::new();
-        stat.region_stats.iter().for_each(|region_stat| {
-            <span class="kw">let </span>table_ident = region_stat.table_ident.clone();
-            table_region_leases
-                .entry(table_ident)
-                .or_insert_with(Vec::new)
-                .push(RegionId::from(region_stat.id).region_number());
+        <span class="kw">let </span><span class="kw-2">mut </span>region_ids = stat.region_ids();
+
+        <span class="kw">let </span>inactive_region_manager = InactiveRegionManager::new(<span class="kw-2">&amp;</span>ctx.in_memory);
+        <span class="kw">let </span>inactive_region_ids = inactive_region_manager
+            .retain_active_regions(stat.cluster_id, stat.id, <span class="kw-2">&amp;mut </span>region_ids)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        acc.inactive_region_ids = inactive_region_ids;
+        acc.region_lease = <span class="prelude-val">Some</span>(RegionLease {
+            region_ids,
+            duration_since_epoch: req.duration_since_epoch,
+            lease_seconds: <span class="self">self</span>.region_lease_seconds,
         });
-
-        <span class="kw">let </span>inactive_node_manager = InactiveNodeManager::new(<span class="kw-2">&amp;</span>ctx.in_memory);
-        <span class="kw">for </span>(table_ident, region_numbers) <span class="kw">in </span>table_region_leases.iter_mut() {
-            inactive_node_manager
-                .retain_active_regions(
-                    stat.cluster_id,
-                    stat.id,
-                    table_ident.table_id,
-                    region_numbers,
-                )
-                .<span class="kw">await</span><span class="question-mark">?</span>;
-        }
-
-        acc.region_leases = table_region_leases
-            .into_iter()
-            .filter(|(<span class="kw">_</span>, regions)| !regions.is_empty()) <span class="comment">// filter out empty region_numbers
-            </span>.map(|(table_ident, regions)| RegionLease {
-                table_ident: <span class="prelude-val">Some</span>(table_ident.into()),
-                regions,
-                duration_since_epoch: req.duration_since_epoch,
-                lease_seconds: REGION_LEASE_SECONDS,
-            })
-            .collect();
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -283,11 +233,9 @@
 </span><span class="kw">mod </span>test {
     <span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
-    <span class="kw">use </span>common_meta::ident::TableIdent;
     <span class="kw">use </span>common_meta::key::TableMetadataManager;
-    <span class="kw">use </span>common_meta::RegionIdent;
-    <span class="kw">use </span>store_api::storage::RegionNumber;
+    <span class="kw">use </span>common_meta::{distributed_time_constants, RegionIdent};
+    <span class="kw">use </span>store_api::storage::{RegionId, RegionNumber};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::handler::node_stat::{RegionStat, Stat};
@@ -315,14 +263,6 @@
         )
         .<span class="kw">await</span>;
 
-        <span class="kw">let </span>table_ident = TableIdent {
-            catalog: DEFAULT_CATALOG_NAME.to_string(),
-            schema: DEFAULT_SCHEMA_NAME.to_string(),
-            table: table_name.to_string(),
-            table_id,
-            engine: <span class="string">&quot;mito&quot;</span>.to_string(),
-        };
-
         <span class="kw">let </span>req = HeartbeatRequest {
             duration_since_epoch: <span class="number">1234</span>,
             ..Default::default()
@@ -337,13 +277,6 @@
             <span class="kw">let </span>region_id = RegionId::new(table_id, region_number);
             RegionStat {
                 id: region_id.as_u64(),
-                table_ident: TableIdent {
-                    catalog: DEFAULT_CATALOG_NAME.to_string(),
-                    schema: DEFAULT_SCHEMA_NAME.to_string(),
-                    table: table_name.to_string(),
-                    table_id: <span class="number">1</span>,
-                    engine: <span class="string">&quot;mito&quot;</span>.to_string(),
-                },
                 ..Default::default()
             }
         };
@@ -354,40 +287,41 @@
             ..Default::default()
         });
 
-        <span class="kw">let </span>inactive_node_manager = InactiveNodeManager::new(<span class="kw-2">&amp;</span>ctx.in_memory);
-        inactive_node_manager
+        <span class="kw">let </span>inactive_region_manager = InactiveRegionManager::new(<span class="kw-2">&amp;</span>ctx.in_memory);
+        inactive_region_manager
             .register_inactive_region(<span class="kw-2">&amp;</span>RegionIdent {
                 cluster_id: <span class="number">1</span>,
                 datanode_id: <span class="number">1</span>,
-                table_ident: TableIdent {
-                    table_id: <span class="number">1</span>,
-                    ..Default::default()
-                },
+                table_id: <span class="number">1</span>,
                 region_number: <span class="number">1</span>,
+                engine: <span class="string">&quot;mito2&quot;</span>.to_string(),
             })
             .<span class="kw">await
             </span>.unwrap();
-        inactive_node_manager
+        inactive_region_manager
             .register_inactive_region(<span class="kw-2">&amp;</span>RegionIdent {
                 cluster_id: <span class="number">1</span>,
                 datanode_id: <span class="number">1</span>,
-                table_ident: TableIdent {
-                    table_id: <span class="number">1</span>,
-                    ..Default::default()
-                },
+                table_id: <span class="number">1</span>,
                 region_number: <span class="number">3</span>,
+                engine: <span class="string">&quot;mito2&quot;</span>.to_string(),
             })
             .<span class="kw">await
             </span>.unwrap();
 
-        RegionLeaseHandler.handle(<span class="kw-2">&amp;</span>req, ctx, acc).<span class="kw">await</span>.unwrap();
+        RegionLeaseHandler::new(distributed_time_constants::REGION_LEASE_SECS)
+            .handle(<span class="kw-2">&amp;</span>req, ctx, acc)
+            .<span class="kw">await
+            </span>.unwrap();
 
-        <span class="macro">assert_eq!</span>(acc.region_leases.len(), <span class="number">1</span>);
-        <span class="kw">let </span>lease = acc.region_leases.remove(<span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(lease.table_ident.unwrap(), table_ident.into());
-        <span class="macro">assert_eq!</span>(lease.regions, <span class="macro">vec!</span>[<span class="number">2</span>]);
+        <span class="macro">assert!</span>(acc.region_lease.is_some());
+        <span class="kw">let </span>lease = acc.region_lease.as_ref().unwrap();
+        <span class="macro">assert_eq!</span>(lease.region_ids, <span class="macro">vec!</span>[RegionId::new(table_id, <span class="number">2</span>).as_u64()]);
         <span class="macro">assert_eq!</span>(lease.duration_since_epoch, <span class="number">1234</span>);
-        <span class="macro">assert_eq!</span>(lease.lease_seconds, REGION_LEASE_SECONDS);
+        <span class="macro">assert_eq!</span>(
+            lease.lease_seconds,
+            distributed_time_constants::REGION_LEASE_SECS
+        );
     }
 }
 </code></pre></div></section></main></body></html>

@@ -821,6 +821,56 @@
 <a href="#821" id="821">821</a>
 <a href="#822" id="822">822</a>
 <a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -837,11 +887,13 @@
 
 </span><span class="doccomment">//! Common structs and utilities for reading data.
 
-</span><span class="kw">pub mod </span>merge;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>projection;
+</span><span class="kw">pub mod </span>compat;
+<span class="kw">pub mod </span>merge;
+<span class="kw">pub mod </span>projection;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>scan_region;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>seq_scan;
 
+<span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>api::v1::OpType;
@@ -857,6 +909,7 @@
     BooleanVector, Helper, UInt32Vector, UInt64Vector, UInt8Vector, Vector, VectorRef,
 };
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
+<span class="kw">use </span>store_api::metadata::RegionMetadata;
 <span class="kw">use </span>store_api::storage::{ColumnId, SequenceNumber};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
@@ -864,10 +917,10 @@
 };
 <span class="kw">use </span><span class="kw">crate</span>::memtable::BoxedBatchIterator;
 
-<span class="doccomment">/// Storage internal representation of a batch of rows
-/// for a primary key (time series).
+<span class="doccomment">/// Storage internal representation of a batch of rows for a primary key (time series).
 ///
-/// Rows are sorted by primary key, timestamp, sequence desc, op_type desc.
+/// Rows are sorted by primary key, timestamp, sequence desc, op_type desc. Fields
+/// always keep the same relative order as fields in [RegionMetadata](store_api::metadata::RegionMetadata).
 </span><span class="attr">#[derive(Debug, PartialEq, Clone)]
 </span><span class="kw">pub struct </span>Batch {
     <span class="doccomment">/// Primary key encoded in a comparable form.
@@ -898,6 +951,17 @@
         BatchBuilder::with_required_columns(primary_key, timestamps, sequences, op_types)
             .with_fields(fields)
             .build()
+    }
+
+    <span class="doccomment">/// Tries to set fields for the batch.
+    </span><span class="kw">pub fn </span>with_fields(<span class="self">self</span>, fields: Vec&lt;BatchColumn&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Batch&gt; {
+        Batch::new(
+            <span class="self">self</span>.primary_key,
+            <span class="self">self</span>.timestamps,
+            <span class="self">self</span>.sequences,
+            <span class="self">self</span>.op_types,
+            fields,
+        )
     }
 
     <span class="doccomment">/// Returns primary key of the batch.
@@ -973,6 +1037,11 @@
         <span class="prelude-val">Some</span>(<span class="self">self</span>.get_sequence(<span class="self">self</span>.sequences.len() - <span class="number">1</span>))
     }
 
+    <span class="doccomment">/// Replaces the primary key of the batch.
+    </span><span class="kw">pub fn </span>set_primary_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, primary_key: Vec&lt;u8&gt;) {
+        <span class="self">self</span>.primary_key = primary_key;
+    }
+
     <span class="doccomment">/// Slice the batch, returning a new batch.
     ///
     /// # Panics
@@ -1025,15 +1094,22 @@
                 reason: <span class="string">&quot;batches have different primary key&quot;</span>,
             }
         );
-        <span class="macro">ensure!</span>(
-            batches
-                .iter()
-                .skip(<span class="number">1</span>)
-                .all(|b| b.fields().len() == first.fields().len()),
-            InvalidBatchSnafu {
-                reason: <span class="string">&quot;batches have different field num&quot;</span>,
+        <span class="kw">for </span>b <span class="kw">in </span>batches.iter().skip(<span class="number">1</span>) {
+            <span class="macro">ensure!</span>(
+                b.fields.len() == first.fields.len(),
+                InvalidBatchSnafu {
+                    reason: <span class="string">&quot;batches have different field num&quot;</span>,
+                }
+            );
+            <span class="kw">for </span>(l, r) <span class="kw">in </span>b.fields.iter().zip(<span class="kw-2">&amp;</span>first.fields) {
+                <span class="macro">ensure!</span>(
+                    l.column_id == r.column_id,
+                    InvalidBatchSnafu {
+                        reason: <span class="string">&quot;batches have different fields&quot;</span>,
+                    }
+                );
             }
-        );
+        }
 
         <span class="comment">// We take the primary key from the first batch.
         </span><span class="kw">let </span><span class="kw-2">mut </span>builder = BatchBuilder::new(primary_key);
@@ -1134,6 +1210,24 @@
         <span class="self">self</span>.take_in_place(<span class="kw-2">&amp;</span>indices)
     }
 
+    <span class="doccomment">/// Returns ids of fields in the [Batch] after applying the `projection`.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>projected_fields(
+        metadata: <span class="kw-2">&amp;</span>RegionMetadata,
+        projection: <span class="kw-2">&amp;</span>[ColumnId],
+    ) -&gt; Vec&lt;ColumnId&gt; {
+        <span class="kw">let </span>projected_ids: HashSet&lt;<span class="kw">_</span>&gt; = projection.iter().copied().collect();
+        metadata
+            .field_columns()
+            .filter_map(|column| {
+                <span class="kw">if </span>projected_ids.contains(<span class="kw-2">&amp;</span>column.column_id) {
+                    <span class="prelude-val">Some</span>(column.column_id)
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">None
+                </span>}
+            })
+            .collect()
+    }
+
     <span class="doccomment">/// Takes the batch in place.
     </span><span class="kw">fn </span>take_in_place(<span class="kw-2">&amp;mut </span><span class="self">self</span>, indices: <span class="kw-2">&amp;</span>UInt32Vector) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.timestamps = <span class="self">self</span>.timestamps.take(indices).context(ComputeVectorSnafu)<span class="question-mark">?</span>;
@@ -1161,9 +1255,7 @@
     </span><span class="kw">fn </span>get_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>, index: usize) -&gt; Timestamp {
         <span class="kw">match </span><span class="self">self</span>.timestamps.get_ref(index) {
             ValueRef::Timestamp(timestamp) =&gt; timestamp,
-            <span class="comment">// Int64 is always millisecond.
-            // TODO(yingwen): Don&#39;t allow using int64 as time index.
-            </span>ValueRef::Int64(v) =&gt; Timestamp::new_millisecond(v),
+
             <span class="comment">// We have check the data type is timestamp compatible in the [BatchBuilder] so it&#39;s safe to panic.
             </span>value =&gt; <span class="macro">panic!</span>(<span class="string">&quot;{:?} is not a timestamp&quot;</span>, value),
         }
@@ -1262,9 +1354,9 @@
     </span><span class="kw">pub fn </span>timestamps_array(<span class="kw-2">&amp;mut </span><span class="self">self</span>, array: ArrayRef) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt; {
         <span class="kw">let </span>vector = Helper::try_into_vector(array).context(ConvertVectorSnafu)<span class="question-mark">?</span>;
         <span class="macro">ensure!</span>(
-            vector.data_type().is_timestamp_compatible(),
+            vector.data_type().is_timestamp(),
             InvalidBatchSnafu {
-                reason: <span class="macro">format!</span>(<span class="string">&quot;{:?} is a timestamp type&quot;</span>, vector.data_type()),
+                reason: <span class="macro">format!</span>(<span class="string">&quot;{:?} is not a timestamp type&quot;</span>, vector.data_type()),
             }
         );
 
@@ -1364,21 +1456,6 @@
     }
 }
 
-<span class="doccomment">/// Collected [Source] statistics.
-</span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>SourceStats {
-    <span class="doccomment">/// Number of rows fetched.
-    </span><span class="kw">pub </span>num_rows: usize,
-    <span class="doccomment">/// Min timestamp from fetched batches.
-    ///
-    /// If no rows fetched, the value of the timestamp is i64::MIN.
-    </span><span class="kw">pub </span>min_timestamp: Timestamp,
-    <span class="doccomment">/// Max timestamp from fetched batches.
-    ///
-    /// If no rows fetched, the value of the timestamp is i64::MAX.
-    </span><span class="kw">pub </span>max_timestamp: Timestamp,
-}
-
 <span class="doccomment">/// Async [Batch] reader and iterator wrapper.
 ///
 /// This is the data source for SST writers or internal readers.
@@ -1397,12 +1474,6 @@
             Source::Iter(iter) =&gt; iter.next().transpose(),
         }
     }
-
-    <span class="comment">// TODO(yingwen): Remove this method once we support collecting stats in the writer.
-    </span><span class="doccomment">/// Returns statisics of fetched batches.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stats(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SourceStats {
-        <span class="macro">unimplemented!</span>()
-    }
 }
 
 <span class="doccomment">/// Async batch reader.
@@ -1410,9 +1481,7 @@
 /// The reader must guarantee [Batch]es returned by it have the same schema.
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>BatchReader: Send {
-    <span class="comment">// TODO(yingwen): fields of the batch returned.
-
-    </span><span class="doccomment">/// Fetch next [Batch].
+    <span class="doccomment">/// Fetch next [Batch].
     ///
     /// Returns `Ok(None)` when the reader has reached its end and calling `next_batch()`
     /// again won&#39;t return batch again.
@@ -1566,6 +1635,37 @@
         <span class="kw">let </span>batch1 = new_batch(<span class="kw-2">&amp;</span>[<span class="number">1</span>], <span class="kw-2">&amp;</span>[<span class="number">1</span>], <span class="kw-2">&amp;</span>[OpType::Put], <span class="kw-2">&amp;</span>[<span class="number">1</span>]);
         <span class="kw">let </span><span class="kw-2">mut </span>batch2 = new_batch(<span class="kw-2">&amp;</span>[<span class="number">2</span>], <span class="kw-2">&amp;</span>[<span class="number">2</span>], <span class="kw-2">&amp;</span>[OpType::Put], <span class="kw-2">&amp;</span>[<span class="number">2</span>]);
         batch2.primary_key = <span class="string">b&quot;hello&quot;</span>.to_vec();
+        <span class="kw">let </span>err = Batch::concat(<span class="macro">vec!</span>[batch1, batch2]).unwrap_err();
+        <span class="macro">assert!</span>(
+            <span class="macro">matches!</span>(err, Error::InvalidBatch { .. }),
+            <span class="string">&quot;unexpected err: {err}&quot;
+        </span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_concat_different_fields() {
+        <span class="kw">let </span>batch1 = new_batch(<span class="kw-2">&amp;</span>[<span class="number">1</span>], <span class="kw-2">&amp;</span>[<span class="number">1</span>], <span class="kw-2">&amp;</span>[OpType::Put], <span class="kw-2">&amp;</span>[<span class="number">1</span>]);
+        <span class="kw">let </span>fields = <span class="macro">vec!</span>[
+            batch1.fields()[<span class="number">0</span>].clone(),
+            BatchColumn {
+                column_id: <span class="number">2</span>,
+                data: Arc::new(UInt64Vector::from_slice([<span class="number">2</span>])),
+            },
+        ];
+        <span class="comment">// Batch 2 has more fields.
+        </span><span class="kw">let </span>batch2 = batch1.clone().with_fields(fields).unwrap();
+        <span class="kw">let </span>err = Batch::concat(<span class="macro">vec!</span>[batch1.clone(), batch2]).unwrap_err();
+        <span class="macro">assert!</span>(
+            <span class="macro">matches!</span>(err, Error::InvalidBatch { .. }),
+            <span class="string">&quot;unexpected err: {err}&quot;
+        </span>);
+
+        <span class="comment">// Batch 2 has different field.
+        </span><span class="kw">let </span>fields = <span class="macro">vec!</span>[BatchColumn {
+            column_id: <span class="number">2</span>,
+            data: Arc::new(UInt64Vector::from_slice([<span class="number">2</span>])),
+        }];
+        <span class="kw">let </span>batch2 = batch1.clone().with_fields(fields).unwrap();
         <span class="kw">let </span>err = Batch::concat(<span class="macro">vec!</span>[batch1, batch2]).unwrap_err();
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(err, Error::InvalidBatch { .. }),

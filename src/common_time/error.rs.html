@@ -98,6 +98,14 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -118,13 +126,19 @@
 <span class="kw">use </span>chrono::ParseError;
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>snafu::{Location, Snafu};
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse string to date, raw: {}, source: {}&quot;</span>, raw, source))]
-    </span>ParseDateStr { raw: String, source: ParseError },
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse string to date, raw: {}&quot;</span>, raw))]
+    </span>ParseDateStr {
+        raw: String,
+        <span class="attr">#[snafu(source)]
+        </span>error: ParseError,
+    },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid date string, raw: {}&quot;</span>, raw))]
     </span>InvalidDateStr { raw: String, location: Location },
@@ -135,9 +149,10 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse a string into Interval, raw string: {}&quot;</span>, raw))]
     </span>ParseInterval { raw: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Current timestamp overflow, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Current timestamp overflow&quot;</span>))]
     </span>TimestampOverflow {
-        source: TryFromIntError,
+        <span class="attr">#[snafu(source)]
+        </span>error: TryFromIntError,
         location: Location,
     },
 
@@ -151,10 +166,11 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid offset string {raw}: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid offset string {raw}: &quot;</span>))]
     </span>ParseOffsetStr {
         raw: String,
-        source: ParseIntError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ParseIntError,
         location: Location,
     },
 

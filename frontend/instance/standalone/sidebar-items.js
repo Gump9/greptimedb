@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["StandaloneGrpcQueryHandler"]};
+window.SIDEBAR_ITEMS = {"constant":["TABLE_ID_SEQ"],"struct":["RegionInvoker","StandaloneDatanodeManager","StandaloneTableMetadataCreator"]};

@@ -229,7 +229,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::shutdown::Shutdown;
 
 <span class="doccomment">/// Per-connection handler. Reads requests from `connection` and applies the OpenTSDB metric to
-/// [OpentsdbLineProtocolHandler].
+/// [OpentsdbProtocolHandlerRef].
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Handler&lt;S: AsyncWrite + AsyncRead + Unpin&gt; {
     query_handler: OpentsdbProtocolHandlerRef,
 

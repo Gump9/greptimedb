@@ -222,7 +222,6 @@
 <span class="kw">use </span><span class="kw">crate</span>::storage::region::Region;
 
 <span class="kw">const </span>COMPACTION_STRATEGY_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;compaction&quot;</span>;
-<span class="kw">const </span>COMPACTION_STRATEGY_LEVELED_TIME_WINDOW_VALUE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;LTW&quot;</span>;
 <span class="kw">const </span>COMPACTION_STRATEGY_TWCS_VALUE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;TWCS&quot;</span>;
 <span class="kw">const </span>TWCS_MAX_ACTIVE_WINDOW_FILES_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;compaction.twcs.max_active_window_files&quot;</span>;
 <span class="kw">const </span>TWCS_TIME_WINDOW_SECONDS_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;compaction.twcs.time_window_seconds&quot;</span>;
@@ -319,13 +318,16 @@
 }
 
 <span class="doccomment">/// Options for compactions
-</span><span class="attr">#[derive(Debug, Clone, Default)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>CompactionStrategy {
-    <span class="doccomment">/// Leveled time window compaction strategy
-    </span><span class="attr">#[default]
-    </span>LeveledTimeWindow,
     <span class="doccomment">/// TWCS
     </span>Twcs(TwcsOptions),
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>CompactionStrategy {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::Twcs(TwcsOptions::default())
+    }
 }
 
 <span class="doccomment">/// TWCS compaction options.
@@ -354,9 +356,7 @@
         <span class="kw">let </span><span class="prelude-val">Some</span>(strategy_name) = opts.get(COMPACTION_STRATEGY_KEY) <span class="kw">else </span>{
             <span class="kw">return </span>CompactionStrategy::default();
         };
-        <span class="kw">if </span>strategy_name.eq_ignore_ascii_case(COMPACTION_STRATEGY_LEVELED_TIME_WINDOW_VALUE) {
-            CompactionStrategy::LeveledTimeWindow
-        } <span class="kw">else if </span>strategy_name.eq_ignore_ascii_case(COMPACTION_STRATEGY_TWCS_VALUE) {
+        <span class="kw">if </span>strategy_name.eq_ignore_ascii_case(COMPACTION_STRATEGY_TWCS_VALUE) {
             <span class="kw">let </span><span class="kw-2">mut </span>twcs_opts = TwcsOptions::default();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(max_active_window_files) = opts
                 .get(TWCS_MAX_ACTIVE_WINDOW_FILES_KEY)

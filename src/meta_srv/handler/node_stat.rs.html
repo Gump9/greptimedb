@@ -154,6 +154,7 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -168,11 +169,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>api::v1::meta::HeartbeatRequest;
-<span class="kw">use </span>common_meta::ident::TableIdent;
+</span><span class="kw">use </span>std::collections::HashSet;
+
+<span class="kw">use </span>api::v1::meta::HeartbeatRequest;
 <span class="kw">use </span>common_time::util <span class="kw">as </span>time_util;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::OptionExt;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{Error, InvalidHeartbeatRequestSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::keys::StatKey;
@@ -187,10 +188,8 @@
     </span><span class="kw">pub </span>rcus: i64,
     <span class="doccomment">/// The write capacity units during this period
     </span><span class="kw">pub </span>wcus: i64,
-    <span class="doccomment">/// How many tables on this node
-    </span><span class="kw">pub </span>table_num: i64,
     <span class="doccomment">/// How many regions on this node
-    </span><span class="kw">pub </span>region_num: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+    </span><span class="kw">pub </span>region_num: u64,
     <span class="kw">pub </span>region_stats: Vec&lt;RegionStat&gt;,
     <span class="comment">// The node epoch is used to check whether the node has restarted or redeployed.
     </span><span class="kw">pub </span>node_epoch: u64,
@@ -199,7 +198,6 @@
 <span class="attr">#[derive(Debug, Default, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>RegionStat {
     <span class="kw">pub </span>id: u64,
-    <span class="kw">pub </span>table_ident: TableIdent,
     <span class="doccomment">/// The read capacity units during this period
     </span><span class="kw">pub </span>rcus: i64,
     <span class="doccomment">/// The write capacity units during this period
@@ -211,11 +209,32 @@
 }
 
 <span class="kw">impl </span>Stat {
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.region_stats.is_empty()
+    }
+
     <span class="kw">pub fn </span>stat_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StatKey {
         StatKey {
             cluster_id: <span class="self">self</span>.cluster_id,
             node_id: <span class="self">self</span>.id,
         }
+    }
+
+    <span class="kw">pub fn </span>region_ids(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u64&gt; {
+        <span class="self">self</span>.region_stats.iter().map(|s| s.id).collect()
+    }
+
+    <span class="kw">pub fn </span>retain_active_region_stats(<span class="kw-2">&amp;mut </span><span class="self">self</span>, inactive_region_ids: <span class="kw-2">&amp;</span>HashSet&lt;u64&gt;) {
+        <span class="kw">if </span>inactive_region_ids.is_empty() {
+            <span class="kw">return</span>;
+        }
+
+        <span class="self">self</span>.region_stats
+            .retain(|r| !inactive_region_ids.contains(<span class="kw-2">&amp;</span>r.id));
+        <span class="self">self</span>.rcus = <span class="self">self</span>.region_stats.iter().map(|s| s.rcus).sum();
+        <span class="self">self</span>.wcus = <span class="self">self</span>.region_stats.iter().map(|s| s.wcus).sum();
+        <span class="self">self</span>.region_num = <span class="self">self</span>.region_stats.len() <span class="kw">as </span>u64;
     }
 }
 
@@ -226,19 +245,13 @@
         <span class="kw">let </span>HeartbeatRequest {
             header,
             peer,
-            node_stat,
             region_stats,
             node_epoch,
             ..
         } = value;
 
-        <span class="kw">match </span>(header, peer, node_stat) {
-            (<span class="prelude-val">Some</span>(header), <span class="prelude-val">Some</span>(peer), <span class="prelude-val">Some</span>(node_stat)) =&gt; {
-                <span class="kw">let </span>region_num = <span class="kw">if </span>node_stat.region_num &gt;= <span class="number">0 </span>{
-                    <span class="prelude-val">Some</span>(node_stat.region_num <span class="kw">as </span>u64)
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">None
-                </span>};
+        <span class="kw">match </span>(header, peer) {
+            (<span class="prelude-val">Some</span>(header), <span class="prelude-val">Some</span>(peer)) =&gt; {
                 <span class="kw">let </span>region_stats = region_stats
                     .into_iter()
                     .map(RegionStat::try_from)
@@ -247,18 +260,19 @@
                 <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
                     timestamp_millis: time_util::current_time_millis(),
                     cluster_id: header.cluster_id,
-                    id: peer.id,
-                    addr: peer.addr,
-                    rcus: node_stat.rcus,
-                    wcus: node_stat.wcus,
-                    table_num: node_stat.table_num,
-                    region_num,
+                    <span class="comment">// datanode id
+                    </span>id: peer.id,
+                    <span class="comment">// datanode address
+                    </span>addr: peer.addr,
+                    rcus: region_stats.iter().map(|s| s.rcus).sum(),
+                    wcus: region_stats.iter().map(|s| s.wcus).sum(),
+                    region_num: region_stats.len() <span class="kw">as </span>u64,
                     region_stats,
                     node_epoch,
                 })
             }
             <span class="kw">_ </span>=&gt; InvalidHeartbeatRequestSnafu {
-                err_msg: <span class="string">&quot;missing header, peer or node_stat&quot;</span>,
+                err_msg: <span class="string">&quot;missing header or peer&quot;</span>,
             }
             .fail(),
         }
@@ -269,20 +283,8 @@
     <span class="kw">type </span>Error = Error;
 
     <span class="kw">fn </span>try_from(value: api::v1::meta::RegionStat) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">let </span>table_ident = value.table_ident.context(InvalidHeartbeatRequestSnafu {
-            err_msg: <span class="string">&quot;missing table_ident&quot;</span>,
-        })<span class="question-mark">?</span>;
-        <span class="kw">let </span>table_ident_result = TableIdent::try_from(table_ident);
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(table_ident) = table_ident_result <span class="kw">else </span>{
-            <span class="kw">return </span>InvalidHeartbeatRequestSnafu {
-                err_msg: <span class="macro">format!</span>(<span class="string">&quot;invalid table_ident: {:?}&quot;</span>, table_ident_result.err()),
-            }
-            .fail();
-        };
-
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             id: value.region_id,
-            table_ident,
             rcus: value.rcus,
             wcus: value.wcus,
             approximate_bytes: value.approximate_bytes,
@@ -300,7 +302,7 @@
         <span class="kw">let </span>stat = Stat {
             cluster_id: <span class="number">3</span>,
             id: <span class="number">101</span>,
-            region_num: <span class="prelude-val">Some</span>(<span class="number">10</span>),
+            region_num: <span class="number">10</span>,
             ..Default::default()
         };
 

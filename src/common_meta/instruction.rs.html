@@ -147,6 +147,11 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -164,38 +169,35 @@
 </span><span class="kw">use </span>std::fmt::{Display, Formatter};
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>store_api::storage::{RegionId, RegionNumber};
+<span class="kw">use </span>strum::Display;
+<span class="kw">use </span>table::metadata::TableId;
 
-<span class="kw">use </span><span class="kw">crate</span>::ident::TableIdent;
+<span class="kw">use </span><span class="kw">crate</span>::table_name::TableName;
 <span class="kw">use crate</span>::{ClusterId, DatanodeId};
 
 <span class="attr">#[derive(Eq, Hash, PartialEq, Clone, Debug, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>RegionIdent {
     <span class="kw">pub </span>cluster_id: ClusterId,
     <span class="kw">pub </span>datanode_id: DatanodeId,
-    <span class="kw">pub </span>table_ident: TableIdent,
-    <span class="kw">pub </span>region_number: u32,
+    <span class="kw">pub </span>table_id: TableId,
+    <span class="kw">pub </span>region_number: RegionNumber,
+    <span class="kw">pub </span>engine: String,
+}
+
+<span class="kw">impl </span>RegionIdent {
+    <span class="kw">pub fn </span>get_region_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RegionId {
+        RegionId::new(<span class="self">self</span>.table_id, <span class="self">self</span>.region_number)
+    }
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>RegionIdent {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="macro">write!</span>(
             f,
-            <span class="string">&quot;RegionIdent(datanode_id=&#39;{}.{}&#39;, table_id=&#39;{}&#39;, table_name=&#39;{}.{}.{}&#39;, table_engine=&#39;{}&#39;, region_no=&#39;{}&#39;)&quot;</span>,
-            <span class="self">self</span>.cluster_id,
-            <span class="self">self</span>.datanode_id,
-            <span class="self">self</span>.table_ident.table_id,
-            <span class="self">self</span>.table_ident.catalog,
-            <span class="self">self</span>.table_ident.schema,
-            <span class="self">self</span>.table_ident.table,
-            <span class="self">self</span>.table_ident.engine,
-            <span class="self">self</span>.region_number
+            <span class="string">&quot;RegionIdent(datanode_id=&#39;{}.{}&#39;, table_id={}, region_number={}, engine = {})&quot;</span>,
+            <span class="self">self</span>.cluster_id, <span class="self">self</span>.datanode_id, <span class="self">self</span>.table_id, <span class="self">self</span>.region_number, <span class="self">self</span>.engine
         )
-    }
-}
-
-<span class="kw">impl </span>From&lt;RegionIdent&gt; <span class="kw">for </span>TableIdent {
-    <span class="kw">fn </span>from(region_ident: RegionIdent) -&gt; <span class="self">Self </span>{
-        region_ident.table_ident
     }
 }
 
@@ -211,22 +213,37 @@
     }
 }
 
-<span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = <span class="string">&quot;type&quot;</span>, rename_all = <span class="string">&quot;snake_case&quot;</span>)]
-</span><span class="kw">pub enum </span>Instruction {
-    OpenRegion(RegionIdent),
-    CloseRegion(RegionIdent),
-    InvalidateTableCache(TableIdent),
+<span class="kw">impl </span>Display <span class="kw">for </span>OpenRegion {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(
+            f,
+            <span class="string">&quot;OpenRegion(region_ident={}, region_storage_path={})&quot;</span>,
+            <span class="self">self</span>.region_ident, <span class="self">self</span>.region_storage_path
+        )
+    }
 }
 
-<span class="kw">impl </span>Display <span class="kw">for </span>Instruction {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::OpenRegion(region) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Instruction::OpenRegion({})&quot;</span>, region),
-            <span class="self">Self</span>::CloseRegion(region) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Instruction::CloseRegion({})&quot;</span>, region),
-            <span class="self">Self</span>::InvalidateTableCache(table) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Instruction::Invalidate({})&quot;</span>, table),
+<span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
+</span><span class="kw">pub struct </span>OpenRegion {
+    <span class="kw">pub </span>region_ident: RegionIdent,
+    <span class="kw">pub </span>region_storage_path: String,
+}
+
+<span class="kw">impl </span>OpenRegion {
+    <span class="kw">pub fn </span>new(region_ident: RegionIdent, path: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            region_ident,
+            region_storage_path: path.to_string(),
         }
     }
+}
+
+<span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, Display)]
+</span><span class="kw">pub enum </span>Instruction {
+    OpenRegion(OpenRegion),
+    CloseRegion(RegionIdent),
+    InvalidateTableIdCache(TableId),
+    InvalidateTableNameCache(TableName),
 }
 
 <span class="attr">#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
@@ -255,43 +272,36 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_serialize_instruction() {
-        <span class="kw">let </span>open_region = Instruction::OpenRegion(RegionIdent {
-            cluster_id: <span class="number">1</span>,
-            datanode_id: <span class="number">2</span>,
-            table_ident: TableIdent {
-                catalog: <span class="string">&quot;foo&quot;</span>.to_string(),
-                schema: <span class="string">&quot;bar&quot;</span>.to_string(),
-                table: <span class="string">&quot;hi&quot;</span>.to_string(),
+        <span class="kw">let </span>open_region = Instruction::OpenRegion(OpenRegion::new(
+            RegionIdent {
+                cluster_id: <span class="number">1</span>,
+                datanode_id: <span class="number">2</span>,
                 table_id: <span class="number">1024</span>,
-                engine: <span class="string">&quot;mito&quot;</span>.to_string(),
+                region_number: <span class="number">1</span>,
+                engine: <span class="string">&quot;mito2&quot;</span>.to_string(),
             },
-            region_number: <span class="number">1</span>,
-        });
+            <span class="string">&quot;test/foo&quot;</span>,
+        ));
 
         <span class="kw">let </span>serialized = serde_json::to_string(<span class="kw-2">&amp;</span>open_region).unwrap();
 
         <span class="macro">assert_eq!</span>(
-            <span class="string">r#&quot;{&quot;type&quot;:&quot;open_region&quot;,&quot;cluster_id&quot;:1,&quot;datanode_id&quot;:2,&quot;table_ident&quot;:{&quot;catalog&quot;:&quot;foo&quot;,&quot;schema&quot;:&quot;bar&quot;,&quot;table&quot;:&quot;hi&quot;,&quot;table_id&quot;:1024,&quot;engine&quot;:&quot;mito&quot;},&quot;region_number&quot;:1}&quot;#</span>,
+            <span class="string">r#&quot;{&quot;OpenRegion&quot;:{&quot;region_ident&quot;:{&quot;cluster_id&quot;:1,&quot;datanode_id&quot;:2,&quot;table_id&quot;:1024,&quot;region_number&quot;:1,&quot;engine&quot;:&quot;mito2&quot;},&quot;region_storage_path&quot;:&quot;test/foo&quot;}}&quot;#</span>,
             serialized
         );
 
         <span class="kw">let </span>close_region = Instruction::CloseRegion(RegionIdent {
             cluster_id: <span class="number">1</span>,
             datanode_id: <span class="number">2</span>,
-            table_ident: TableIdent {
-                catalog: <span class="string">&quot;foo&quot;</span>.to_string(),
-                schema: <span class="string">&quot;bar&quot;</span>.to_string(),
-                table: <span class="string">&quot;hi&quot;</span>.to_string(),
-                table_id: <span class="number">1024</span>,
-                engine: <span class="string">&quot;mito&quot;</span>.to_string(),
-            },
+            table_id: <span class="number">1024</span>,
             region_number: <span class="number">1</span>,
+            engine: <span class="string">&quot;mito2&quot;</span>.to_string(),
         });
 
         <span class="kw">let </span>serialized = serde_json::to_string(<span class="kw-2">&amp;</span>close_region).unwrap();
 
         <span class="macro">assert_eq!</span>(
-            <span class="string">r#&quot;{&quot;type&quot;:&quot;close_region&quot;,&quot;cluster_id&quot;:1,&quot;datanode_id&quot;:2,&quot;table_ident&quot;:{&quot;catalog&quot;:&quot;foo&quot;,&quot;schema&quot;:&quot;bar&quot;,&quot;table&quot;:&quot;hi&quot;,&quot;table_id&quot;:1024,&quot;engine&quot;:&quot;mito&quot;},&quot;region_number&quot;:1}&quot;#</span>,
+            <span class="string">r#&quot;{&quot;CloseRegion&quot;:{&quot;cluster_id&quot;:1,&quot;datanode_id&quot;:2,&quot;table_id&quot;:1024,&quot;region_number&quot;:1,&quot;engine&quot;:&quot;mito2&quot;}}&quot;#</span>,
             serialized
         );
     }

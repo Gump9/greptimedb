@@ -240,6 +240,9 @@
 <a href="#240" id="240">240</a>
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -259,11 +262,13 @@
 
 <span class="kw">use </span>bytes::{Buf, BufMut, BytesMut};
 <span class="kw">use </span>common_error::ext::ErrorExt;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>paste::paste;
 <span class="kw">use </span>snafu::{ensure, Location, ResultExt, Snafu};
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
     <span class="attr">#[snafu(display(
         <span class="string">&quot;Destination buffer overflow, src_len: {}, dst_len: {}&quot;</span>,
@@ -279,9 +284,10 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Buffer underflow&quot;</span>))]
     </span>Underflow { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;IO operation reach EOF, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;IO operation reach EOF&quot;</span>))]
     </span>Eof {
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
         location: Location,
     },
 }

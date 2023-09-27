@@ -81,6 +81,10 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -133,6 +137,10 @@
 <span class="kw">impl </span>ThinTableAdapter {
     <span class="kw">pub fn </span>new(table: ThinTable, data_source: DataSourceRef) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ table, data_source }
+    }
+
+    <span class="kw">pub fn </span>data_source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DataSourceRef {
+        <span class="self">self</span>.data_source.clone()
     }
 }
 

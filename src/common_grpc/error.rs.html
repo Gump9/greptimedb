@@ -102,6 +102,11 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -121,19 +126,22 @@
 
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>snafu::{Location, Snafu};
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid client tls config, {}&quot;</span>, msg))]
     </span>InvalidTlsConfig { msg: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid config file path, {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid config file path&quot;</span>))]
     </span>InvalidConfigFilePath {
-        source: io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: io::Error,
         location: Location,
     },
 
@@ -150,13 +158,14 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create gRPC channel, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create gRPC channel&quot;</span>))]
     </span>CreateChannel {
-        source: tonic::transport::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: tonic::transport::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create RecordBatch, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create RecordBatch&quot;</span>))]
     </span>CreateRecordBatch {
         location: Location,
         source: common_recordbatch::error::Error,
@@ -165,16 +174,17 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Arrow type: {}&quot;</span>, from))]
     </span>Conversion { from: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode FlightData, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode FlightData&quot;</span>))]
     </span>DecodeFlightData {
-        source: api::DecodeError,
+        <span class="attr">#[snafu(source)]
+        </span>error: api::DecodeError,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid FlightData, reason: {}&quot;</span>, reason))]
     </span>InvalidFlightData { reason: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Arrow Schema, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Arrow Schema&quot;</span>))]
     </span>ConvertArrowSchema {
         location: Location,
         source: datatypes::error::Error,

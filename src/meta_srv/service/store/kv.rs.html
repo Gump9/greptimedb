@@ -161,7 +161,7 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_error::ext::BoxedError;
-<span class="kw">use </span>common_meta::error::MetaSrvSnafu;
+<span class="kw">use </span>common_meta::error::ExternalSnafu;
 <span class="kw">use </span>common_meta::kv_backend::txn::{Txn, TxnResponse};
 <span class="kw">use </span>common_meta::kv_backend::{KvBackend, KvBackendRef, TxnService};
 <span class="kw">use </span>common_meta::rpc::store::{
@@ -199,7 +199,7 @@
             </span>.txn(txn)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 }
 
@@ -218,7 +218,7 @@
             </span>.range(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 
     <span class="kw">async fn </span>put(<span class="kw-2">&amp;</span><span class="self">self</span>, req: PutRequest) -&gt; <span class="prelude-ty">Result</span>&lt;PutResponse, <span class="self">Self</span>::Error&gt; {
@@ -226,7 +226,7 @@
             </span>.put(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 
     <span class="kw">async fn </span>batch_put(<span class="kw-2">&amp;</span><span class="self">self</span>, req: BatchPutRequest) -&gt; <span class="prelude-ty">Result</span>&lt;BatchPutResponse, <span class="self">Self</span>::Error&gt; {
@@ -234,7 +234,7 @@
             </span>.batch_put(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 
     <span class="kw">async fn </span>batch_get(<span class="kw-2">&amp;</span><span class="self">self</span>, req: BatchGetRequest) -&gt; <span class="prelude-ty">Result</span>&lt;BatchGetResponse, <span class="self">Self</span>::Error&gt; {
@@ -242,7 +242,7 @@
             </span>.batch_get(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 
     <span class="kw">async fn </span>compare_and_put(
@@ -253,7 +253,7 @@
             </span>.compare_and_put(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 
     <span class="kw">async fn </span>delete_range(
@@ -264,7 +264,7 @@
             </span>.delete_range(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 
     <span class="kw">async fn </span>batch_delete(
@@ -275,7 +275,7 @@
             </span>.batch_delete(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 
     <span class="kw">async fn </span>move_value(<span class="kw-2">&amp;</span><span class="self">self</span>, req: MoveValueRequest) -&gt; <span class="prelude-ty">Result</span>&lt;MoveValueResponse, <span class="self">Self</span>::Error&gt; {
@@ -283,7 +283,7 @@
             </span>.move_value(req)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
-            .context(MetaSrvSnafu)
+            .context(ExternalSnafu)
     }
 }
 </code></pre></div></section></main></body></html>

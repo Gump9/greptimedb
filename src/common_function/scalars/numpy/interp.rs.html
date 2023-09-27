@@ -357,6 +357,7 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -383,7 +384,7 @@
 <span class="kw">use </span>datatypes::with_match_primitive_type_id;
 <span class="kw">use </span>snafu::{ensure, ResultExt};
 
-<span class="comment">/* search the biggest number that smaller than x in xp */
+<span class="doccomment">/// search the biggest number that smaller than x in xp
 </span><span class="kw">fn </span>linear_search_ascending_vector(x: Value, xp: <span class="kw-2">&amp;</span>Float64Vector) -&gt; usize {
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..xp.len() {
         <span class="kw">if </span>x &lt; xp.get(i) {
@@ -393,7 +394,7 @@
     xp.len() - <span class="number">1
 </span>}
 
-<span class="comment">/* search the biggest number that smaller than x in xp */
+<span class="doccomment">/// search the biggest number that smaller than x in xp
 </span><span class="kw">fn </span>binary_search_ascending_vector(key: Value, xp: <span class="kw-2">&amp;</span>Float64Vector) -&gt; usize {
     <span class="kw">let </span><span class="kw-2">mut </span>left = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>right = xp.len();
@@ -426,7 +427,8 @@
     })
 }
 
-<span class="doccomment">/// https://github.com/numpy/numpy/blob/b101756ac02e390d605b2febcded30a1da50cc2c/numpy/core/src/multiarray/compiled_base.c#L491
+<span class="doccomment">/// One-dimensional linear interpolation for monotonically increasing sample points. Refers to
+/// &lt;https://github.com/numpy/numpy/blob/b101756ac02e390d605b2febcded30a1da50cc2c/numpy/core/src/multiarray/compiled_base.c#L491&gt;
 </span><span class="attr">#[allow(unused)]
 </span><span class="kw">pub fn </span>interp(args: <span class="kw-2">&amp;</span>[VectorRef]) -&gt; <span class="prelude-ty">Result</span>&lt;VectorRef&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>left = <span class="prelude-val">None</span>;

@@ -369,33 +369,6 @@
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -415,54 +388,48 @@
 
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>datafusion::error::DataFusionError;
 <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
 <span class="kw">use </span>snafu::{Location, Snafu};
+<span class="kw">use </span>table::metadata::TableId;
 <span class="kw">use </span>tokio::task::JoinError;
 
-<span class="kw">use </span><span class="kw">crate</span>::DeregisterTableRequest;
-
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list catalogs, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list catalogs&quot;</span>))]
     </span>ListCatalogs {
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list {}&#39;s schemas, source: {}&quot;</span>, catalog, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list {}&#39;s schemas&quot;</span>, catalog))]
     </span>ListSchemas {
         location: Location,
         catalog: String,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to re-compile script due to internal error, source: {}&quot;</span>,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to re-compile script due to internal error&quot;</span>))]
     </span>CompileScriptInternal {
         location: Location,
         source: BoxedError,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to open system catalog table, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to open system catalog table&quot;</span>))]
     </span>OpenSystemCatalog {
         location: Location,
         source: table::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create system catalog table, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create system catalog table&quot;</span>))]
     </span>CreateSystemCatalog {
         location: Location,
         source: table::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to create table, table info: {}, source: {}&quot;</span>,
-        table_info,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create table, table info: {}&quot;</span>, table_info))]
     </span>CreateTable {
         table_info: String,
         location: Location,
@@ -496,13 +463,14 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Catalog value is not present&quot;</span>))]
     </span>EmptyValue { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize value, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize value&quot;</span>))]
     </span>ValueDeserialize {
-        source: serde_json::error::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: serde_json::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Table engine not found: {}, source: {}&quot;</span>, engine_name, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Table engine not found: {}&quot;</span>, engine_name))]
     </span>TableEngineNotFound {
         engine_name: String,
         location: Location,
@@ -540,15 +508,18 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Operation {} not supported&quot;</span>, op))]
     </span>NotSupported { op: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to open table, table info: {}, source: {}&quot;</span>, table_info, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to open table {table_id}&quot;</span>))]
     </span>OpenTable {
-        table_info: String,
+        table_id: TableId,
         location: Location,
         source: table::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to open table in parallel, source: {}&quot;</span>, source))]
-    </span>ParallelOpenTable { source: JoinError },
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to open table in parallel&quot;</span>))]
+    </span>ParallelOpenTable {
+        <span class="attr">#[snafu(source)]
+        </span>error: JoinError,
+    },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Table not found while opening table, table info: {}&quot;</span>, table_info))]
     </span>TableNotFound {
@@ -562,72 +533,52 @@
         source: common_recordbatch::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create recordbatch, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create recordbatch&quot;</span>))]
     </span>CreateRecordBatch {
         location: Location,
         source: common_recordbatch::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to insert table creation record to system catalog, source: {}&quot;</span>,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to insert table creation record to system catalog&quot;</span>))]
     </span>InsertCatalogRecord {
         location: Location,
         source: table::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to deregister table, request: {:?}, source: {}&quot;</span>,
-        request,
-        source
-    ))]
-    </span>DeregisterTable {
-        request: DeregisterTableRequest,
-        location: Location,
-        source: table::error::Error,
-    },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Illegal catalog manager state: {}&quot;</span>, msg))]
-    </span>IllegalManagerState { location: Location, msg: String },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to scan system catalog table, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to scan system catalog table&quot;</span>))]
     </span>SystemCatalogTableScan {
         location: Location,
         source: table::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;{source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;&quot;</span>))]
     </span>Internal {
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to upgrade weak catalog manager reference. location: {}&quot;</span>,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to upgrade weak catalog manager reference&quot;</span>))]
     </span>UpgradeWeakCatalogManagerRef { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute system catalog table scan, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute system catalog table scan&quot;</span>))]
     </span>SystemCatalogTableScanExec {
         location: Location,
         source: common_query::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot parse catalog value, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot parse catalog value&quot;</span>))]
     </span>InvalidCatalogValue {
         location: Location,
         source: common_catalog::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to perform metasrv operation, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to perform metasrv operation&quot;</span>))]
     </span>MetaSrv {
         location: Location,
         source: meta_client::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid table info in catalog, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid table info in catalog&quot;</span>))]
     </span>InvalidTableInfoInCatalog {
         location: Location,
         source: datatypes::error::Error,
@@ -636,17 +587,15 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Illegal access to catalog: {} and schema: {}&quot;</span>, catalog, schema))]
     </span>QueryAccessDenied { catalog: String, schema: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid system table definition: {err_msg}&quot;</span>))]
-    </span>InvalidSystemTableDef { err_msg: String, location: Location },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;{}: {}&quot;</span>, msg, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;msg: {}&quot;</span>, msg))]
     </span>Datafusion {
         msg: String,
-        source: DataFusionError,
+        <span class="attr">#[snafu(source)]
+        </span>error: DataFusionError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Table schema mismatch, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Table schema mismatch&quot;</span>))]
     </span>TableSchemaMismatch {
         location: Location,
         source: table::error::Error,
@@ -655,7 +604,7 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;A generic error has occurred, msg: {}&quot;</span>, msg))]
     </span>Generic { msg: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Table metadata manager error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Table metadata manager error&quot;</span>))]
     </span>TableMetadataManager {
         source: common_meta::error::Error,
         location: Location,
@@ -670,10 +619,8 @@
             Error::InvalidKey { .. }
             | Error::SchemaNotFound { .. }
             | Error::TableNotFound { .. }
-            | Error::IllegalManagerState { .. }
             | Error::CatalogNotFound { .. }
             | Error::InvalidEntryType { .. }
-            | Error::InvalidSystemTableDef { .. }
             | Error::ParallelOpenTable { .. } =&gt; StatusCode::Unexpected,
 
             Error::SystemCatalog { .. }
@@ -704,7 +651,6 @@
             | Error::InsertCatalogRecord { source, .. }
             | Error::OpenTable { source, .. }
             | Error::CreateTable { source, .. }
-            | Error::DeregisterTable { source, .. }
             | Error::TableSchemaMismatch { source, .. } =&gt; source.status_code(),
 
             Error::MetaSrv { source, .. } =&gt; source.status_code(),

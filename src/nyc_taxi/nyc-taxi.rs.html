@@ -465,6 +465,42 @@
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -494,7 +530,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>client::api::v1::column::Values;
 <span class="kw">use </span>client::api::v1::{
-    Column, ColumnDataType, ColumnDef, CreateTableExpr, InsertRequest, InsertRequests,
+    Column, ColumnDataType, ColumnDef, CreateTableExpr, InsertRequest, InsertRequests, SemanticType,
 };
 <span class="kw">use </span>client::{Client, Database, DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -572,7 +608,6 @@
         <span class="kw">let </span>(columns, row_count) = convert_record_batch(record_batch);
         <span class="kw">let </span>request = InsertRequest {
             table_name: TABLE_NAME.to_string(),
-            region_number: <span class="number">0</span>,
             columns,
             row_count,
         };
@@ -656,7 +691,7 @@
             <span class="kw">let </span>values = array.values();
             (
                 Values {
-                    ts_microsecond_values: values.to_vec(),
+                    timestamp_microsecond_values: values.to_vec(),
                     ..Default::default()
                 },
                 ColumnDataType::TimestampMicrosecond,
@@ -720,124 +755,161 @@
         column_defs: <span class="macro">vec!</span>[
             ColumnDef {
                 name: <span class="string">&quot;VendorID&quot;</span>.to_string(),
-                datatype: ColumnDataType::Int64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Int64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Tag <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;tpep_pickup_datetime&quot;</span>.to_string(),
-                datatype: ColumnDataType::TimestampMicrosecond <span class="kw">as </span>i32,
+                data_type: ColumnDataType::TimestampMicrosecond <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Timestamp <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;tpep_dropoff_datetime&quot;</span>.to_string(),
-                datatype: ColumnDataType::TimestampMicrosecond <span class="kw">as </span>i32,
+                data_type: ColumnDataType::TimestampMicrosecond <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;passenger_count&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;trip_distance&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;RatecodeID&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;store_and_fwd_flag&quot;</span>.to_string(),
-                datatype: ColumnDataType::String <span class="kw">as </span>i32,
+                data_type: ColumnDataType::String <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;PULocationID&quot;</span>.to_string(),
-                datatype: ColumnDataType::Int64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Int64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;DOLocationID&quot;</span>.to_string(),
-                datatype: ColumnDataType::Int64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Int64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;payment_type&quot;</span>.to_string(),
-                datatype: ColumnDataType::Int64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Int64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;fare_amount&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;extra&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;mta_tax&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;tip_amount&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;tolls_amount&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;improvement_surcharge&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;total_amount&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;congestion_surcharge&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
             ColumnDef {
                 name: <span class="string">&quot;airport_fee&quot;</span>.to_string(),
-                datatype: ColumnDataType::Float64 <span class="kw">as </span>i32,
+                data_type: ColumnDataType::Float64 <span class="kw">as </span>i32,
                 is_nullable: <span class="bool-val">true</span>,
                 default_constraint: <span class="macro">vec!</span>[],
+                semantic_type: SemanticType::Field <span class="kw">as </span>i32,
+                comment: String::new(),
             },
         ],
         time_index: <span class="string">&quot;tpep_pickup_datetime&quot;</span>.to_string(),
         primary_keys: <span class="macro">vec!</span>[<span class="string">&quot;VendorID&quot;</span>.to_string()],
         create_if_not_exists: <span class="bool-val">false</span>,
         table_options: Default::default(),
-        region_numbers: <span class="macro">vec!</span>[<span class="number">0</span>],
         table_id: <span class="prelude-val">None</span>,
         engine: <span class="string">&quot;mito&quot;</span>.to_string(),
     }

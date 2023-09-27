@@ -388,6 +388,28 @@
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -409,6 +431,7 @@
 <span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>common_base::readable_size::ReadableSize;
+<span class="kw">use </span>common_datasource::object_store::s3::is_supported_in_s3;
 <span class="kw">use </span>common_query::AddColumnLocation;
 <span class="kw">use </span>common_time::range::TimestampRange;
 <span class="kw">use </span>datatypes::prelude::VectorRef;
@@ -421,10 +444,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::ParseTableOptionSnafu;
 <span class="kw">use </span><span class="kw">crate</span>::metadata::{TableId, TableVersion};
 
-<span class="kw">pub const </span>IMMUTABLE_TABLE_META_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__private.immutable_table_meta&quot;</span>;
-<span class="kw">pub const </span>IMMUTABLE_TABLE_LOCATION_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;location&quot;</span>;
-<span class="kw">pub const </span>IMMUTABLE_TABLE_PATTERN_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;pattern&quot;</span>;
-<span class="kw">pub const </span>IMMUTABLE_TABLE_FORMAT_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;format&quot;</span>;
+<span class="kw">pub const </span>FILE_TABLE_META_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__private.file_table_meta&quot;</span>;
+<span class="kw">pub const </span>FILE_TABLE_LOCATION_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;location&quot;</span>;
+<span class="kw">pub const </span>FILE_TABLE_PATTERN_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;pattern&quot;</span>;
+<span class="kw">pub const </span>FILE_TABLE_FORMAT_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;format&quot;</span>;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>CreateDatabaseRequest {
@@ -635,7 +658,6 @@
     <span class="kw">pub </span>schema_name: String,
     <span class="kw">pub </span>table_name: String,
     <span class="kw">pub </span>columns_values: HashMap&lt;String, VectorRef&gt;,
-    <span class="kw">pub </span>region_number: RegionNumber,
 }
 
 <span class="doccomment">/// Delete (by primary key) request
@@ -716,10 +738,21 @@
             <span class="macro-nonterminal">$req</span>.catalog_name.to_string(),
             <span class="macro-nonterminal">$req</span>.schema_name.to_string(),
             <span class="macro-nonterminal">$req</span>.table_name.to_string(),
-            <span class="macro-nonterminal">$req</span>.region_number,
             <span class="macro-nonterminal">$req
         </span>);
     };
+}
+
+<span class="kw">pub fn </span>valid_table_option(key: <span class="kw-2">&amp;</span>str) -&gt; bool {
+    <span class="macro">matches!</span>(
+        key,
+        FILE_TABLE_LOCATION_KEY
+            | FILE_TABLE_FORMAT_KEY
+            | FILE_TABLE_PATTERN_KEY
+            | WRITE_BUFFER_SIZE_KEY
+            | TTL_KEY
+            | REGIONS_KEY
+    ) | is_supported_in_s3(key)
 }
 
 <span class="attr">#[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -735,6 +768,17 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_validate_table_option() {
+        <span class="macro">assert!</span>(valid_table_option(FILE_TABLE_LOCATION_KEY));
+        <span class="macro">assert!</span>(valid_table_option(FILE_TABLE_FORMAT_KEY));
+        <span class="macro">assert!</span>(valid_table_option(FILE_TABLE_PATTERN_KEY));
+        <span class="macro">assert!</span>(valid_table_option(TTL_KEY));
+        <span class="macro">assert!</span>(valid_table_option(REGIONS_KEY));
+        <span class="macro">assert!</span>(valid_table_option(WRITE_BUFFER_SIZE_KEY));
+        <span class="macro">assert!</span>(!valid_table_option(<span class="string">&quot;foo&quot;</span>));
+    }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_serialize_table_options() {

@@ -252,7 +252,7 @@
         }
     }
 
-    <span class="doccomment">/// The number of null slots on this [`Vector`].
+    <span class="doccomment">/// The number of null slots.
     </span><span class="kw">pub fn </span>null_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="kw">match </span><span class="self">self</span>.kind {
             ValidityKind::Slots { null_count, .. } =&gt; null_count,

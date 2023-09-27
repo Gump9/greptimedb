@@ -633,20 +633,6 @@
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
 <a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -668,6 +654,7 @@
 <span class="kw">use </span>common_datasource::compression::CompressionType;
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>common_runtime::error::Error <span class="kw">as </span>RuntimeError;
 <span class="kw">use </span>datatypes::arrow::error::ArrowError;
 <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
@@ -682,10 +669,11 @@
 <span class="kw">use </span><span class="kw">crate</span>::metadata::Error <span class="kw">as </span>MetadataError;
 <span class="kw">use </span><span class="kw">crate</span>::write_batch;
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid region descriptor, region: {}, source: {}&quot;</span>, region, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid region descriptor, region: {}&quot;</span>, region))]
     </span>InvalidRegionDesc {
         region: String,
         location: Location,
@@ -695,92 +683,93 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Missing column {} in write batch&quot;</span>, column))]
     </span>BatchMissingColumn { column: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write parquet file, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write parquet file&quot;</span>))]
     </span>WriteParquet {
-        source: parquet::errors::ParquetError,
+        <span class="attr">#[snafu(source)]
+        </span>error: parquet::errors::ParquetError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write to buffer, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write to buffer&quot;</span>))]
     </span>WriteBuffer {
         location: Location,
         source: common_datasource::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create RecordBatch from vectors, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create RecordBatch from vectors&quot;</span>))]
     </span>NewRecordBatch {
         location: Location,
-        source: ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ArrowError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to read object from path: {}, source: {}&quot;</span>, path, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to read object from path: {}&quot;</span>, path))]
     </span>ReadObject {
         path: String,
         location: Location,
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to write object into path: {}, source: {}&quot;</span>, path, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to write object into path: {}&quot;</span>, path))]
     </span>WriteObject {
         path: String,
         location: Location,
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to delete object from path: {}, source: {}&quot;</span>, path, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to delete object from path: {}&quot;</span>, path))]
     </span>DeleteObject {
         path: String,
         location: Location,
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Fail to compress object by {}, path: {}, source: {}&quot;</span>,
-        compress_type,
-        path,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to compress object by {}, path: {}&quot;</span>, compress_type, path))]
     </span>CompressObject {
         compress_type: CompressionType,
         path: String,
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Fail to decompress object by {}, path: {}, source: {}&quot;</span>,
-        compress_type,
-        path,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to decompress object by {}, path: {}&quot;</span>, compress_type, path))]
     </span>DecompressObject {
         compress_type: CompressionType,
         path: String,
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to list objects in path: {}, source: {}&quot;</span>, path, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to list objects in path: {}&quot;</span>, path))]
     </span>ListObjects {
         path: String,
         location: Location,
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to create str from bytes, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to create str from bytes&quot;</span>))]
     </span>Utf8 {
         location: Location,
-        source: Utf8Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: Utf8Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to encode object into json , source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to encode object into json &quot;</span>))]
     </span>EncodeJson {
         location: Location,
-        source: JsonError,
+        <span class="attr">#[snafu(source)]
+        </span>error: JsonError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to decode object from json , source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to decode object from json &quot;</span>))]
     </span>DecodeJson {
         location: Location,
-        source: JsonError,
+        <span class="attr">#[snafu(source)]
+        </span>error: JsonError,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid scan index, start: {}, end: {}&quot;</span>, start, end))]
@@ -790,37 +779,32 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to write WAL, WAL region_id: {}, source: {}&quot;</span>,
-        region_id,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write WAL, WAL region_id: {}&quot;</span>, region_id))]
     </span>WriteWal {
         region_id: RegionId,
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to encode WAL header, source {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to encode WAL header&quot;</span>))]
     </span>EncodeWalHeader {
         location: Location,
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode WAL header, source {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode WAL header&quot;</span>))]
     </span>DecodeWalHeader {
         location: Location,
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to wait flushing, region_id: {}, source: {}&quot;</span>,
-        region_id,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to wait flushing, region_id: {}&quot;</span>, region_id))]
     </span>WaitFlush {
         region_id: RegionId,
-        source: tokio::sync::oneshot::error::RecvError,
+        <span class="attr">#[snafu(source)]
+        </span>error: tokio::sync::oneshot::error::RecvError,
         location: Location,
     },
 
@@ -849,13 +833,17 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode action list, {}&quot;</span>, msg))]
     </span>DecodeMetaActionList { msg: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read line, err: {}&quot;</span>, source))]
-    </span>Readline { source: IoError },
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read line, err&quot;</span>))]
+    </span>Readline {
+        <span class="attr">#[snafu(source)]
+        </span>error: IoError,
+    },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read Parquet file: {}, source: {}&quot;</span>, file, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read Parquet file: {}&quot;</span>, file))]
     </span>ReadParquet {
         file: String,
-        source: parquet::errors::ParquetError,
+        <span class="attr">#[snafu(source)]
+        </span>error: parquet::errors::ParquetError,
         location: Location,
     },
 
@@ -865,18 +853,14 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read WAL, region_id: {}, source: {}&quot;</span>, region_id, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read WAL, region_id: {}&quot;</span>, region_id))]
     </span>ReadWal {
         region_id: RegionId,
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to mark WAL as obsolete, region id: {}, source: {}&quot;</span>,
-        region_id,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to mark WAL as obsolete, region id: {}&quot;</span>, region_id))]
     </span>MarkWalObsolete {
         region_id: u64,
         location: Location,
@@ -890,11 +874,7 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to delete WAL namespace, region id: {}, source: {}&quot;</span>,
-        region_id,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete WAL namespace, region id: {}&quot;</span>, region_id))]
     </span>DeleteWalNamespace {
         region_id: RegionId,
         location: Location,
@@ -912,14 +892,14 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert store schema, file: {}, source: {}&quot;</span>, file, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert store schema, file: {}&quot;</span>, file))]
     </span>ConvertStoreSchema {
         file: String,
         location: Location,
         source: MetadataError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid raw region metadata, region: {}, source: {}&quot;</span>, region, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid raw region metadata, region: {}&quot;</span>, region))]
     </span>InvalidRawRegion {
         region: String,
         location: Location,
@@ -929,13 +909,13 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Try to write the closed region&quot;</span>))]
     </span>ClosedRegion { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid projection, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid projection&quot;</span>))]
     </span>InvalidProjection {
         location: Location,
         source: MetadataError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to push data to batch builder, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to push data to batch builder&quot;</span>))]
     </span>PushBatch {
         location: Location,
         source: datatypes::error::Error,
@@ -944,30 +924,26 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build batch, {}&quot;</span>, msg))]
     </span>BuildBatch { msg: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to filter column {}, source: {}&quot;</span>, name, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to filter column {}&quot;</span>, name))]
     </span>FilterColumn {
         name: String,
         location: Location,
         source: datatypes::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid alter request, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid alter request&quot;</span>))]
     </span>InvalidAlterRequest {
         location: Location,
         source: MetadataError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to alter metadata, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to alter metadata&quot;</span>))]
     </span>AlterMetadata {
         location: Location,
         source: MetadataError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to create default value for column {}, source: {}&quot;</span>,
-        name,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create default value for column {}&quot;</span>, name))]
     </span>CreateDefault {
         name: String,
         location: Location,
@@ -996,11 +972,7 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Incompatible schema to read, reason: {}&quot;</span>, reason))]
     </span>CompatRead { reason: String, location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to read column {}, could not create default value, source: {}&quot;</span>,
-        column,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read column {}, could not create default value&quot;</span>, column))]
     </span>CreateDefaultToRead {
         column: String,
         location: Location,
@@ -1010,11 +982,7 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read column {}, no proper default value for it&quot;</span>, column))]
     </span>NoDefaultToRead { column: String, location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to convert arrow chunk to batch, name: {}, source: {}&quot;</span>,
-        name,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert arrow chunk to batch, name: {}&quot;</span>, name))]
     </span>ConvertChunk {
         name: String,
         location: Location,
@@ -1024,7 +992,7 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Unknown column {}&quot;</span>, name))]
     </span>UnknownColumn { name: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create record batch for write batch, source:{}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create record batch for write batch&quot;</span>))]
     </span>CreateRecordBatch {
         location: Location,
         source: common_recordbatch::error::Error,
@@ -1069,19 +1037,21 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode write batch, corrupted data {}&quot;</span>, message))]
     </span>BatchCorrupted { message: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode arrow data, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode arrow data&quot;</span>))]
     </span>DecodeArrow {
         location: Location,
-        source: ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ArrowError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to encode arrow data, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to encode arrow data&quot;</span>))]
     </span>EncodeArrow {
         location: Location,
-        source: ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ArrowError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse schema, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse schema&quot;</span>))]
     </span>ParseSchema {
         location: Location,
         source: datatypes::error::Error,
@@ -1099,31 +1069,33 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Cannot schedule request, scheduler&#39;s already stopped&quot;</span>))]
     </span>IllegalSchedulerState { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start manifest gc task: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start manifest gc task&quot;</span>))]
     </span>StartManifestGcTask {
         location: Location,
         source: RuntimeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop manifest gc task: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop manifest gc task&quot;</span>))]
     </span>StopManifestGcTask {
         location: Location,
         source: RuntimeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop scheduler, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop scheduler&quot;</span>))]
     </span>StopScheduler {
-        source: JoinError,
+        <span class="attr">#[snafu(source)]
+        </span>error: JoinError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete SST file, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete SST file&quot;</span>))]
     </span>DeleteSst {
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to calculate SST expire time, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to calculate SST expire time&quot;</span>))]
     </span>TtlCalculation {
         location: Location,
         source: common_time::error::Error,
@@ -1135,7 +1107,8 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;The compaction task is cancelled, region_id: {}&quot;</span>, region_id))]
     </span>CompactTaskCancel {
         region_id: RegionId,
-        source: tokio::sync::oneshot::error::RecvError,
+        <span class="attr">#[snafu(source)]
+        </span>error: tokio::sync::oneshot::error::RecvError,
     },
 
     <span class="attr">#[snafu(display(
@@ -1149,43 +1122,42 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start picking task for flush: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start picking task for flush&quot;</span>))]
     </span>StartPickTask {
         location: Location,
         source: RuntimeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop picking task for flush: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop picking task for flush&quot;</span>))]
     </span>StopPickTask {
         location: Location,
         source: RuntimeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert columns to rows, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert columns to rows&quot;</span>))]
     </span>ConvertColumnsToRows {
-        source: ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ArrowError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to sort arrays, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to sort arrays&quot;</span>))]
     </span>SortArrays {
-        source: ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ArrowError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build scan predicate, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build scan predicate&quot;</span>))]
     </span>BuildPredicate {
         source: table::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to join spawned tasks, source: {}, location: {}&quot;</span>,
-        source,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to join spawned tasks&quot;</span>))]
     </span>JoinError {
-        source: JoinError,
+        <span class="attr">#[snafu(source)]
+        </span>error: JoinError,
         location: Location,
     },
 }
@@ -1196,8 +1168,8 @@
     <span class="doccomment">/// Returns true if the error is the object path to delete
     /// doesn&#39;t exist.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_object_to_delete_not_found(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">if let </span>Error::DeleteObject { source, .. } = <span class="self">self </span>{
-            source.kind() == ErrorKind::NotFound
+        <span class="kw">if let </span>Error::DeleteObject { error, .. } = <span class="self">self </span>{
+            error.kind() == ErrorKind::NotFound
         } <span class="kw">else </span>{
             <span class="bool-val">false
         </span>}

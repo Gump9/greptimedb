@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Context","DummyCacheInvalidator","DummyKvCacheInvalidator","TableMetadataCacheInvalidator"],"trait":["CacheInvalidator","KvCacheInvalidator"],"type":["CacheInvalidatorRef","KvCacheInvalidatorRef"]};

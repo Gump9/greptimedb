@@ -138,6 +138,9 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -154,10 +157,12 @@
 
 </span><span class="kw">use </span>std::fmt;
 
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
+
 <span class="kw">use </span><span class="kw">crate</span>::ast::{Expr, Ident, ObjectName};
 
 <span class="doccomment">/// Show kind for SQL expressions like `SHOW DATABASE` or `SHOW TABLE`
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub enum </span>ShowKind {
     All,
     Like(Ident),
@@ -175,7 +180,7 @@
 }
 
 <span class="doccomment">/// SQL structure for `SHOW DATABASES`.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>ShowDatabases {
     <span class="kw">pub </span>kind: ShowKind,
 }
@@ -188,14 +193,15 @@
 }
 
 <span class="doccomment">/// SQL structure for `SHOW TABLES`.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>ShowTables {
     <span class="kw">pub </span>kind: ShowKind,
     <span class="kw">pub </span>database: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="kw">pub </span>full: bool,
 }
 
 <span class="doccomment">/// SQL structure for `SHOW CREATE TABLE`.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>ShowCreateTable {
     <span class="kw">pub </span>table_name: ObjectName,
 }

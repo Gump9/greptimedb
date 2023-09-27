@@ -800,6 +800,10 @@
 <a href="#800" id="800">800</a>
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -905,12 +909,14 @@
             }
         }
         Value::Interval(v) =&gt; builder.encode_field(<span class="kw-2">&amp;</span>PgInterval::from(<span class="kw-2">*</span>v)),
-        Value::List(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(PgWireError::ApiError(Box::new(Error::Internal {
-            err_msg: <span class="macro">format!</span>(
-                <span class="string">&quot;cannot write value {:?} in postgres protocol: unimplemented&quot;</span>,
-                <span class="kw-2">&amp;</span>value
-            ),
-        }))),
+        Value::List(<span class="kw">_</span>) | Value::Duration(<span class="kw">_</span>) =&gt; {
+            <span class="prelude-val">Err</span>(PgWireError::ApiError(Box::new(Error::Internal {
+                err_msg: <span class="macro">format!</span>(
+                    <span class="string">&quot;cannot write value {:?} in postgres protocol: unimplemented&quot;</span>,
+                    <span class="kw-2">&amp;</span>value
+                ),
+            })))
+        }
     }
 }
 
@@ -931,7 +937,9 @@
         <span class="kw-2">&amp;</span>ConcreteDataType::Timestamp(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(Type::TIMESTAMP),
         <span class="kw-2">&amp;</span>ConcreteDataType::Time(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(Type::TIME),
         <span class="kw-2">&amp;</span>ConcreteDataType::Interval(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(Type::INTERVAL),
-        <span class="kw-2">&amp;</span>ConcreteDataType::List(<span class="kw">_</span>) | <span class="kw-2">&amp;</span>ConcreteDataType::Dictionary(<span class="kw">_</span>) =&gt; error::InternalSnafu {
+        <span class="kw-2">&amp;</span>ConcreteDataType::Duration(<span class="kw">_</span>)
+        | <span class="kw-2">&amp;</span>ConcreteDataType::List(<span class="kw">_</span>)
+        | <span class="kw-2">&amp;</span>ConcreteDataType::Dictionary(<span class="kw">_</span>) =&gt; error::InternalSnafu {
             err_msg: <span class="macro">format!</span>(<span class="string">&quot;not implemented for column datatype {origin:?}&quot;</span>),
         }
         .fail(),

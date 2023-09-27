@@ -96,6 +96,7 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -111,9 +112,10 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>sqlparser::ast::ObjectName;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
 <span class="doccomment">/// SQL structure for `DESCRIBE TABLE`.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>DescribeTable {
     name: ObjectName,
 }

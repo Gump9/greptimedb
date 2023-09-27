@@ -78,14 +78,6 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -103,14 +95,14 @@
 </span><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::{OptionExt, ResultExt};
+<span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>tonic::codegen::http;
 
 <span class="kw">use </span><span class="kw">crate</span>::cluster::MetaPeerClientRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::keys::{LeaseKey, LeaseValue};
 <span class="kw">use </span><span class="kw">crate</span>::lease;
-<span class="kw">use </span><span class="kw">crate</span>::service::admin::HttpHandler;
+<span class="kw">use </span><span class="kw">crate</span>::service::admin::{util, HttpHandler};
 
 <span class="kw">pub struct </span>NodeLeaseHandler {
     <span class="kw">pub </span>meta_peer_client: MetaPeerClientRef,
@@ -123,15 +115,7 @@
         <span class="kw">_</span>: <span class="kw-2">&amp;</span>str,
         params: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;http::Response&lt;String&gt;&gt; {
-        <span class="kw">let </span>cluster_id = params
-            .get(<span class="string">&quot;cluster_id&quot;</span>)
-            .map(|id| id.parse::&lt;u64&gt;())
-            .context(error::MissingRequiredParameterSnafu {
-                param: <span class="string">&quot;cluster_id&quot;</span>,
-            })<span class="question-mark">?
-            </span>.context(error::ParseNumSnafu {
-                err_msg: <span class="string">&quot;`cluster_id` is not a valid number&quot;</span>,
-            })<span class="question-mark">?</span>;
+        <span class="kw">let </span>cluster_id = util::extract_cluster_id(params)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>leases =
             lease::filter_datanodes(cluster_id, <span class="kw-2">&amp;</span><span class="self">self</span>.meta_peer_client, |<span class="kw">_</span>, <span class="kw">_</span>| <span class="bool-val">true</span>).<span class="kw">await</span><span class="question-mark">?</span>;

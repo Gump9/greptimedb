@@ -652,6 +652,21 @@
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -668,64 +683,70 @@
 
 </span><span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_runtime::JoinError;
 <span class="kw">use </span>servers::define_into_tonic_status;
 <span class="kw">use </span>snafu::{Location, Snafu};
+<span class="kw">use </span>table::metadata::TableId;
 <span class="kw">use </span>tokio::sync::mpsc::error::SendError;
 <span class="kw">use </span>tonic::codegen::http;
 
 <span class="kw">use </span><span class="kw">crate</span>::pubsub::Message;
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list catalogs: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create default catalog and schema&quot;</span>))]
+    </span>InitMetadata {
+        location: Location,
+        source: common_meta::error::Error,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to allocate next sequence number&quot;</span>))]
+    </span>NextSequence {
+        location: Location,
+        source: common_meta::error::Error,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to submit ddl task&quot;</span>))]
+    </span>SubmitDdlTask {
+        location: Location,
+        source: common_meta::error::Error,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to invalidate table cache&quot;</span>))]
+    </span>InvalidateTableCache {
+        location: Location,
+        source: common_meta::error::Error,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to operate region on peer:{}&quot;</span>, peer))]
+    </span>OperateRegion {
+        location: Location,
+        peer: Peer,
+        source: BoxedError,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list catalogs&quot;</span>))]
     </span>ListCatalogs {
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list {}&#39;s schemas: {}&quot;</span>, catalog, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to list {}&#39;s schemas&quot;</span>, catalog))]
     </span>ListSchemas {
         location: Location,
         catalog: String,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to join a future: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to join a future&quot;</span>))]
     </span>Join {
         location: Location,
-        source: JoinError,
-    },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert grpc expr, source: {}&quot;</span>, source))]
-    </span>ConvertGrpcExpr {
-        location: Location,
-        source: common_grpc_expr::error::Error,
-    },
-
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to build table meta for table: {}, source: {}&quot;</span>,
-        table_name,
-        source
-    ))]
-    </span>BuildTableMeta {
-        table_name: String,
-        source: table::metadata::TableMetaBuilderError,
-        location: Location,
-    },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Table occurs error, source: {}&quot;</span>, source))]
-    </span>Table {
-        location: Location,
-        source: table::error::Error,
-    },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert RawTableInfo into TableInfo: {}&quot;</span>, source))]
-    </span>ConvertRawTableInfo {
-        location: Location,
-        source: datatypes::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: JoinError,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute transaction: {}&quot;</span>, msg))]
@@ -753,7 +774,7 @@
         available: usize,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to request Datanode {}, source: {}&quot;</span>, peer, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to request Datanode {}&quot;</span>, peer))]
     </span>RequestDatanode {
         location: Location,
         peer: Peer,
@@ -761,9 +782,12 @@
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to send shutdown signal&quot;</span>))]
-    </span>SendShutdownSignal { source: SendError&lt;()&gt; },
+    </span>SendShutdownSignal {
+        <span class="attr">#[snafu(source)]
+        </span>error: SendError&lt;()&gt;,
+    },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to shutdown {} server, source: {}&quot;</span>, server, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to shutdown {} server&quot;</span>, server))]
     </span>ShutdownServer {
         location: Location,
         source: servers::error::Error,
@@ -773,43 +797,44 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Empty key is not allowed&quot;</span>))]
     </span>EmptyKey { location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to execute via Etcd, source: {}, location: {}&quot;</span>,
-        source,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to execute via Etcd&quot;</span>))]
     </span>EtcdFailed {
-        source: etcd_client::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: etcd_client::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to connect to Etcd, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to connect to Etcd&quot;</span>))]
     </span>ConnectEtcd {
-        source: etcd_client::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: etcd_client::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to bind address {}, source: {}&quot;</span>, addr, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to bind address {}&quot;</span>, addr))]
     </span>TcpBind {
         addr: String,
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start gRPC server, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start gRPC server&quot;</span>))]
     </span>StartGrpc {
-        source: tonic::transport::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: tonic::transport::Error,
         location: Location,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start http server, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start http server&quot;</span>))]
     </span>StartHttp {
         location: Location,
         source: servers::error::Error,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse address {}, source: {}&quot;</span>, addr, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse address {}&quot;</span>, addr))]
     </span>ParseAddr {
         addr: String,
-        source: std::net::AddrParseError,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::net::AddrParseError,
     },
     <span class="attr">#[snafu(display(<span class="string">&quot;Empty table name&quot;</span>))]
     </span>EmptyTableName { location: Location },
@@ -820,48 +845,65 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid datanode stat key: {}&quot;</span>, key))]
     </span>InvalidStatKey { key: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode lease key from utf8: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid inactive region key: {}&quot;</span>, key))]
+    </span>InvalidInactiveRegionKey { key: String, location: Location },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode lease key from utf8&quot;</span>))]
     </span>LeaseKeyFromUtf8 {
-        source: std::string::FromUtf8Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::string::FromUtf8Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode lease value from utf8: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode lease value from utf8&quot;</span>))]
     </span>LeaseValueFromUtf8 {
-        source: std::string::FromUtf8Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::string::FromUtf8Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode stat key from utf8: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode stat key from utf8&quot;</span>))]
     </span>StatKeyFromUtf8 {
-        source: std::string::FromUtf8Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::string::FromUtf8Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode stat value from utf8: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse datanode stat value from utf8&quot;</span>))]
     </span>StatValueFromUtf8 {
-        source: std::string::FromUtf8Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::string::FromUtf8Error,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse invalid region key from utf8&quot;</span>))]
+    </span>InvalidRegionKeyFromUtf8 {
+        <span class="attr">#[snafu(source)]
+        </span>error: std::string::FromUtf8Error,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to serialize to json: {}&quot;</span>, input))]
     </span>SerializeToJson {
         input: String,
-        source: serde_json::error::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: serde_json::error::Error,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize from json: {}&quot;</span>, input))]
     </span>DeserializeFromJson {
         input: String,
-        source: serde_json::error::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: serde_json::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse number: {}, source: {}&quot;</span>, err_msg, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse number: {}&quot;</span>, err_msg))]
     </span>ParseNum {
         err_msg: String,
-        source: std::num::ParseIntError,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::num::ParseIntError,
         location: Location,
     },
 
@@ -871,30 +913,34 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid result with a txn response: {}&quot;</span>, err_msg))]
     </span>InvalidTxnResult { err_msg: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot parse catalog value, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot parse catalog value&quot;</span>))]
     </span>InvalidCatalogValue {
         location: Location,
         source: common_catalog::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected sequence value: {}&quot;</span>, err_msg))]
-    </span>UnexpectedSequenceValue { err_msg: String, location: Location },
+    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot parse full table name&quot;</span>))]
+    </span>InvalidFullTableName {
+        location: Location,
+        source: common_catalog::error::Error,
+    },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode table route, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode table route&quot;</span>))]
     </span>DecodeTableRoute {
-        source: prost::DecodeError,
+        <span class="attr">#[snafu(source)]
+        </span>error: prost::DecodeError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Table route not found: {}&quot;</span>, table_name))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to find table route for {table_id}&quot;</span>))]
     </span>TableRouteNotFound {
-        table_name: String,
+        table_id: TableId,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Table info not found: {}&quot;</span>, table_name))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Table info not found: {}&quot;</span>, table_id))]
     </span>TableInfoNotFound {
-        table_name: String,
+        table_id: TableId,
         location: Location,
     },
 
@@ -902,17 +948,6 @@
     </span>CorruptedTableRoute {
         key: String,
         reason: String,
-        location: Location,
-    },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to get sequence: {}&quot;</span>, err_msg))]
-    </span>NextSequence { err_msg: String, location: Location },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Sequence out of range: {}, start={}, step={}&quot;</span>, name, start, step))]
-    </span>SequenceOutOfRange {
-        name: String,
-        start: u64,
-        step: u64,
         location: Location,
     },
 
@@ -934,33 +969,29 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected, violated: {}&quot;</span>, violated))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected, violated: {violated}&quot;</span>))]
     </span>Unexpected {
         violated: String,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create gRPC channel, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create gRPC channel&quot;</span>))]
     </span>CreateChannel {
         location: Location,
         source: common_grpc::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to batch get KVs from leader&#39;s in_memory kv store, source: {}&quot;</span>,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to batch get KVs from leader&#39;s in_memory kv store&quot;</span>))]
     </span>BatchGet {
-        source: tonic::Status,
+        <span class="attr">#[snafu(source)]
+        </span>error: tonic::Status,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to batch range KVs from leader&#39;s in_memory kv store, source: {}&quot;</span>,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to batch range KVs from leader&#39;s in_memory kv store&quot;</span>))]
     </span>Range {
-        source: tonic::Status,
+        <span class="attr">#[snafu(source)]
+        </span>error: tonic::Status,
         location: Location,
     },
 
@@ -973,9 +1004,10 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid http body, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid http body&quot;</span>))]
     </span>InvalidHttpBody {
-        source: http::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: http::Error,
         location: Location,
     },
 
@@ -990,49 +1022,53 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to lock based on etcd, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to lock based on etcd&quot;</span>))]
     </span>Lock {
-        source: etcd_client::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: etcd_client::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to unlock based on etcd, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to unlock based on etcd&quot;</span>))]
     </span>Unlock {
-        source: etcd_client::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: etcd_client::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to grant lease, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to grant lease&quot;</span>))]
     </span>LeaseGrant {
-        source: etcd_client::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: etcd_client::Error,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Distributed lock is not configured&quot;</span>))]
     </span>LockNotConfig { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid utf-8 value, source: {:?}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid utf-8 value&quot;</span>))]
     </span>InvalidUtf8Value {
-        source: std::string::FromUtf8Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::string::FromUtf8Error,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Missing required parameter, param: {:?}&quot;</span>, param))]
     </span>MissingRequiredParameter { param: String },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to recover procedure, source: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to recover procedure&quot;</span>))]
     </span>RecoverProcedure {
         location: Location,
         source: common_procedure::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to wait procedure done, source: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to wait procedure done&quot;</span>))]
     </span>WaitProcedure {
         location: Location,
         source: common_procedure::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to submit procedure, source: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to submit procedure&quot;</span>))]
     </span>SubmitProcedure {
         location: Location,
         source: common_procedure::Error,
@@ -1075,11 +1111,7 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Missing request header&quot;</span>))]
     </span>MissingRequestHeader { location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to register procedure loader, type name: {}, source: {}&quot;</span>,
-        type_name,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to register procedure loader, type name: {}&quot;</span>, type_name))]
     </span>RegisterProcedureLoader {
         type_name: String,
         location: Location,
@@ -1109,19 +1141,19 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Failed to update table metadata, err_msg: {}&quot;</span>, err_msg))]
     </span>UpdateTableMetadata { err_msg: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert table route, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert table route&quot;</span>))]
     </span>TableRouteConversion {
         location: Location,
         source: common_meta::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert proto data, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert proto data&quot;</span>))]
     </span>ConvertProtoData {
         location: Location,
         source: common_meta::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Etcd txn object: {source}&quot;</span>))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert Etcd txn object: &quot;</span>))]
     </span>ConvertEtcdTxnObject {
         source: common_meta::error::Error,
         location: Location,
@@ -1129,25 +1161,25 @@
 
     <span class="comment">// this error is used for custom error mapping
     // please do not delete it
-    </span><span class="attr">#[snafu(display(<span class="string">&quot;Other error, source: {}&quot;</span>, source))]
+    </span><span class="attr">#[snafu(display(<span class="string">&quot;Other error&quot;</span>))]
     </span>Other {
         source: BoxedError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Table metadata manager error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Table metadata manager error&quot;</span>))]
     </span>TableMetadataManager {
         source: common_meta::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to update table route: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to update table route&quot;</span>))]
     </span>UpdateTableRoute {
         source: common_meta::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to get table info error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to get table info error&quot;</span>))]
     </span>GetFullTableInfo {
         source: common_meta::error::Error,
         location: Location,
@@ -1156,23 +1188,21 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid heartbeat request: {}&quot;</span>, err_msg))]
     </span>InvalidHeartbeatRequest { err_msg: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to publish message: {:?}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to publish message&quot;</span>))]
     </span>PublishMessage {
-        source: SendError&lt;Message&gt;,
+        <span class="attr">#[snafu(source)]
+        </span>error: SendError&lt;Message&gt;,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Too many partitions, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Too many partitions&quot;</span>))]
     </span>TooManyPartitions { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unsupported operation {}, location: {}&quot;</span>, operation, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Unsupported operation {}&quot;</span>, operation))]
     </span>Unsupported {
         operation: String,
         location: Location,
     },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Primary key &#39;{key}&#39; not found when creating region request, at {location}&quot;</span>))]
-    </span>PrimaryKeyNotFound { key: String, location: Location },
 }
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -1212,7 +1242,6 @@
             | Error::StartGrpc { .. }
             | Error::UpdateTableMetadata { .. }
             | Error::NoEnoughAvailableDatanode { .. }
-            | Error::ConvertGrpcExpr { .. }
             | Error::PublishMessage { .. }
             | Error::Join { .. }
             | Error::Unsupported { .. } =&gt; StatusCode::Internal,
@@ -1223,35 +1252,32 @@
             | Error::EmptyTableName { .. }
             | Error::InvalidLeaseKey { .. }
             | Error::InvalidStatKey { .. }
+            | Error::InvalidInactiveRegionKey { .. }
             | Error::ParseNum { .. }
             | Error::UnsupportedSelectorType { .. }
             | Error::InvalidArguments { .. }
             | Error::InvalidHeartbeatRequest { .. }
-            | Error::PrimaryKeyNotFound { .. }
             | Error::TooManyPartitions { .. } =&gt; StatusCode::InvalidArguments,
             Error::LeaseKeyFromUtf8 { .. }
             | Error::LeaseValueFromUtf8 { .. }
             | Error::StatKeyFromUtf8 { .. }
             | Error::StatValueFromUtf8 { .. }
-            | Error::UnexpectedSequenceValue { .. }
+            | Error::InvalidRegionKeyFromUtf8 { .. }
             | Error::TableRouteNotFound { .. }
             | Error::TableInfoNotFound { .. }
             | Error::CorruptedTableRoute { .. }
-            | Error::NextSequence { .. }
-            | Error::SequenceOutOfRange { .. }
             | Error::MoveValue { .. }
             | Error::InvalidTxnResult { .. }
             | Error::InvalidUtf8Value { .. }
             | Error::UnexpectedInstructionReply { .. }
             | Error::Unexpected { .. }
             | Error::Txn { .. }
-            | Error::TableIdChanged { .. }
-            | Error::ConvertRawTableInfo { .. }
-            | Error::BuildTableMeta { .. } =&gt; StatusCode::Unexpected,
+            | Error::TableIdChanged { .. } =&gt; StatusCode::Unexpected,
             Error::TableNotFound { .. } =&gt; StatusCode::TableNotFound,
-            Error::Table { source, .. } =&gt; source.status_code(),
+            Error::InvalidateTableCache { source, .. } =&gt; source.status_code(),
             Error::RequestDatanode { source, .. } =&gt; source.status_code(),
-            Error::InvalidCatalogValue { source, .. } =&gt; source.status_code(),
+            Error::InvalidCatalogValue { source, .. }
+            | Error::InvalidFullTableName { source, .. } =&gt; source.status_code(),
             Error::RecoverProcedure { source, .. }
             | Error::SubmitProcedure { source, .. }
             | Error::WaitProcedure { source, .. } =&gt; source.status_code(),
@@ -1264,15 +1290,19 @@
             }
 
             Error::RegionFailoverCandidatesNotFound { .. } =&gt; StatusCode::RuntimeResourcesExhausted,
+            Error::NextSequence { source, .. } =&gt; source.status_code(),
 
             Error::RegisterProcedureLoader { source, .. } =&gt; source.status_code(),
-
+            Error::OperateRegion { source, .. } =&gt; source.status_code(),
+            Error::SubmitDdlTask { source, .. } =&gt; source.status_code(),
             Error::TableRouteConversion { source, .. }
             | Error::ConvertProtoData { source, .. }
             | Error::TableMetadataManager { source, .. }
             | Error::UpdateTableRoute { source, .. }
             | Error::ConvertEtcdTxnObject { source, .. }
             | Error::GetFullTableInfo { source, .. } =&gt; source.status_code(),
+
+            Error::InitMetadata { source, .. } =&gt; source.status_code(),
 
             Error::Other { source, .. } =&gt; source.status_code(),
         }

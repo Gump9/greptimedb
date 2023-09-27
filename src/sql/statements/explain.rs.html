@@ -35,6 +35,7 @@
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -50,11 +51,12 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>sqlparser::ast::Statement <span class="kw">as </span>SpStatement;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Error;
 
 <span class="doccomment">/// Explain statement.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>Explain {
     <span class="kw">pub </span>inner: SpStatement,
 }

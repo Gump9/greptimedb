@@ -459,16 +459,6 @@
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -487,7 +477,8 @@
 
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>common_telemetry::logging;
-<span class="kw">use </span>datanode::datanode::{Datanode, DatanodeOptions};
+<span class="kw">use </span>datanode::config::DatanodeOptions;
+<span class="kw">use </span>datanode::datanode::{Datanode, DatanodeBuilder};
 <span class="kw">use </span>meta_client::MetaClientOptions;
 <span class="kw">use </span>servers::Mode;
 <span class="kw">use </span>snafu::ResultExt;
@@ -562,8 +553,6 @@
     <span class="attr">#[clap(long)]
     </span>data_home: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
-    </span>wal_dir: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[clap(long)]
     </span>http_addr: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[clap(long)]
     </span>http_timeout: <span class="prelude-ty">Option</span>&lt;u64&gt;,
@@ -600,7 +589,7 @@
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(metasrv_addrs) = <span class="kw-2">&amp;</span><span class="self">self</span>.metasrv_addr {
-            opts.meta_client_options
+            opts.meta_client
                 .get_or_insert_with(MetaClientOptions::default)
                 .metasrv_addrs = metasrv_addrs.clone();
             opts.mode = Mode::Distributed;
@@ -617,20 +606,16 @@
             opts.storage.data_home = data_home.clone();
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(wal_dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.wal_dir {
-            opts.wal.dir = <span class="prelude-val">Some</span>(wal_dir.clone());
-        }
-
         <span class="kw">if let </span><span class="prelude-val">Some</span>(http_addr) = <span class="kw-2">&amp;</span><span class="self">self</span>.http_addr {
-            opts.http_opts.addr = http_addr.clone();
+            opts.http.addr = http_addr.clone();
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(http_timeout) = <span class="self">self</span>.http_timeout {
-            opts.http_opts.timeout = Duration::from_secs(http_timeout)
+            opts.http.timeout = Duration::from_secs(http_timeout)
         }
 
         <span class="comment">// Disable dashboard in datanode.
-        </span>opts.http_opts.disable_dashboard = <span class="bool-val">true</span>;
+        </span>opts.http.disable_dashboard = <span class="bool-val">true</span>;
 
         <span class="prelude-val">Ok</span>(Options::Datanode(Box::new(opts)))
     }
@@ -639,7 +624,8 @@
         <span class="macro">logging::info!</span>(<span class="string">&quot;Datanode start command: {:#?}&quot;</span>, <span class="self">self</span>);
         <span class="macro">logging::info!</span>(<span class="string">&quot;Datanode options: {:#?}&quot;</span>, opts);
 
-        <span class="kw">let </span>datanode = Datanode::new(opts, Default::default())
+        <span class="kw">let </span>datanode = DatanodeBuilder::new(opts, <span class="prelude-val">None</span>, Default::default())
+            .build()
             .<span class="kw">await
             </span>.context(StartDatanodeSnafu)<span class="question-mark">?</span>;
 
@@ -654,9 +640,7 @@
 
     <span class="kw">use </span>common_base::readable_size::ReadableSize;
     <span class="kw">use </span>common_test_util::temp_dir::create_named_temp_file;
-    <span class="kw">use </span>datanode::datanode::{
-        CompactionConfig, FileConfig, ObjectStoreConfig, RegionManifestConfig,
-    };
+    <span class="kw">use </span>datanode::config::{CompactionConfig, FileConfig, ObjectStoreConfig, RegionManifestConfig};
     <span class="kw">use </span>servers::Mode;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -673,7 +657,7 @@
             rpc_hostname = &quot;127.0.0.1&quot;
             rpc_runtime_size = 8
 
-            [meta_client_options]
+            [meta_client]
             metasrv_addrs = [&quot;127.0.0.1:3002&quot;]
             timeout_millis = 3000
             connect_timeout_millis = 5000
@@ -721,7 +705,6 @@
         <span class="macro">assert_eq!</span>(<span class="string">&quot;127.0.0.1:3001&quot;</span>.to_string(), options.rpc_addr);
         <span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="number">42</span>), options.node_id);
 
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;/other/wal&quot;</span>, options.wal.dir.unwrap());
         <span class="macro">assert_eq!</span>(Duration::from_secs(<span class="number">600</span>), options.wal.purge_interval);
         <span class="macro">assert_eq!</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>, options.wal.file_size.<span class="number">0</span>);
         <span class="macro">assert_eq!</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">50</span>, options.wal.purge_threshold.<span class="number">0</span>);
@@ -733,7 +716,8 @@
             connect_timeout_millis,
             tcp_nodelay,
             ddl_timeout_millis,
-        } = options.meta_client_options.unwrap();
+            ..
+        } = options.meta_client.unwrap();
 
         <span class="macro">assert_eq!</span>(<span class="macro">vec!</span>[<span class="string">&quot;127.0.0.1:3002&quot;</span>.to_string()], metasrv_addr);
         <span class="macro">assert_eq!</span>(<span class="number">5000</span>, connect_timeout_millis);
@@ -831,7 +815,7 @@
             rpc_hostname = &quot;127.0.0.1&quot;
             rpc_runtime_size = 8
 
-            [meta_client_options]
+            [meta_client]
             timeout_millis = 3000
             connect_timeout_millis = 5000
             tcp_nodelay = true
@@ -884,10 +868,10 @@
                     <span class="prelude-val">Some</span>(<span class="string">&quot;99&quot;</span>),
                 ),
                 (
-                    <span class="comment">// meta_client_options.metasrv_addrs = 127.0.0.1:3001,127.0.0.1:3002,127.0.0.1:3003
+                    <span class="comment">// meta_client.metasrv_addrs = 127.0.0.1:3001,127.0.0.1:3002,127.0.0.1:3003
                     </span>[
                         env_prefix.to_string(),
-                        <span class="string">&quot;meta_client_options&quot;</span>.to_uppercase(),
+                        <span class="string">&quot;meta_client&quot;</span>.to_uppercase(),
                         <span class="string">&quot;metasrv_addrs&quot;</span>.to_uppercase(),
                     ]
                     .join(ENV_VAR_SEP),
@@ -897,7 +881,6 @@
             || {
                 <span class="kw">let </span>command = StartCommand {
                     config_file: <span class="prelude-val">Some</span>(file.path().to_str().unwrap().to_string()),
-                    wal_dir: <span class="prelude-val">Some</span>(<span class="string">&quot;/other/wal/dir&quot;</span>.to_string()),
                     env_prefix: env_prefix.to_string(),
                     ..Default::default()
                 };
@@ -914,7 +897,7 @@
                     <span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">9</span>))
                 );
                 <span class="macro">assert_eq!</span>(
-                    opts.meta_client_options.unwrap().metasrv_addrs,
+                    opts.meta_client.unwrap().metasrv_addrs,
                     <span class="macro">vec!</span>[
                         <span class="string">&quot;127.0.0.1:3001&quot;</span>.to_string(),
                         <span class="string">&quot;127.0.0.1:3002&quot;</span>.to_string(),
@@ -924,9 +907,6 @@
 
                 <span class="comment">// Should be read from config file, config file &gt; env &gt; default values.
                 </span><span class="macro">assert_eq!</span>(opts.storage.compaction.max_purge_tasks, <span class="number">32</span>);
-
-                <span class="comment">// Should be read from cli, cli &gt; config file &gt; env &gt; default values.
-                </span><span class="macro">assert_eq!</span>(opts.wal.dir.unwrap(), <span class="string">&quot;/other/wal/dir&quot;</span>);
 
                 <span class="comment">// Should be default value.
                 </span><span class="macro">assert_eq!</span>(

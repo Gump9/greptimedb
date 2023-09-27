@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cache_size"],"struct":["CacheManager","SstMetaKey"],"type":["CacheManagerRef","SstMetaCache"]};

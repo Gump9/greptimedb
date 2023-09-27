@@ -80,6 +80,66 @@
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -99,10 +159,13 @@
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="kw">crate</span>::sst::file::{FileHandle, FileId, Level, MAX_LEVEL};
+<span class="kw">use </span>common_time::Timestamp;
+
+<span class="kw">use </span><span class="kw">crate</span>::sst::file::{FileHandle, FileId, FileMeta, Level, MAX_LEVEL};
+<span class="kw">use </span><span class="kw">crate</span>::sst::file_purger::FilePurgerRef;
 
 <span class="doccomment">/// A version of all SSTs in a region.
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SstVersion {
     <span class="doccomment">/// SST metadata organized by levels.
     </span>levels: LevelMetaArray,
@@ -122,6 +185,46 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>levels(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[LevelMeta] {
         <span class="kw-2">&amp;</span><span class="self">self</span>.levels
     }
+
+    <span class="doccomment">/// Add files to the version.
+    ///
+    /// # Panics
+    /// Panics if level of [FileMeta] is greater than [MAX_LEVEL].
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>add_files(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        file_purger: FilePurgerRef,
+        files_to_add: <span class="kw">impl </span>Iterator&lt;Item = FileMeta&gt;,
+    ) {
+        <span class="kw">for </span>file <span class="kw">in </span>files_to_add {
+            <span class="kw">let </span>level = file.level;
+            <span class="kw">let </span>handle = FileHandle::new(file, file_purger.clone());
+            <span class="kw">let </span>file_id = handle.file_id();
+            <span class="kw">let </span>old = <span class="self">self</span>.levels[level <span class="kw">as </span>usize].files.insert(file_id, handle);
+            <span class="macro">assert!</span>(old.is_none(), <span class="string">&quot;Adds an existing file: {file_id}&quot;</span>);
+        }
+    }
+
+    <span class="doccomment">/// Remove files from the version.
+    ///
+    /// # Panics
+    /// Panics if level of [FileMeta] is greater than [MAX_LEVEL].
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>remove_files(<span class="kw-2">&amp;mut </span><span class="self">self</span>, files_to_remove: <span class="kw">impl </span>Iterator&lt;Item = FileMeta&gt;) {
+        <span class="kw">for </span>file <span class="kw">in </span>files_to_remove {
+            <span class="kw">let </span>level = file.level;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.levels[level <span class="kw">as </span>usize].files.remove(<span class="kw-2">&amp;</span>file.file_id) {
+                handle.mark_deleted();
+            }
+        }
+    }
+
+    <span class="doccomment">/// Marks all SSTs in this version as deleted.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>mark_all_deleted(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">for </span>level_meta <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.levels {
+            <span class="kw">for </span>file_handle <span class="kw">in </span>level_meta.files.values() {
+                file_handle.mark_deleted();
+            }
+        }
+    }
 }
 
 <span class="comment">// We only has fixed number of level, so we use array to hold elements. This implementation
@@ -129,6 +232,7 @@
 </span><span class="kw">type </span>LevelMetaArray = [LevelMeta; MAX_LEVEL <span class="kw">as </span>usize];
 
 <span class="doccomment">/// Metadata of files in the same SST level.
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>LevelMeta {
     <span class="doccomment">/// Level number.
     </span><span class="kw">pub </span>level: Level,
@@ -143,6 +247,22 @@
             level,
             files: HashMap::new(),
         }
+    }
+
+    <span class="doccomment">/// Returns expired SSTs from current level.
+    </span><span class="kw">pub fn </span>get_expired_files(<span class="kw-2">&amp;</span><span class="self">self</span>, expire_time: <span class="kw-2">&amp;</span>Timestamp) -&gt; Vec&lt;FileHandle&gt; {
+        <span class="self">self</span>.files
+            .values()
+            .filter(|v| {
+                <span class="kw">let </span>(<span class="kw">_</span>, end) = v.time_range();
+                <span class="kw-2">&amp;</span>end &lt; expire_time
+            })
+            .cloned()
+            .collect()
+    }
+
+    <span class="kw">pub fn </span>files(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>FileHandle&gt; {
+        <span class="self">self</span>.files.values()
     }
 }
 

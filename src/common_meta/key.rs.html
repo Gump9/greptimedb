@@ -906,6 +906,50 @@
 <a href="#906" id="906">906</a>
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -966,6 +1010,7 @@
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>datanode_table::{DatanodeTableKey, DatanodeTableManager, DatanodeTableValue};
 <span class="kw">use </span>lazy_static::lazy_static;
 <span class="kw">use </span>regex::Regex;
@@ -975,12 +1020,11 @@
 <span class="kw">use </span>table_info::{TableInfoKey, TableInfoManager, TableInfoValue};
 <span class="kw">use </span>table_name::{TableNameKey, TableNameManager, TableNameValue};
 
-<span class="kw">use </span><span class="self">self</span>::catalog_name::{CatalogManager, CatalogNameValue};
-<span class="kw">use </span><span class="self">self</span>::schema_name::{SchemaManager, SchemaNameValue};
+<span class="kw">use </span><span class="self">self</span>::catalog_name::{CatalogManager, CatalogNameKey, CatalogNameValue};
+<span class="kw">use </span><span class="self">self</span>::schema_name::{SchemaManager, SchemaNameKey, SchemaNameValue};
 <span class="kw">use </span><span class="self">self</span>::table_route::{TableRouteManager, TableRouteValue};
+<span class="kw">use </span><span class="kw">crate</span>::ddl::utils::region_storage_path;
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, SerdeJsonSnafu};
-<span class="attr">#[allow(deprecated)]
-</span><span class="kw">pub use </span><span class="kw">crate</span>::key::table_route::{TableRouteKey, TABLE_ROUTE_PREFIX};
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::txn::Txn;
 <span class="kw">use </span><span class="kw">crate</span>::kv_backend::KvBackendRef;
 <span class="kw">use </span><span class="kw">crate</span>::rpc::router::{region_distribution, RegionRoute};
@@ -996,6 +1040,7 @@
 <span class="kw">const </span>TABLE_REGION_KEY_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__table_region&quot;</span>;
 <span class="kw">const </span>CATALOG_NAME_KEY_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__catalog_name&quot;</span>;
 <span class="kw">const </span>SCHEMA_NAME_KEY_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__schema_name&quot;</span>;
+<span class="kw">const </span>TABLE_ROUTE_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__table_route&quot;</span>;
 
 <span class="kw">pub type </span>RegionDistribution = BTreeMap&lt;DatanodeId, Vec&lt;RegionNumber&gt;&gt;;
 
@@ -1074,6 +1119,18 @@
         }
     }
 
+    <span class="kw">pub async fn </span>init(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>catalog_name = CatalogNameKey::new(DEFAULT_CATALOG_NAME);
+        <span class="kw">let </span>schema_name = SchemaNameKey::new(DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME);
+
+        <span class="self">self</span>.catalog_manager().create(catalog_name, <span class="bool-val">true</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.schema_manager()
+            .create(schema_name, <span class="prelude-val">None</span>, <span class="bool-val">true</span>)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="kw">pub fn </span>table_name_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TableNameManager {
         <span class="kw-2">&amp;</span><span class="self">self</span>.table_name_manager
     }
@@ -1096,6 +1153,11 @@
 
     <span class="kw">pub fn </span>table_route_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TableRouteManager {
         <span class="kw-2">&amp;</span><span class="self">self</span>.table_route_manager
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;testing&quot;</span>)]
+    </span><span class="kw">pub fn </span>kv_backend(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>KvBackendRef {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.kv_backend
     }
 
     <span class="kw">pub async fn </span>get_full_table_info(
@@ -1132,6 +1194,9 @@
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         table_info.meta.region_numbers = region_numbers;
         <span class="kw">let </span>table_id = table_info.ident.table_id;
+        <span class="kw">let </span>engine = table_info.meta.engine.clone();
+        <span class="kw">let </span>region_storage_path =
+            region_storage_path(<span class="kw-2">&amp;</span>table_info.catalog_name, <span class="kw-2">&amp;</span>table_info.schema_name);
 
         <span class="comment">// Creates table name.
         </span><span class="kw">let </span>table_name = TableNameKey::new(
@@ -1151,9 +1216,12 @@
 
         <span class="comment">// Creates datanode table key value pairs.
         </span><span class="kw">let </span>distribution = region_distribution(<span class="kw-2">&amp;</span>region_routes)<span class="question-mark">?</span>;
-        <span class="kw">let </span>create_datanode_table_txn = <span class="self">self
-            </span>.datanode_table_manager()
-            .build_create_txn(table_id, distribution)<span class="question-mark">?</span>;
+        <span class="kw">let </span>create_datanode_table_txn = <span class="self">self</span>.datanode_table_manager().build_create_txn(
+            table_id,
+            <span class="kw-2">&amp;</span>engine,
+            <span class="kw-2">&amp;</span>region_storage_path,
+            distribution,
+        )<span class="question-mark">?</span>;
 
         <span class="comment">// Creates table route.
         </span><span class="kw">let </span>table_route_value = TableRouteValue::new(region_routes);
@@ -1330,6 +1398,8 @@
     <span class="kw">pub async fn </span>update_table_route(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         table_id: TableId,
+        engine: <span class="kw-2">&amp;</span>str,
+        region_storage_path: <span class="kw-2">&amp;</span>str,
         current_table_route_value: TableRouteValue,
         new_region_routes: Vec&lt;RegionRoute&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1340,6 +1410,8 @@
 
         <span class="kw">let </span>update_datanode_table_txn = <span class="self">self</span>.datanode_table_manager().build_update_txn(
             table_id,
+            engine,
+            region_storage_path,
             current_region_distribution,
             new_region_distribution,
         )<span class="question-mark">?</span>;
@@ -1442,6 +1514,7 @@
     <span class="kw">use </span>table::metadata::{RawTableInfo, TableInfo, TableInfoBuilder, TableMetaBuilder};
 
     <span class="kw">use </span><span class="kw">super</span>::datanode_table::DatanodeTableKey;
+    <span class="kw">use </span><span class="kw">crate</span>::ddl::utils::region_storage_path;
     <span class="kw">use </span><span class="kw">crate</span>::key::table_info::TableInfoValue;
     <span class="kw">use </span><span class="kw">crate</span>::key::table_name::TableNameKey;
     <span class="kw">use </span><span class="kw">crate</span>::key::table_route::TableRouteValue;
@@ -1754,6 +1827,9 @@
         <span class="kw">let </span>table_info: RawTableInfo =
             new_test_table_info(region_routes.iter().map(|r| r.region.id.region_number())).into();
         <span class="kw">let </span>table_id = table_info.ident.table_id;
+        <span class="kw">let </span>engine = table_info.meta.engine.as_str();
+        <span class="kw">let </span>region_storage_path =
+            region_storage_path(<span class="kw-2">&amp;</span>table_info.catalog_name, <span class="kw-2">&amp;</span>table_info.schema_name);
         <span class="kw">let </span>current_table_route_value = TableRouteValue::new(region_routes.clone());
         <span class="comment">// creates metadata.
         </span>table_metadata_manager
@@ -1770,6 +1846,8 @@
         </span>table_metadata_manager
             .update_table_route(
                 table_id,
+                engine,
+                <span class="kw-2">&amp;</span>region_storage_path,
                 current_table_route_value.clone(),
                 new_region_routes.clone(),
             )
@@ -1781,6 +1859,8 @@
         </span>table_metadata_manager
             .update_table_route(
                 table_id,
+                engine,
+                <span class="kw-2">&amp;</span>region_storage_path,
                 current_table_route_value.clone(),
                 new_region_routes.clone(),
             )
@@ -1793,6 +1873,8 @@
         </span>table_metadata_manager
             .update_table_route(
                 table_id,
+                engine,
+                <span class="kw-2">&amp;</span>region_storage_path,
                 current_table_route_value.clone(),
                 new_region_routes.clone(),
             )
@@ -1809,7 +1891,13 @@
             new_region_route(<span class="number">4</span>, <span class="number">4</span>),
         ]);
         <span class="macro">assert!</span>(table_metadata_manager
-            .update_table_route(table_id, wrong_table_route_value, new_region_routes)
+            .update_table_route(
+                table_id,
+                engine,
+                <span class="kw-2">&amp;</span>region_storage_path,
+                wrong_table_route_value,
+                new_region_routes
+            )
             .<span class="kw">await
             </span>.is_err());
     }

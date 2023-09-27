@@ -272,7 +272,6 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -294,7 +293,7 @@
 <span class="kw">use </span>common_meta::instruction::{Instruction, InstructionReply, SimpleReply};
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::RegionIdent;
-<span class="kw">use </span>common_telemetry::debug;
+<span class="kw">use </span>common_telemetry::{debug, info, warn};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::ResultExt;
 
@@ -303,31 +302,24 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     Error, <span class="prelude-ty">Result</span>, RetryLaterSnafu, SerializeToJsonSnafu, UnexpectedInstructionReplySnafu,
 };
-<span class="kw">use </span><span class="kw">crate</span>::handler::region_lease_handler::REGION_LEASE_SECONDS;
 <span class="kw">use </span><span class="kw">crate</span>::handler::HeartbeatMailbox;
-<span class="kw">use </span><span class="kw">crate</span>::inactive_node_manager::InactiveNodeManager;
-<span class="kw">use </span><span class="kw">crate</span>::procedure::region_failover::CLOSE_REGION_MESSAGE_TIMEOUT;
+<span class="kw">use </span><span class="kw">crate</span>::inactive_region_manager::InactiveRegionManager;
 <span class="kw">use </span><span class="kw">crate</span>::service::mailbox::{Channel, MailboxReceiver};
 
 <span class="attr">#[derive(Serialize, Deserialize, Debug)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>DeactivateRegion {
     candidate: Peer,
-    region_lease_expiry_seconds: u64,
 }
 
 <span class="kw">impl </span>DeactivateRegion {
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(candidate: Peer) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            candidate,
-            region_lease_expiry_seconds: REGION_LEASE_SECONDS * <span class="number">2</span>,
-        }
+        <span class="self">Self </span>{ candidate }
     }
 
     <span class="kw">async fn </span>send_close_region_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ctx: <span class="kw-2">&amp;</span>RegionFailoverContext,
         failed_region: <span class="kw-2">&amp;</span>RegionIdent,
-        timeout: Duration,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;MailboxReceiver&gt; {
         <span class="kw">let </span>instruction = Instruction::CloseRegion(failed_region.clone());
 
@@ -342,11 +334,17 @@
             input: instruction.to_string(),
         })<span class="question-mark">?</span>;
 
-        InactiveNodeManager::new(<span class="kw-2">&amp;</span>ctx.in_memory)
+        <span class="kw">let </span>ch = Channel::Datanode(failed_region.datanode_id);
+        <span class="comment">// Mark the region as inactive
+        </span>InactiveRegionManager::new(<span class="kw-2">&amp;</span>ctx.in_memory)
             .register_inactive_region(failed_region)
             .<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">let </span>ch = Channel::Datanode(failed_region.datanode_id);
+        <span class="comment">// We first marked the region as inactive, which means that the failed region cannot
+        // be successfully renewed from now on, so after the lease time is exceeded, the region
+        // will be automatically closed.
+        // If the deadline is exceeded, we can proceed to the next step with confidence,
+        // as the expiration means that the region has been closed.
+        </span><span class="kw">let </span>timeout = Duration::from_secs(ctx.region_lease_secs);
         ctx.mailbox.send(<span class="kw-2">&amp;</span>ch, msg, timeout).<span class="kw">await
     </span>}
 
@@ -369,7 +367,7 @@
                     .fail();
                 };
                 <span class="kw">if </span>result {
-                    InactiveNodeManager::new(<span class="kw-2">&amp;</span>ctx.in_memory)
+                    InactiveRegionManager::new(<span class="kw-2">&amp;</span>ctx.in_memory)
                         .deregister_inactive_region(failed_region)
                         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -385,11 +383,11 @@
                 }
             }
             <span class="prelude-val">Err</span>(Error::MailboxTimeout { .. }) =&gt; {
-                <span class="comment">// Since we are in a region failover situation, the Datanode that the failed region
-                // resides might be unreachable. So we wait for the region lease to expire. The
-                // region would be closed by its own [RegionAliveKeeper].
-                </span><span class="self">self</span>.wait_for_region_lease_expiry().<span class="kw">await</span>;
-                <span class="prelude-val">Ok</span>(Box::new(ActivateRegion::new(<span class="self">self</span>.candidate.clone())))
+                <span class="comment">// We have configured the timeout to match the region lease timeout before making
+                // the call and have disabled region lease renewal. Therefore, if a timeout error
+                // occurs, it can be concluded that the region has been closed. With this information,
+                // we can proceed confidently to the next step.
+                </span><span class="prelude-val">Ok</span>(Box::new(ActivateRegion::new(<span class="self">self</span>.candidate.clone())))
             }
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
         }
@@ -398,8 +396,8 @@
     <span class="doccomment">/// Sleep for `region_lease_expiry_seconds`, to make sure the region is closed (by its
     /// region alive keeper). This is critical for region not being opened in multiple Datanodes
     /// simultaneously.
-    </span><span class="kw">async fn </span>wait_for_region_lease_expiry(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        tokio::time::sleep(Duration::from_secs(<span class="self">self</span>.region_lease_expiry_seconds)).<span class="kw">await</span>;
+    </span><span class="kw">async fn </span>wait_for_region_lease_expiry(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>RegionFailoverContext) {
+        tokio::time::sleep(Duration::from_secs(ctx.region_lease_secs)).<span class="kw">await</span>;
     }
 }
 
@@ -411,14 +409,17 @@
         ctx: <span class="kw-2">&amp;</span>RegionFailoverContext,
         failed_region: <span class="kw-2">&amp;</span>RegionIdent,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>State&gt;&gt; {
-        <span class="kw">let </span>result = <span class="self">self
-            </span>.send_close_region_message(ctx, failed_region, CLOSE_REGION_MESSAGE_TIMEOUT)
-            .<span class="kw">await</span>;
+        <span class="macro">info!</span>(<span class="string">&quot;Deactivating region: {failed_region:?}&quot;</span>);
+        <span class="kw">let </span>result = <span class="self">self</span>.send_close_region_message(ctx, failed_region).<span class="kw">await</span>;
         <span class="kw">let </span>mailbox_receiver = <span class="kw">match </span>result {
             <span class="prelude-val">Ok</span>(mailbox_receiver) =&gt; mailbox_receiver,
             <span class="prelude-val">Err</span>(Error::PusherNotFound { .. }) =&gt; {
+                <span class="macro">warn!</span>(
+                    <span class="string">&quot;Datanode {} is not reachable, skip deactivating region {}, just wait for the region lease to expire&quot;</span>,
+                    failed_region.datanode_id, failed_region
+                );
                 <span class="comment">// See the mailbox received timeout situation comments above.
-                </span><span class="self">self</span>.wait_for_region_lease_expiry().<span class="kw">await</span>;
+                </span><span class="self">self</span>.wait_for_region_lease_expiry(ctx).<span class="kw">await</span>;
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(Box::new(ActivateRegion::new(<span class="self">self</span>.candidate.clone())));
             }
             <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
@@ -446,7 +447,7 @@
 
         <span class="kw">let </span>state = DeactivateRegion::new(Peer::new(<span class="number">2</span>, <span class="string">&quot;&quot;</span>));
         <span class="kw">let </span>mailbox_receiver = state
-            .send_close_region_message(<span class="kw-2">&amp;</span>env.context, <span class="kw-2">&amp;</span>failed_region, Duration::from_millis(<span class="number">100</span>))
+            .send_close_region_message(<span class="kw-2">&amp;</span>env.context, <span class="kw-2">&amp;</span>failed_region)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -499,7 +500,7 @@
             </span>.unwrap();
         <span class="macro">assert_eq!</span>(
             <span class="macro">format!</span>(<span class="string">&quot;{next_state:?}&quot;</span>),
-            <span class="string">r#&quot;ActivateRegion { candidate: Peer { id: 2, addr: &quot;&quot; } }&quot;#
+            <span class="string">r#&quot;ActivateRegion { candidate: Peer { id: 2, addr: &quot;&quot; }, remark_inactive_region: false, region_storage_path: None }&quot;#
         </span>);
     }
 
@@ -510,12 +511,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>env = TestingEnvBuilder::new().build().<span class="kw">await</span>;
         <span class="kw">let </span>failed_region = env.failed_region(<span class="number">1</span>).<span class="kw">await</span>;
 
-        <span class="kw">let </span>state = DeactivateRegion {
-            candidate: Peer::new(<span class="number">2</span>, <span class="string">&quot;&quot;</span>),
-            region_lease_expiry_seconds: <span class="number">2</span>,
-        };
+        <span class="kw">let </span>state = DeactivateRegion::new(Peer::new(<span class="number">2</span>, <span class="string">&quot;&quot;</span>));
         <span class="kw">let </span>mailbox_receiver = state
-            .send_close_region_message(<span class="kw-2">&amp;</span>env.context, <span class="kw-2">&amp;</span>failed_region, Duration::from_millis(<span class="number">100</span>))
+            .send_close_region_message(<span class="kw-2">&amp;</span>env.context, <span class="kw-2">&amp;</span>failed_region)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -544,7 +542,7 @@
         <span class="comment">// Timeout or not, proceed to `ActivateRegion`.
         </span><span class="macro">assert_eq!</span>(
             <span class="macro">format!</span>(<span class="string">&quot;{next_state:?}&quot;</span>),
-            <span class="string">r#&quot;ActivateRegion { candidate: Peer { id: 2, addr: &quot;&quot; } }&quot;#
+            <span class="string">r#&quot;ActivateRegion { candidate: Peer { id: 2, addr: &quot;&quot; }, remark_inactive_region: false, region_storage_path: None }&quot;#
         </span>);
     }
 }

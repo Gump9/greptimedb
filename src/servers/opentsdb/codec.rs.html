@@ -288,6 +288,9 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -419,7 +422,7 @@
         <span class="kw">let </span>ts_column = Column {
             column_name: OPENTSDB_TIMESTAMP_COLUMN_NAME.to_string(),
             values: <span class="prelude-val">Some</span>(column::Values {
-                ts_millisecond_values: <span class="macro">vec!</span>[<span class="self">self</span>.ts_millis],
+                timestamp_millisecond_values: <span class="macro">vec!</span>[<span class="self">self</span>.ts_millis],
                 ..Default::default()
             }),
             semantic_type: SemanticType::Timestamp <span class="kw">as </span>i32,
@@ -455,7 +458,6 @@
 
         GrpcInsertRequest {
             table_name: <span class="self">self</span>.metric.clone(),
-            region_number: <span class="number">0</span>,
             columns,
             row_count: <span class="number">1</span>,
         }
@@ -558,7 +560,11 @@
 
         <span class="macro">assert_eq!</span>(columns[<span class="number">0</span>].column_name, OPENTSDB_TIMESTAMP_COLUMN_NAME);
         <span class="macro">assert_eq!</span>(
-            columns[<span class="number">0</span>].values.as_ref().unwrap().ts_millisecond_values,
+            columns[<span class="number">0</span>]
+                .values
+                .as_ref()
+                .unwrap()
+                .timestamp_millisecond_values,
             <span class="macro">vec!</span>[<span class="number">1000</span>]
         );
 

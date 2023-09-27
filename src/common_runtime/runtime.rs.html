@@ -283,6 +283,10 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -337,6 +341,10 @@
 }
 
 <span class="kw">impl </span>Runtime {
+    <span class="kw">pub fn </span>builder() -&gt; Builder {
+        Builder::default()
+    }
+
     <span class="doccomment">/// Spawn a future and execute it in this thread pool
     ///
     /// Similar to tokio::runtime::Runtime::spawn()

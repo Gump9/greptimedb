@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["grpc"],"struct":["Services"]};
+window.SIDEBAR_ITEMS = {"struct":["Services"]};

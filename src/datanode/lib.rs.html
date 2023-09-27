@@ -29,7 +29,6 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -47,19 +46,18 @@
 </span><span class="attr">#![feature(assert_matches)]
 #![feature(trait_upcasting)]
 
-</span><span class="kw">pub mod </span>datanode;
+</span><span class="kw">pub mod </span>alive_keeper;
+<span class="kw">pub mod </span>config;
+<span class="kw">pub mod </span>datanode;
 <span class="kw">pub mod </span>error;
+<span class="kw">pub mod </span>event_listener;
 <span class="kw">mod </span>greptimedb_telemetry;
 <span class="kw">pub mod </span>heartbeat;
-<span class="kw">pub mod </span>instance;
 <span class="kw">pub mod </span>metrics;
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;testing&quot;</span>))]
-</span><span class="kw">mod </span>mock;
 <span class="kw">pub mod </span>region_server;
-<span class="kw">mod </span>row_inserter;
 <span class="kw">pub mod </span>server;
-<span class="kw">pub mod </span>sql;
 <span class="kw">mod </span>store;
 <span class="attr">#[cfg(test)]
+#[allow(dead_code)]
 </span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

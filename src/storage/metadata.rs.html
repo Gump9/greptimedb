@@ -1311,10 +1311,6 @@
 <a href="#1311" id="1311">1311</a>
 <a href="#1312" id="1312">1312</a>
 <a href="#1313" id="1313">1313</a>
-<a href="#1314" id="1314">1314</a>
-<a href="#1315" id="1315">1315</a>
-<a href="#1316" id="1316">1316</a>
-<a href="#1317" id="1317">1317</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1336,6 +1332,7 @@
 
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>datatypes::data_type::ConcreteDataType;
 <span class="kw">use </span>datatypes::schema::{ColumnSchema, Metadata, COMMENT_KEY};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -1352,8 +1349,9 @@
 <span class="kw">use </span><span class="kw">crate</span>::schema::{RegionSchema, RegionSchemaRef};
 
 <span class="doccomment">/// Error for handling metadata.
-</span><span class="attr">#[derive(Debug, Snafu)]
+</span><span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>(<span class="kw">crate</span>)))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
     <span class="attr">#[snafu(display(<span class="string">&quot;Column name {} already exists&quot;</span>, name))]
     </span>ColNameExists { name: String, location: Location },
@@ -1367,7 +1365,7 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Column id {} already exists&quot;</span>, id))]
     </span>ColIdExists { id: ColumnId, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build schema, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build schema&quot;</span>))]
     </span>InvalidSchema {
         location: Location,
         source: datatypes::error::Error,
@@ -1402,34 +1400,32 @@
     </span>DropInternalColumn { name: String },
 
     <span class="comment">// End of variants for validating `AlterRequest`.
-    </span><span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert to column schema, source: {}&quot;</span>, source))]
+    </span><span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert to column schema&quot;</span>))]
     </span>ToColumnSchema {
         location: Location,
         source: datatypes::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to parse metadata to int, key_value: {}, source: {}&quot;</span>,
-        key_value,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse metadata to int, key_value: {}&quot;</span>, key_value))]
     </span>ParseMetaInt {
         <span class="comment">// Store key and value in one string to reduce the enum size.
         </span>key_value: String,
-        source: std::num::ParseIntError,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::num::ParseIntError,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Metadata of {} not found&quot;</span>, key))]
     </span>MetaNotFound { key: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build column descriptor, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build column descriptor&quot;</span>))]
     </span>BuildColumnDescriptor {
-        source: ColumnDescriptorBuilderError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ColumnDescriptorBuilderError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert from arrow schema, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert from arrow schema&quot;</span>))]
     </span>ConvertArrowSchema {
         location: Location,
         source: datatypes::error::Error,
@@ -1438,18 +1434,14 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid internal column index in arrow schema&quot;</span>))]
     </span>InvalidIndex { location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to convert arrow chunk to batch, name: {}, source: {}&quot;</span>,
-        name,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert arrow chunk to batch, name: {}&quot;</span>, name))]
     </span>ConvertChunk {
         name: String,
         location: Location,
         source: datatypes::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert schema, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert schema&quot;</span>))]
     </span>ConvertSchema {
         location: Location,
         source: datatypes::error::Error,

@@ -332,6 +332,12 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -364,6 +370,7 @@
 <span class="kw">mod </span>constant;
 <span class="kw">mod </span>date;
 <span class="kw">mod </span>datetime;
+<span class="kw">mod </span>duration;
 <span class="kw">mod </span>eq;
 <span class="kw">mod </span>helper;
 <span class="kw">mod </span>interval;
@@ -381,6 +388,11 @@
 <span class="kw">pub use </span>constant::ConstantVector;
 <span class="kw">pub use </span>date::{DateVector, DateVectorBuilder};
 <span class="kw">pub use </span>datetime::{DateTimeVector, DateTimeVectorBuilder};
+<span class="kw">pub use </span>duration::{
+    DurationMicrosecondVector, DurationMicrosecondVectorBuilder, DurationMillisecondVector,
+    DurationMillisecondVectorBuilder, DurationNanosecondVector, DurationNanosecondVectorBuilder,
+    DurationSecondVector, DurationSecondVectorBuilder,
+};
 <span class="kw">pub use </span>helper::Helper;
 <span class="kw">pub use </span>interval::{
     IntervalDayTimeVector, IntervalDayTimeVectorBuilder, IntervalMonthDayNanoVector,

@@ -163,16 +163,6 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -191,67 +181,56 @@
 
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>datafusion::error::DataFusionError;
 <span class="kw">use </span>promql_parser::parser::{Expr <span class="kw">as </span>PromExpr, TokenType};
 <span class="kw">use </span>snafu::{Location, Snafu};
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unsupported expr type: {}, location: {}&quot;</span>, name, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Unsupported expr type: {}&quot;</span>, name))]
     </span>UnsupportedExpr { name: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected token: {:?}, location: {}&quot;</span>, token, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected token: {:?}&quot;</span>, token))]
     </span>UnexpectedToken {
         token: TokenType,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Internal error during building DataFusion plan, error: {}, location: {}&quot;</span>,
-        source,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Internal error during building DataFusion plan&quot;</span>))]
     </span>DataFusionPlanning {
-        source: datafusion::error::DataFusionError,
+        <span class="attr">#[snafu(source)]
+        </span>error: datafusion::error::DataFusionError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected plan or expression: {}, location: {}&quot;</span>, desc, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected plan or expression: {}&quot;</span>, desc))]
     </span>UnexpectedPlanExpr { desc: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unknown table type, downcast failed, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Unknown table type, downcast failed&quot;</span>))]
     </span>UnknownTable { location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Cannot find time index column in table {}, location: {}&quot;</span>,
-        table,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot find time index column in table {}&quot;</span>, table))]
     </span>TimeIndexNotFound { table: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot find value columns in table {}, location: {}&quot;</span>, table, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot find value columns in table {}&quot;</span>, table))]
     </span>ValueNotFound { table: String, location: Location },
 
     <span class="attr">#[snafu(display(
-        <span class="string">&quot;Cannot accept multiple vector as function input, PromQL expr: {:?}, location: {}&quot;</span>,
+        <span class="string">&quot;Cannot accept multiple vector as function input, PromQL expr: {:?}&quot;</span>,
         expr,
-        location
     ))]
     </span>MultipleVector { expr: PromExpr, location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Expect a PromQL expr but not found, input expr: {:?}, location: {}&quot;</span>,
-        expr,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Expect a PromQL expr but not found, input expr: {:?}&quot;</span>, expr))]
     </span>ExpectExpr { expr: PromExpr, location: Location },
     <span class="attr">#[snafu(display(
-        <span class="string">&quot;Illegal range: offset {}, length {}, array len {}, location: {}&quot;</span>,
+        <span class="string">&quot;Illegal range: offset {}, length {}, array len {}&quot;</span>,
         offset,
         length,
         len,
-        location
     ))]
     </span>IllegalRange {
         offset: u32,
@@ -260,39 +239,40 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize&quot;</span>))]
     </span>Deserialize {
-        source: prost::DecodeError,
+        <span class="attr">#[snafu(source)]
+        </span>error: prost::DecodeError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Empty range is not expected, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Empty range is not expected&quot;</span>))]
     </span>EmptyRange { location: Location },
 
     <span class="attr">#[snafu(display(
-        <span class="string">&quot;Table (metric) name not found, this indicates a procedure error in PromQL planner, location: {}&quot;</span>, location
-    ))]
+        <span class="string">&quot;Table (metric) name not found, this indicates a procedure error in PromQL planner&quot;
+    </span>))]
     </span>TableNameNotFound { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;General catalog error: {source}, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;General catalog error: &quot;</span>))]
     </span>Catalog {
         location: Location,
         source: catalog::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Expect a range selector, but not found, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Expect a range selector, but not found&quot;</span>))]
     </span>ExpectRangeSelector { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Zero range in range selector, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Zero range in range selector&quot;</span>))]
     </span>ZeroRangeSelector { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot find column {col}, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot find column {col}&quot;</span>))]
     </span>ColumnNotFound { col: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Found multiple metric matchers in selector, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Found multiple metric matchers in selector&quot;</span>))]
     </span>MultipleMetricMatchers { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Expect a metric matcher, but not found, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Expect a metric matcher, but not found&quot;</span>))]
     </span>NoMetricMatcher { location: Location },
 }
 

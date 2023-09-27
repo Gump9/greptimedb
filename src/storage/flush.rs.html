@@ -600,7 +600,7 @@
     <span class="doccomment">/// Returns whether to trigger an engine level flush.
     ///
     /// Inspired by RocksDB&#39;s WriteBufferManager.
-    /// https://github.com/facebook/rocksdb/blob/main/include/rocksdb/write_buffer_manager.h#L94
+    /// &lt;https://github.com/facebook/rocksdb/blob/main/include/rocksdb/write_buffer_manager.h#L94&gt;
     </span><span class="kw">fn </span>should_flush_engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="comment">// We only check global limit when it is Some.
         </span><span class="kw">let </span><span class="prelude-val">Some</span>(global_write_buffer_size) = <span class="self">self</span>.global_write_buffer_size <span class="kw">else </span>{

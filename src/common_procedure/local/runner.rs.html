@@ -950,6 +950,10 @@
 <a href="#950" id="950">950</a>
 <a href="#951" id="951">951</a>
 <a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -1410,8 +1414,9 @@
     <span class="kw">use </span>common_error::status_code::StatusCode;
     <span class="kw">use </span>common_test_util::temp_dir::create_temp_dir;
     <span class="kw">use </span>futures_util::future::BoxFuture;
-    <span class="kw">use </span>futures_util::{FutureExt, TryStreamExt};
+    <span class="kw">use </span>futures_util::FutureExt;
     <span class="kw">use </span>object_store::ObjectStore;
+    <span class="kw">use </span>snafu::ErrorCompat;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::local::test_util;
@@ -1444,11 +1449,7 @@
     ) {
         <span class="kw">let </span>dir = <span class="macro">proc_path!</span>(procedure_store, <span class="string">&quot;{procedure_id}/&quot;</span>);
         <span class="kw">let </span>lister = object_store.list(<span class="kw-2">&amp;</span>dir).<span class="kw">await</span>.unwrap();
-        <span class="kw">let </span><span class="kw-2">mut </span>files_in_dir: Vec&lt;<span class="kw">_</span>&gt; = lister
-            .map_ok(|de| de.name().to_string())
-            .try_collect()
-            .<span class="kw">await
-            </span>.unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>files_in_dir: Vec&lt;<span class="kw">_</span>&gt; = lister.into_iter().map(|de| de.name().to_string()).collect();
         files_in_dir.sort_unstable();
         <span class="macro">assert_eq!</span>(files, files_in_dir);
     }
@@ -1898,7 +1899,14 @@
 
         <span class="comment">// Run the runner and execute the procedure.
         </span>runner.run().<span class="kw">await</span>;
-        <span class="kw">let </span>err = meta.state().error().unwrap().to_string();
+        <span class="kw">let </span>err = meta
+            .state()
+            .error()
+            .unwrap()
+            .iter_chain()
+            .last()
+            .unwrap()
+            .to_string();
         <span class="macro">assert!</span>(err.contains(<span class="string">&quot;subprocedure failed&quot;</span>), <span class="string">&quot;{err}&quot;</span>);
     }
 }

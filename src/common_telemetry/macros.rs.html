@@ -235,84 +235,6 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -353,94 +275,40 @@
 
     <span class="comment">// error!(e; target: &quot;my_target&quot;, &quot;a {} event&quot;, &quot;log&quot;)
     </span>(<span class="macro-nonterminal">$e</span>:expr; target: <span class="macro-nonterminal">$target</span>:expr, $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; ({
-        <span class="kw">use </span><span class="macro-nonterminal">$crate::common_error::ext::ErrorExt</span>;
-        <span class="kw">use </span>std::error::Error;
-        <span class="kw">match </span>(<span class="macro-nonterminal">$e</span>.source(), <span class="macro-nonterminal">$e</span>.location_opt()) {
-            (<span class="prelude-val">Some</span>(source), <span class="prelude-val">Some</span>(location)) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$target</span>,
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.source = source,
-                    err.location = %location,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">Some</span>(source), <span class="prelude-val">None</span>) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$target</span>,
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.source = source,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(location)) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$target</span>,
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.location = %location,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$target</span>,
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            }
-        }
+        <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
+            <span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$target</span>,
+            <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
+            err = <span class="question-mark">?</span><span class="macro-nonterminal">$e</span>,
+            $(<span class="macro-nonterminal">$arg</span>)+
+        )
+    });
+
+    <span class="comment">// error!(%e; target: &quot;my_target&quot;, &quot;a {} event&quot;, &quot;log&quot;)
+    </span>(%<span class="macro-nonterminal">$e</span>:expr; target: <span class="macro-nonterminal">$target</span>:expr, $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; ({
+        <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
+            <span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$target</span>,
+            <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
+            err = %<span class="macro-nonterminal">$e</span>,
+            $(<span class="macro-nonterminal">$arg</span>)+
+        )
     });
 
     <span class="comment">// error!(e; &quot;a {} event&quot;, &quot;log&quot;)
     </span>(<span class="macro-nonterminal">$e</span>:expr; $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; ({
-        <span class="kw">use </span>std::error::Error;
-        <span class="kw">use </span><span class="macro-nonterminal">$crate::common_error::ext::ErrorExt</span>;
-        <span class="kw">match </span>(<span class="macro-nonterminal">$e</span>.source(), <span class="macro-nonterminal">$e</span>.location_opt()) {
-            (<span class="prelude-val">Some</span>(source), <span class="prelude-val">Some</span>(location)) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.source = source,
-                    err.location = %location,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">Some</span>(source), <span class="prelude-val">None</span>) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.source = source,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(location)) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.location = %location,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            }
-        }
+        <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
+            <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
+            err = <span class="question-mark">?</span><span class="macro-nonterminal">$e</span>,
+            $(<span class="macro-nonterminal">$arg</span>)+
+        )
+    });
+
+    <span class="comment">// error!(%e; &quot;a {} event&quot;, &quot;log&quot;)
+    </span>(%<span class="macro-nonterminal">$e</span>:expr; $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; ({
+        <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
+            <span class="macro-nonterminal">$crate::logging::Level::ERROR</span>,
+            err = %<span class="macro-nonterminal">$e</span>,
+            $(<span class="macro-nonterminal">$arg</span>)+
+        )
     });
 
     <span class="comment">// error!(&quot;a {} event&quot;, &quot;log&quot;)
@@ -459,46 +327,20 @@
 
     <span class="comment">// warn!(e; &quot;a {} event&quot;, &quot;log&quot;)
     </span>(<span class="macro-nonterminal">$e</span>:expr; $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; ({
-        <span class="kw">use </span>std::error::Error;
-        <span class="kw">use </span><span class="macro-nonterminal">$crate::common_error::ext::ErrorExt</span>;
-        <span class="kw">match </span>(<span class="macro-nonterminal">$e</span>.source(), <span class="macro-nonterminal">$e</span>.location_opt()) {
-            (<span class="prelude-val">Some</span>(source), <span class="prelude-val">Some</span>(location)) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::WARN</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.source = source,
-                    err.location = %location,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">Some</span>(source), <span class="prelude-val">None</span>) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::WARN</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.source = source,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(location)) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::WARN</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    err.location = %location,
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            },
-            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
-                <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
-                    <span class="macro-nonterminal">$crate::logging::Level::WARN</span>,
-                    err.msg = %<span class="macro-nonterminal">$e</span>,
-                    err.code = %<span class="macro-nonterminal">$e</span>.status_code(),
-                    $(<span class="macro-nonterminal">$arg</span>)+
-                )
-            }
-        }
+        <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
+            <span class="macro-nonterminal">$crate::logging::Level::WARN</span>,
+            err = <span class="question-mark">?</span><span class="macro-nonterminal">$e</span>,
+            $(<span class="macro-nonterminal">$arg</span>)+
+        )
+    });
+
+    <span class="comment">// warn!(%e; &quot;a {} event&quot;, &quot;log&quot;)
+    </span>(%<span class="macro-nonterminal">$e</span>:expr; $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; ({
+        <span class="macro-nonterminal">$</span><span class="macro">crate::log!</span>(
+            <span class="macro-nonterminal">$crate::logging::Level::WARN</span>,
+            err = %<span class="macro-nonterminal">$e</span>,
+            $(<span class="macro-nonterminal">$arg</span>)+
+        )
     });
 
     <span class="comment">// warn!(&quot;a {} event&quot;, &quot;log&quot;)
@@ -620,8 +462,10 @@
         <span class="macro">error!</span>(target: <span class="string">&quot;my_target&quot;</span>, <span class="string">&quot;hello {}&quot;</span>, <span class="string">&quot;world&quot;</span>);
         <span class="comment">// Supports both owned and reference type.
         </span><span class="macro">error!</span>(err; target: <span class="string">&quot;my_target&quot;</span>, <span class="string">&quot;hello {}&quot;</span>, <span class="string">&quot;world&quot;</span>);
+        <span class="macro">error!</span>(%err; target: <span class="string">&quot;my_target&quot;</span>, <span class="string">&quot;hello {}&quot;</span>, <span class="string">&quot;world&quot;</span>);
         <span class="macro">error!</span>(err_ref; target: <span class="string">&quot;my_target&quot;</span>, <span class="string">&quot;hello {}&quot;</span>, <span class="string">&quot;world&quot;</span>);
         <span class="macro">error!</span>(err_ref2; <span class="string">&quot;hello {}&quot;</span>, <span class="string">&quot;world&quot;</span>);
+        <span class="macro">error!</span>(%err_ref2; <span class="string">&quot;hello {}&quot;</span>, <span class="string">&quot;world&quot;</span>);
         <span class="macro">error!</span>(<span class="string">&quot;hello {}&quot;</span>, <span class="string">&quot;world&quot;</span>);
 
         <span class="kw">let </span>root_err = MockError::with_source(err);

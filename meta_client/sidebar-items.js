@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["default_ddl_timeout_millis"],"mod":["client","error"],"struct":["MetaClientOptions"]};
+window.SIDEBAR_ITEMS = {"fn":["default_ddl_timeout_millis","default_heartbeat_timeout_millis"],"mod":["client","error"],"struct":["MetaClientOptions"]};

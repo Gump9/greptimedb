@@ -110,7 +110,6 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -131,14 +130,13 @@
 <span class="kw">use </span><span class="kw">crate</span>::handler::{HeartbeatAccumulator, HeartbeatHandler};
 <span class="kw">use </span><span class="kw">crate</span>::metasrv::Context;
 
-<span class="attr">#[derive(Default)]
-</span><span class="kw">pub struct </span>ResponseHeaderHandler;
+<span class="kw">pub struct </span>ResponseHeaderHandler;
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>HeartbeatHandler <span class="kw">for </span>ResponseHeaderHandler {
-    <span class="kw">fn </span>is_acceptable(<span class="kw-2">&amp;</span><span class="self">self</span>, role: Role) -&gt; bool {
-        role == Role::Datanode
-    }
+    <span class="kw">fn </span>is_acceptable(<span class="kw-2">&amp;</span><span class="self">self</span>, _role: Role) -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 
     <span class="kw">async fn </span>handle(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -165,11 +163,11 @@
 
     <span class="kw">use </span>api::v1::meta::{HeartbeatResponse, RequestHeader};
     <span class="kw">use </span>common_meta::key::TableMetadataManager;
+    <span class="kw">use </span>common_meta::sequence::Sequence;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::cluster::MetaPeerClientBuilder;
     <span class="kw">use </span><span class="kw">crate</span>::handler::{Context, HeartbeatMailbox, Pushers};
-    <span class="kw">use </span><span class="kw">crate</span>::sequence::Sequence;
     <span class="kw">use </span><span class="kw">crate</span>::service::store::cached_kv::LeaderCachedKvStore;
     <span class="kw">use </span><span class="kw">crate</span>::service::store::kv::KvBackendAdapter;
     <span class="kw">use </span><span class="kw">crate</span>::service::store::memory::MemStore;
@@ -180,7 +178,7 @@
         <span class="kw">let </span>kv_store = Arc::new(MemStore::new());
         <span class="kw">let </span>leader_cached_kv_store =
             Arc::new(LeaderCachedKvStore::with_always_leader(kv_store.clone()));
-        <span class="kw">let </span>seq = Sequence::new(<span class="string">&quot;test_seq&quot;</span>, <span class="number">0</span>, <span class="number">10</span>, kv_store.clone());
+        <span class="kw">let </span>seq = Sequence::new(<span class="string">&quot;test_seq&quot;</span>, <span class="number">0</span>, <span class="number">10</span>, KvBackendAdapter::wrap(kv_store.clone()));
         <span class="kw">let </span>mailbox = HeartbeatMailbox::create(Pushers::default(), seq);
         <span class="kw">let </span>meta_peer_client = MetaPeerClientBuilder::default()
             .election(<span class="prelude-val">None</span>)

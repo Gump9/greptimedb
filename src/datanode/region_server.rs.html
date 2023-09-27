@@ -419,6 +419,86 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -449,7 +529,7 @@
 <span class="kw">use </span>common_query::{DfPhysicalPlan, Output};
 <span class="kw">use </span>common_recordbatch::SendableRecordBatchStream;
 <span class="kw">use </span>common_runtime::Runtime;
-<span class="kw">use </span>common_telemetry::info;
+<span class="kw">use </span>common_telemetry::{info, warn};
 <span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>datafusion::catalog::schema::SchemaProvider;
 <span class="kw">use </span>datafusion::catalog::{CatalogList, CatalogProvider};
@@ -469,7 +549,7 @@
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 <span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 <span class="kw">use </span>store_api::region_engine::RegionEngineRef;
-<span class="kw">use </span>store_api::region_request::RegionRequest;
+<span class="kw">use </span>store_api::region_request::{RegionCloseRequest, RegionRequest};
 <span class="kw">use </span>store_api::storage::{RegionId, ScanRequest};
 <span class="kw">use </span>substrait::{DFLogicalSubstraitConvertor, SubstraitPlan};
 <span class="kw">use </span>table::table::scan::StreamScanAdapter;
@@ -478,8 +558,9 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     BuildRegionRequestsSnafu, DecodeLogicalPlanSnafu, ExecuteLogicalPlanSnafu,
     GetRegionMetadataSnafu, HandleRegionRequestSnafu, RegionEngineNotFoundSnafu,
-    RegionNotFoundSnafu, <span class="prelude-ty">Result</span>, UnsupportedOutputSnafu,
+    RegionNotFoundSnafu, <span class="prelude-ty">Result</span>, StopRegionEngineSnafu, UnsupportedOutputSnafu,
 };
+<span class="kw">use </span><span class="kw">crate</span>::event_listener::RegionServerEventListenerRef;
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>RegionServer {
@@ -487,9 +568,17 @@
 }
 
 <span class="kw">impl </span>RegionServer {
-    <span class="kw">pub fn </span>new(query_engine: QueryEngineRef, runtime: Arc&lt;Runtime&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(
+        query_engine: QueryEngineRef,
+        runtime: Arc&lt;Runtime&gt;,
+        event_listener: RegionServerEventListenerRef,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            inner: Arc::new(RegionServerInner::new(query_engine, runtime)),
+            inner: Arc::new(RegionServerInner::new(
+                query_engine,
+                runtime,
+                event_listener,
+            )),
         }
     }
 
@@ -508,6 +597,34 @@
     <span class="kw">pub async fn </span>handle_read(<span class="kw-2">&amp;</span><span class="self">self</span>, request: QueryRequest) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
         <span class="self">self</span>.inner.handle_read(request).<span class="kw">await
     </span>}
+
+    <span class="kw">pub fn </span>opened_regions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(RegionId, String)&gt; {
+        <span class="self">self</span>.inner
+            .region_map
+            .iter()
+            .map(|e| (<span class="kw-2">*</span>e.key(), e.value().name().to_string()))
+            .collect()
+    }
+
+    <span class="kw">pub fn </span>set_writable(<span class="kw-2">&amp;</span><span class="self">self</span>, region_id: RegionId, writable: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>engine = <span class="self">self
+            </span>.inner
+            .region_map
+            .get(<span class="kw-2">&amp;</span>region_id)
+            .with_context(|| RegionNotFoundSnafu { region_id })<span class="question-mark">?</span>;
+        engine
+            .set_writable(region_id, writable)
+            .with_context(|<span class="kw">_</span>| HandleRegionRequestSnafu { region_id })
+    }
+
+    <span class="kw">pub fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Runtime&gt; {
+        <span class="self">self</span>.inner.runtime.clone()
+    }
+
+    <span class="doccomment">/// Stop the region server.
+    </span><span class="kw">pub async fn </span>stop(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.inner.stop().<span class="kw">await
+    </span>}
 }
 
 <span class="attr">#[async_trait]
@@ -519,23 +636,19 @@
             .context(ExecuteGrpcRequestSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>join_tasks = requests.into_iter().map(|(region_id, req)| {
             <span class="kw">let </span>self_to_move = <span class="self">self</span>.clone();
-            <span class="self">self</span>.inner
-                .runtime
-                .spawn(<span class="kw">async move </span>{ self_to_move.handle_request(region_id, req).<span class="kw">await </span>})
+            <span class="kw">async move </span>{ self_to_move.handle_request(region_id, req).<span class="kw">await </span>}
         });
 
         <span class="kw">let </span>results = try_join_all(join_tasks)
             .<span class="kw">await
-            </span>.context(servers_error::JoinTaskSnafu)<span class="question-mark">?</span>;
+            </span>.map_err(BoxedError::new)
+            .context(ExecuteGrpcRequestSnafu)<span class="question-mark">?</span>;
 
         <span class="comment">// merge results by simply sum up affected rows.
         // only insert/delete will have multiple results.
         </span><span class="kw">let </span><span class="kw-2">mut </span>affected_rows = <span class="number">0</span>;
         <span class="kw">for </span>result <span class="kw">in </span>results {
-            <span class="kw">match </span>result
-                .map_err(BoxedError::new)
-                .context(servers_error::ExecuteGrpcRequestSnafu)<span class="question-mark">?
-            </span>{
+            <span class="kw">match </span>result {
                 Output::AffectedRows(rows) =&gt; affected_rows += rows,
                 Output::Stream(<span class="kw">_</span>) | Output::RecordBatches(<span class="kw">_</span>) =&gt; {
                     <span class="comment">// TODO: change the output type to only contains `affected_rows`
@@ -565,10 +678,15 @@
         <span class="kw">let </span>ticket = request.into_inner().ticket;
         <span class="kw">let </span>request = QueryRequest::decode(ticket.as_ref())
             .context(servers_error::InvalidFlightTicketSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>trace_id = request
+            .header
+            .as_ref()
+            .map(|h| h.trace_id)
+            .unwrap_or_default();
 
         <span class="kw">let </span>result = <span class="self">self</span>.handle_read(request).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">let </span>stream = Box::pin(FlightRecordBatchStream::new(result));
+        <span class="kw">let </span>stream = Box::pin(FlightRecordBatchStream::new(result, trace_id));
         <span class="prelude-val">Ok</span>(Response::new(stream))
     }
 }
@@ -578,20 +696,27 @@
     region_map: DashMap&lt;RegionId, RegionEngineRef&gt;,
     query_engine: QueryEngineRef,
     runtime: Arc&lt;Runtime&gt;,
+    event_listener: RegionServerEventListenerRef,
 }
 
 <span class="kw">impl </span>RegionServerInner {
-    <span class="kw">pub fn </span>new(query_engine: QueryEngineRef, runtime: Arc&lt;Runtime&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(
+        query_engine: QueryEngineRef,
+        runtime: Arc&lt;Runtime&gt;,
+        event_listener: RegionServerEventListenerRef,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             engines: RwLock::new(HashMap::new()),
             region_map: DashMap::new(),
             query_engine,
             runtime,
+            event_listener,
         }
     }
 
     <span class="kw">pub fn </span>register_engine(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: RegionEngineRef) {
         <span class="kw">let </span>engine_name = engine.name();
+        <span class="macro">info!</span>(<span class="string">&quot;Region Engine {engine_name} is registered&quot;</span>);
         <span class="self">self</span>.engines
             .write()
             .unwrap()
@@ -613,7 +738,8 @@
             | RegionRequest::Delete(<span class="kw">_</span>)
             | RegionRequest::Alter(<span class="kw">_</span>)
             | RegionRequest::Flush(<span class="kw">_</span>)
-            | RegionRequest::Compact(<span class="kw">_</span>) =&gt; RegionChange::None,
+            | RegionRequest::Compact(<span class="kw">_</span>)
+            | RegionRequest::Truncate(<span class="kw">_</span>) =&gt; RegionChange::None,
         };
 
         <span class="kw">let </span>engine = <span class="kw">match </span><span class="kw-2">&amp;</span>region_change {
@@ -642,10 +768,14 @@
             RegionChange::Register(<span class="kw">_</span>) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;Region {region_id} is registered to engine {engine_type}&quot;</span>);
                 <span class="self">self</span>.region_map.insert(region_id, engine);
+                <span class="self">self</span>.event_listener.on_region_registered(region_id);
             }
             RegionChange::Deregisters =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;Region {region_id} is deregistered from engine {engine_type}&quot;</span>);
-                <span class="self">self</span>.region_map.remove(<span class="kw-2">&amp;</span>region_id);
+                <span class="self">self</span>.region_map
+                    .remove(<span class="kw-2">&amp;</span>region_id)
+                    .map(|(id, engine)| engine.set_writable(id, <span class="bool-val">false</span>));
+                <span class="self">self</span>.event_listener.on_region_deregistered(region_id);
             }
         }
 
@@ -655,7 +785,11 @@
     <span class="kw">pub async fn </span>handle_read(<span class="kw-2">&amp;</span><span class="self">self</span>, request: QueryRequest) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
         <span class="comment">// TODO(ruihang): add metrics and set trace id
 
-        </span><span class="kw">let </span>QueryRequest { region_id, plan } = request;
+        </span><span class="kw">let </span>QueryRequest {
+            header: <span class="kw">_</span>,
+            region_id,
+            plan,
+        } = request;
         <span class="kw">let </span>region_id = RegionId::from_u64(region_id);
 
         <span class="comment">// build dummy catalog list
@@ -683,6 +817,32 @@
             }
             Output::Stream(stream) =&gt; <span class="prelude-val">Ok</span>(stream),
         }
+    }
+
+    <span class="kw">async fn </span>stop(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">for </span>region <span class="kw">in </span><span class="self">self</span>.region_map.iter() {
+            <span class="kw">let </span>region_id = <span class="kw-2">*</span>region.key();
+            <span class="kw">let </span>engine = region.value();
+            <span class="kw">let </span>closed = engine
+                .handle_request(region_id, RegionRequest::Close(RegionCloseRequest {}))
+                .<span class="kw">await</span>;
+            <span class="kw">match </span>closed {
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">info!</span>(<span class="string">&quot;Region {region_id} is closed&quot;</span>),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">warn!</span>(<span class="string">&quot;Failed to close region {region_id}, err: {e}&quot;</span>),
+            }
+        }
+        <span class="self">self</span>.region_map.clear();
+
+        <span class="kw">let </span>engines = <span class="self">self</span>.engines.write().unwrap().drain().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        <span class="kw">for </span>(engine_name, engine) <span class="kw">in </span>engines {
+            engine
+                .stop()
+                .<span class="kw">await
+                </span>.context(StopRegionEngineSnafu { name: <span class="kw-2">&amp;</span>engine_name })<span class="question-mark">?</span>;
+            <span class="macro">info!</span>(<span class="string">&quot;Region engine {engine_name} is stopped&quot;</span>);
+        }
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -794,7 +954,7 @@
     </span>}
 }
 
-<span class="doccomment">/// For [TableProvider](datafusion::datasource::TableProvider) and [DummyCatalogList]
+<span class="doccomment">/// For [TableProvider](TableProvider) and [DummyCatalogList]
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">struct </span>DummyTableProvider {
     region_id: RegionId,

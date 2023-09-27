@@ -225,6 +225,9 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -249,6 +252,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, <span class="prelude-ty">Result</span>, SyntaxSnafu};
 <span class="kw">use </span><span class="kw">crate</span>::parsers::tql_parser;
 <span class="kw">use </span><span class="kw">crate</span>::statements::statement::Statement;
+<span class="kw">use </span><span class="kw">crate</span>::statements::transform_statements;
 
 <span class="doccomment">/// GrepTime SQL parser context, a simple wrapper for Datafusion SQL parser.
 </span><span class="kw">pub struct </span>ParserContext&lt;<span class="lifetime">&#39;a</span>&gt; {
@@ -284,6 +288,8 @@
             stmts.push(statement);
             expecting_statement_delimiter = <span class="bool-val">true</span>;
         }
+
+        transform_statements(<span class="kw-2">&amp;mut </span>stmts)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(stmts)
     }

@@ -438,6 +438,16 @@
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -505,8 +515,18 @@
         DdlTask::AlterTable(AlterTableTask { alter_table })
     }
 
-    <span class="kw">pub fn </span>new_truncate_table(truncate_table: TruncateTableExpr) -&gt; <span class="self">Self </span>{
-        DdlTask::TruncateTable(TruncateTableTask { truncate_table })
+    <span class="kw">pub fn </span>new_truncate_table(
+        catalog: String,
+        schema: String,
+        table: String,
+        table_id: TableId,
+    ) -&gt; <span class="self">Self </span>{
+        DdlTask::TruncateTable(TruncateTableTask {
+            catalog,
+            schema,
+            table,
+            table_id,
+        })
     }
 }
 
@@ -552,7 +572,12 @@
                 alter_table: <span class="prelude-val">Some</span>(task.alter_table),
             }),
             DdlTask::TruncateTable(task) =&gt; Task::TruncateTableTask(PbTruncateTableTask {
-                truncate_table: <span class="prelude-val">Some</span>(task.truncate_table),
+                truncate_table: <span class="prelude-val">Some</span>(TruncateTableExpr {
+                    catalog_name: task.catalog,
+                    schema_name: task.schema,
+                    table_name: task.table,
+                    table_id: <span class="prelude-val">Some</span>(api::v1::TableId { id: task.table_id }),
+                }),
             }),
         };
 
@@ -563,7 +588,8 @@
     }
 }
 
-<span class="kw">pub struct </span>SubmitDdlTaskResponse {
+<span class="attr">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>SubmitDdlTaskResponse {
     <span class="kw">pub </span>key: Vec&lt;u8&gt;,
     <span class="kw">pub </span>table_id: <span class="prelude-ty">Option</span>&lt;TableId&gt;,
 }
@@ -577,6 +603,18 @@
             key: resp.key,
             table_id,
         })
+    }
+}
+
+<span class="kw">impl </span>From&lt;SubmitDdlTaskResponse&gt; <span class="kw">for </span>PbSubmitDdlTaskResponse {
+    <span class="kw">fn </span>from(val: SubmitDdlTaskResponse) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            key: val.key,
+            table_id: val
+                .table_id
+                .map(|table_id| api::v1::meta::TableId { id: table_id }),
+            ..Default::default()
+        }
     }
 }
 
@@ -785,27 +823,28 @@
     }
 }
 
-<span class="attr">#[derive(Debug, PartialEq)]
+<span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>TruncateTableTask {
-    <span class="kw">pub </span>truncate_table: TruncateTableExpr,
+    <span class="kw">pub </span>catalog: String,
+    <span class="kw">pub </span>schema: String,
+    <span class="kw">pub </span>table: String,
+    <span class="kw">pub </span>table_id: TableId,
 }
 
 <span class="kw">impl </span>TruncateTableTask {
     <span class="kw">pub fn </span>table_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableReference {
         TableReference {
-            catalog: <span class="kw-2">&amp;</span><span class="self">self</span>.truncate_table.catalog_name,
-            schema: <span class="kw-2">&amp;</span><span class="self">self</span>.truncate_table.schema_name,
-            table: <span class="kw-2">&amp;</span><span class="self">self</span>.truncate_table.table_name,
+            catalog: <span class="kw-2">&amp;</span><span class="self">self</span>.catalog,
+            schema: <span class="kw-2">&amp;</span><span class="self">self</span>.schema,
+            table: <span class="kw-2">&amp;</span><span class="self">self</span>.table,
         }
     }
 
     <span class="kw">pub fn </span>table_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TableName {
-        <span class="kw">let </span>table = <span class="kw-2">&amp;</span><span class="self">self</span>.truncate_table;
-
         TableName {
-            catalog_name: table.catalog_name.to_string(),
-            schema_name: table.schema_name.to_string(),
-            table_name: table.table_name.to_string(),
+            catalog_name: <span class="self">self</span>.catalog.to_string(),
+            schema_name: <span class="self">self</span>.schema.to_string(),
+            table_name: <span class="self">self</span>.table.to_string(),
         }
     }
 }
@@ -815,39 +854,20 @@
 
     <span class="kw">fn </span>try_from(pb: PbTruncateTableTask) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>truncate_table = pb.truncate_table.context(error::InvalidProtoMsgSnafu {
-            err_msg: <span class="string">&quot;expected truncate_table&quot;</span>,
+            err_msg: <span class="string">&quot;expected drop table&quot;</span>,
         })<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(TruncateTableTask { truncate_table })
-    }
-}
-
-<span class="kw">impl </span>Serialize <span class="kw">for </span>TruncateTableTask {
-    <span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; result::Result&lt;S::Ok, S::Error&gt;
-    <span class="kw">where
-        </span>S: serde::Serializer,
-    {
-        <span class="kw">let </span>pb = PbTruncateTableTask {
-            truncate_table: <span class="prelude-val">Some</span>(<span class="self">self</span>.truncate_table.clone()),
-        };
-        <span class="kw">let </span>buf = pb.encode_to_vec();
-        serializer.serialize_bytes(<span class="kw-2">&amp;</span>buf)
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>TruncateTableTask {
-    <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; result::Result&lt;<span class="self">Self</span>, D::Error&gt;
-    <span class="kw">where
-        </span>D: serde::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
-    {
-        <span class="kw">let </span>buf = Vec::&lt;u8&gt;::deserialize(deserializer)<span class="question-mark">?</span>;
-        <span class="kw">let </span>task: PbTruncateTableTask = PbTruncateTableTask::decode(<span class="kw-2">&amp;*</span>buf)
-            .map_err(|err| serde::de::Error::custom(err.to_string()))<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>task = TruncateTableTask::try_from(task)
-            .map_err(|err| serde::de::Error::custom(err.to_string()))<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(task)
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            catalog: truncate_table.catalog_name,
+            schema: truncate_table.schema_name,
+            table: truncate_table.table_name,
+            table_id: truncate_table
+                .table_id
+                .context(error::InvalidProtoMsgSnafu {
+                    err_msg: <span class="string">&quot;expected table_id&quot;</span>,
+                })<span class="question-mark">?
+                </span>.id,
+        })
     }
 }
 

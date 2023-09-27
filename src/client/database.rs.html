@@ -377,32 +377,6 @@
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -422,9 +396,9 @@
 <span class="kw">use </span>api::v1::greptime_request::Request;
 <span class="kw">use </span>api::v1::query_request::Query;
 <span class="kw">use </span>api::v1::{
-    AlterExpr, AuthHeader, CompactTableExpr, CreateTableExpr, DdlRequest, DeleteRequests,
-    DropTableExpr, FlushTableExpr, GreptimeRequest, InsertRequests, PromRangeQuery, QueryRequest,
-    RequestHeader, RowInsertRequests, TruncateTableExpr,
+    AlterExpr, AuthHeader, CreateTableExpr, DdlRequest, DeleteRequests, DropTableExpr,
+    GreptimeRequest, InsertRequests, PromRangeQuery, QueryRequest, RequestHeader,
+    RowInsertRequests, TruncateTableExpr,
 };
 <span class="kw">use </span>arrow_flight::Ticket;
 <span class="kw">use </span>async_stream::stream;
@@ -552,13 +526,13 @@
 
     <span class="kw">async fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>client = <span class="self">self</span>.client.make_database_client()<span class="question-mark">?</span>.inner;
-        <span class="kw">let </span>request = <span class="self">self</span>.to_rpc_request(request, <span class="prelude-val">None</span>);
+        <span class="kw">let </span>request = <span class="self">self</span>.to_rpc_request(request, <span class="number">0</span>);
         <span class="kw">let </span>response = client.handle(request).<span class="kw">await</span><span class="question-mark">?</span>.into_inner();
         from_grpc_response(response)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>to_rpc_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request, trace_id: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; GreptimeRequest {
+    </span><span class="kw">fn </span>to_rpc_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request, trace_id: u64) -&gt; GreptimeRequest {
         GreptimeRequest {
             header: <span class="prelude-val">Some</span>(RequestHeader {
                 catalog: <span class="self">self</span>.catalog.clone(),
@@ -566,7 +540,7 @@
                 authorization: <span class="self">self</span>.ctx.auth_header.clone(),
                 dbname: <span class="self">self</span>.dbname.clone(),
                 trace_id,
-                span_id: <span class="prelude-val">None</span>,
+                span_id: <span class="number">0</span>,
             }),
             request: <span class="prelude-val">Some</span>(request),
         }
@@ -578,16 +552,12 @@
             Request::Query(QueryRequest {
                 query: <span class="prelude-val">Some</span>(Query::Sql(sql.to_string())),
             }),
-            <span class="prelude-val">None</span>,
+            <span class="number">0</span>,
         )
         .<span class="kw">await
     </span>}
 
-    <span class="kw">pub async fn </span>logical_plan(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        logical_plan: Vec&lt;u8&gt;,
-        trace_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
+    <span class="kw">pub async fn </span>logical_plan(<span class="kw-2">&amp;</span><span class="self">self</span>, logical_plan: Vec&lt;u8&gt;, trace_id: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
         <span class="kw">let </span>_timer = <span class="macro">timer!</span>(metrics::METRIC_GRPC_LOGICAL_PLAN);
         <span class="self">self</span>.do_get(
             Request::Query(QueryRequest {
@@ -615,7 +585,7 @@
                     step: step.to_string(),
                 })),
             }),
-            <span class="prelude-val">None</span>,
+            <span class="number">0</span>,
         )
         .<span class="kw">await
     </span>}
@@ -626,7 +596,7 @@
             Request::Ddl(DdlRequest {
                 expr: <span class="prelude-val">Some</span>(DdlExpr::CreateTable(expr)),
             }),
-            <span class="prelude-val">None</span>,
+            <span class="number">0</span>,
         )
         .<span class="kw">await
     </span>}
@@ -637,7 +607,7 @@
             Request::Ddl(DdlRequest {
                 expr: <span class="prelude-val">Some</span>(DdlExpr::Alter(expr)),
             }),
-            <span class="prelude-val">None</span>,
+            <span class="number">0</span>,
         )
         .<span class="kw">await
     </span>}
@@ -648,29 +618,7 @@
             Request::Ddl(DdlRequest {
                 expr: <span class="prelude-val">Some</span>(DdlExpr::DropTable(expr)),
             }),
-            <span class="prelude-val">None</span>,
-        )
-        .<span class="kw">await
-    </span>}
-
-    <span class="kw">pub async fn </span>flush_table(<span class="kw-2">&amp;</span><span class="self">self</span>, expr: FlushTableExpr) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
-        <span class="kw">let </span>_timer = <span class="macro">timer!</span>(metrics::METRIC_GRPC_FLUSH_TABLE);
-        <span class="self">self</span>.do_get(
-            Request::Ddl(DdlRequest {
-                expr: <span class="prelude-val">Some</span>(DdlExpr::FlushTable(expr)),
-            }),
-            <span class="prelude-val">None</span>,
-        )
-        .<span class="kw">await
-    </span>}
-
-    <span class="kw">pub async fn </span>compact_table(<span class="kw-2">&amp;</span><span class="self">self</span>, expr: CompactTableExpr) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
-        <span class="kw">let </span>_timer = <span class="macro">timer!</span>(metrics::METRIC_GRPC_COMPACT_TABLE);
-        <span class="self">self</span>.do_get(
-            Request::Ddl(DdlRequest {
-                expr: <span class="prelude-val">Some</span>(DdlExpr::CompactTable(expr)),
-            }),
-            <span class="prelude-val">None</span>,
+            <span class="number">0</span>,
         )
         .<span class="kw">await
     </span>}
@@ -681,12 +629,12 @@
             Request::Ddl(DdlRequest {
                 expr: <span class="prelude-val">Some</span>(DdlExpr::TruncateTable(expr)),
             }),
-            <span class="prelude-val">None</span>,
+            <span class="number">0</span>,
         )
         .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>do_get(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request, trace_id: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
+    <span class="kw">async fn </span>do_get(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request, trace_id: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Output&gt; {
         <span class="comment">// FIXME(paomian): should be added some labels for metrics
         </span><span class="kw">let </span>_timer = <span class="macro">timer!</span>(metrics::METRIC_GRPC_DO_GET);
         <span class="kw">let </span>request = <span class="self">self</span>.to_rpc_request(request, trace_id);
@@ -707,7 +655,7 @@
                 source: BoxedError::new(ServerSnafu { code, msg }.build()),
             };
             <span class="macro">logging::error!</span>(
-                <span class="string">&quot;Failed to do Flight get, addr: {}, code: {}, source: {}&quot;</span>,
+                <span class="string">&quot;Failed to do Flight get, addr: {}, code: {}, source: {:?}&quot;</span>,
                 client.addr(),
                 tonic_code,
                 error

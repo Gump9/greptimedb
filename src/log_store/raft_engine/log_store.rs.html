@@ -654,6 +654,7 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_stream::stream;
+<span class="kw">use </span>common_config::WalConfig;
 <span class="kw">use </span>common_runtime::{RepeatedTask, TaskFunction};
 <span class="kw">use </span>common_telemetry::{error, info};
 <span class="kw">use </span>raft_engine::{Config, Engine, LogBatch, MessageExt, ReadableSize, RecoveryMode};
@@ -663,19 +664,18 @@
 <span class="kw">use </span>store_api::logstore::namespace::Namespace <span class="kw">as </span>NamespaceTrait;
 <span class="kw">use </span>store_api::logstore::{AppendResponse, LogStore};
 
-<span class="kw">use </span><span class="kw">crate</span>::config::LogConfig;
 <span class="kw">use </span><span class="kw">crate</span>::error;
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     AddEntryLogBatchSnafu, Error, FetchEntrySnafu, IllegalNamespaceSnafu, IllegalStateSnafu,
     OverrideCompactedEntrySnafu, RaftEngineSnafu, <span class="prelude-ty">Result</span>, StartGcTaskSnafu, StopGcTaskSnafu,
 };
+<span class="kw">use </span><span class="kw">crate</span>::raft_engine::backend::SYSTEM_NAMESPACE;
 <span class="kw">use </span><span class="kw">crate</span>::raft_engine::protos::logstore::{EntryImpl, NamespaceImpl <span class="kw">as </span>Namespace};
 
 <span class="kw">const </span>NAMESPACE_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;$sys/&quot;</span>;
-<span class="kw">const </span>SYSTEM_NAMESPACE: u64 = <span class="number">0</span>;
 
 <span class="kw">pub struct </span>RaftEngineLogStore {
-    config: LogConfig,
+    config: WalConfig,
     engine: Arc&lt;Engine&gt;,
     gc_task: RepeatedTask&lt;Error&gt;,
 }
@@ -710,13 +710,13 @@
 }
 
 <span class="kw">impl </span>RaftEngineLogStore {
-    <span class="kw">pub async fn </span>try_new(config: LogConfig) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+    <span class="kw">pub async fn </span>try_new(dir: String, config: WalConfig) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>raft_engine_config = Config {
-            dir: config.log_file_dir.clone(),
-            purge_threshold: ReadableSize(config.purge_threshold),
+            dir,
+            purge_threshold: ReadableSize(config.purge_threshold.<span class="number">0</span>),
             recovery_mode: RecoveryMode::TolerateTailCorruption,
             batch_compression_threshold: ReadableSize::kb(<span class="number">8</span>),
-            target_file_size: ReadableSize(config.file_size),
+            target_file_size: ReadableSize(config.file_size.<span class="number">0</span>),
             ..Default::default()
         };
         <span class="kw">let </span>engine = Arc::new(Engine::open(raft_engine_config).context(RaftEngineSnafu)<span class="question-mark">?</span>);
@@ -1006,15 +1006,15 @@
     <span class="kw">use </span>std::collections::HashSet;
     <span class="kw">use </span>std::time::Duration;
 
+    <span class="kw">use </span>common_base::readable_size::ReadableSize;
     <span class="kw">use </span>common_telemetry::debug;
     <span class="kw">use </span>common_test_util::temp_dir::create_temp_dir;
     <span class="kw">use </span>futures_util::StreamExt;
-    <span class="kw">use </span>raft_engine::ReadableSize;
     <span class="kw">use </span>store_api::logstore::entry_stream::SendableEntryStream;
     <span class="kw">use </span>store_api::logstore::namespace::Namespace <span class="kw">as </span>NamespaceTrait;
     <span class="kw">use </span>store_api::logstore::LogStore;
 
-    <span class="kw">use </span><span class="kw">crate</span>::config::LogConfig;
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::error::Error;
     <span class="kw">use </span><span class="kw">crate</span>::raft_engine::log_store::RaftEngineLogStore;
     <span class="kw">use </span><span class="kw">crate</span>::raft_engine::protos::logstore::{EntryImpl <span class="kw">as </span>Entry, NamespaceImpl <span class="kw">as </span>Namespace};
@@ -1022,10 +1022,10 @@
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_open_logstore() {
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;raft-engine-logstore-test&quot;</span>);
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            ..Default::default()
-        })
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(
+            dir.path().to_str().unwrap().to_string(),
+            WalConfig::default(),
+        )
         .<span class="kw">await
         </span>.unwrap();
         <span class="kw">let </span>namespaces = logstore.list_namespaces().<span class="kw">await</span>.unwrap();
@@ -1035,10 +1035,10 @@
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_manage_namespace() {
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;raft-engine-logstore-test&quot;</span>);
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            ..Default::default()
-        })
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(
+            dir.path().to_str().unwrap().to_string(),
+            WalConfig::default(),
+        )
         .<span class="kw">await
         </span>.unwrap();
         <span class="macro">assert!</span>(logstore.list_namespaces().<span class="kw">await</span>.unwrap().is_empty());
@@ -1061,10 +1061,10 @@
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_append_and_read() {
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;raft-engine-logstore-test&quot;</span>);
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            ..Default::default()
-        })
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(
+            dir.path().to_str().unwrap().to_string(),
+            WalConfig::default(),
+        )
         .<span class="kw">await
         </span>.unwrap();
 
@@ -1102,10 +1102,10 @@
     </span><span class="kw">async fn </span>test_reopen() {
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;raft-engine-logstore-reopen-test&quot;</span>);
         {
-            <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(LogConfig {
-                log_file_dir: dir.path().to_str().unwrap().to_string(),
-                ..Default::default()
-            })
+            <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(
+                dir.path().to_str().unwrap().to_string(),
+                WalConfig::default(),
+            )
             .<span class="kw">await
             </span>.unwrap();
             <span class="macro">assert!</span>(logstore
@@ -1122,10 +1122,10 @@
             logstore.stop().<span class="kw">await</span>.unwrap();
         }
 
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            ..Default::default()
-        })
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(
+            dir.path().to_str().unwrap().to_string(),
+            WalConfig::default(),
+        )
         .<span class="kw">await
         </span>.unwrap();
 
@@ -1157,16 +1157,16 @@
     </span><span class="kw">async fn </span>test_compaction() {
         common_telemetry::init_default_ut_logging();
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;raft-engine-logstore-test&quot;</span>);
+        <span class="kw">let </span>path = dir.path().to_str().unwrap().to_string();
 
-        <span class="kw">let </span>config = LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            file_size: ReadableSize::mb(<span class="number">2</span>).<span class="number">0</span>,
-            purge_threshold: ReadableSize::mb(<span class="number">4</span>).<span class="number">0</span>,
+        <span class="kw">let </span>config = WalConfig {
+            file_size: ReadableSize::mb(<span class="number">2</span>),
+            purge_threshold: ReadableSize::mb(<span class="number">4</span>),
             purge_interval: Duration::from_secs(<span class="number">5</span>),
             ..Default::default()
         };
 
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(config).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(path, config).<span class="kw">await</span>.unwrap();
         <span class="kw">let </span>namespace = Namespace::with_id(<span class="number">42</span>);
         <span class="kw">for </span>id <span class="kw">in </span><span class="number">0</span>..<span class="number">4096 </span>{
             <span class="kw">let </span>entry = Entry::create(id, namespace.id(), [<span class="string">b&#39;x&#39;</span>; <span class="number">4096</span>].to_vec());
@@ -1189,16 +1189,16 @@
     </span><span class="kw">async fn </span>test_obsolete() {
         common_telemetry::init_default_ut_logging();
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;raft-engine-logstore-test&quot;</span>);
+        <span class="kw">let </span>path = dir.path().to_str().unwrap().to_string();
 
-        <span class="kw">let </span>config = LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            file_size: ReadableSize::mb(<span class="number">2</span>).<span class="number">0</span>,
-            purge_threshold: ReadableSize::mb(<span class="number">4</span>).<span class="number">0</span>,
+        <span class="kw">let </span>config = WalConfig {
+            file_size: ReadableSize::mb(<span class="number">2</span>),
+            purge_threshold: ReadableSize::mb(<span class="number">4</span>),
             purge_interval: Duration::from_secs(<span class="number">5</span>),
             ..Default::default()
         };
 
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(config).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(path, config).<span class="kw">await</span>.unwrap();
         <span class="kw">let </span>namespace = Namespace::with_id(<span class="number">42</span>);
         <span class="kw">for </span>id <span class="kw">in </span><span class="number">0</span>..<span class="number">1024 </span>{
             <span class="kw">let </span>entry = Entry::create(id, namespace.id(), [<span class="string">b&#39;x&#39;</span>; <span class="number">4096</span>].to_vec());
@@ -1218,16 +1218,16 @@
     </span><span class="kw">async fn </span>test_append_batch() {
         common_telemetry::init_default_ut_logging();
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;logstore-append-batch-test&quot;</span>);
+        <span class="kw">let </span>path = dir.path().to_str().unwrap().to_string();
 
-        <span class="kw">let </span>config = LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            file_size: ReadableSize::mb(<span class="number">2</span>).<span class="number">0</span>,
-            purge_threshold: ReadableSize::mb(<span class="number">4</span>).<span class="number">0</span>,
+        <span class="kw">let </span>config = WalConfig {
+            file_size: ReadableSize::mb(<span class="number">2</span>),
+            purge_threshold: ReadableSize::mb(<span class="number">4</span>),
             purge_interval: Duration::from_secs(<span class="number">5</span>),
             ..Default::default()
         };
 
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(config).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(path, config).<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span>entries = (<span class="number">0</span>..<span class="number">8</span>)
             .flat_map(|ns_id| {
@@ -1250,15 +1250,15 @@
         common_telemetry::init_default_ut_logging();
         <span class="kw">let </span>dir = create_temp_dir(<span class="string">&quot;logstore-append-batch-test&quot;</span>);
 
-        <span class="kw">let </span>config = LogConfig {
-            log_file_dir: dir.path().to_str().unwrap().to_string(),
-            file_size: ReadableSize::mb(<span class="number">2</span>).<span class="number">0</span>,
-            purge_threshold: ReadableSize::mb(<span class="number">4</span>).<span class="number">0</span>,
+        <span class="kw">let </span>path = dir.path().to_str().unwrap().to_string();
+        <span class="kw">let </span>config = WalConfig {
+            file_size: ReadableSize::mb(<span class="number">2</span>),
+            purge_threshold: ReadableSize::mb(<span class="number">4</span>),
             purge_interval: Duration::from_secs(<span class="number">5</span>),
             ..Default::default()
         };
 
-        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(config).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>logstore = RaftEngineLogStore::try_new(path, config).<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span>entries = <span class="macro">vec!</span>[
             Entry::create(<span class="number">0</span>, <span class="number">0</span>, [<span class="string">b&#39;0&#39;</span>; <span class="number">4096</span>].to_vec()),

@@ -822,7 +822,6 @@
 <a href="#822" id="822">822</a>
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -848,7 +847,6 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_telemetry::{debug, error};
 <span class="kw">use </span>common_time::range::TimestampRange;
-<span class="kw">use </span>common_time::timestamp::TimeUnit;
 <span class="kw">use </span>common_time::Timestamp;
 <span class="kw">use </span>datatypes::arrow::record_batch::RecordBatch;
 <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
@@ -987,7 +985,6 @@
     <span class="kw">let </span><span class="kw-2">mut </span>end = i64::MIN;
 
     <span class="kw">let </span>unit = <span class="kw">match </span>ts_datatype {
-        ConcreteDataType::Int64(<span class="kw">_</span>) =&gt; TimeUnit::Millisecond,
         ConcreteDataType::Timestamp(type_) =&gt; type_.unit(),
         <span class="kw">_ </span>=&gt; {
             <span class="kw">return </span>DecodeParquetTimeRangeSnafu {
@@ -1183,6 +1180,7 @@
     <span class="kw">use </span>api::v1::OpType;
     <span class="kw">use </span>common_base::readable_size::ReadableSize;
     <span class="kw">use </span>common_test_util::temp_dir::create_temp_dir;
+    <span class="kw">use </span>common_time::timestamp::TimeUnit;
     <span class="kw">use </span>datatypes::arrow::array::{Array, UInt64Array, UInt8Array};
     <span class="kw">use </span>datatypes::prelude::{ScalarVector, Vector};
     <span class="kw">use </span>datatypes::types::{TimestampMillisecondType, TimestampType};

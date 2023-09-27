@@ -44,7 +44,6 @@
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
 <a href="#46" id="46">46</a>
-<a href="#47" id="47">47</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -63,8 +62,8 @@
 #![feature(result_flattening)]
 
 </span><span class="kw">pub mod </span>bootstrap;
+<span class="kw">mod </span>cache_invalidator;
 <span class="kw">pub mod </span>cluster;
-<span class="kw">pub mod </span>ddl;
 <span class="kw">pub mod </span>election;
 <span class="kw">pub mod </span>error;
 <span class="kw">mod </span>failure_detector;
@@ -72,7 +71,6 @@
 <span class="kw">pub mod </span>keys;
 <span class="kw">pub mod </span>lease;
 <span class="kw">pub mod </span>lock;
-<span class="kw">pub mod </span>metadata_service;
 <span class="kw">pub mod </span>metasrv;
 <span class="kw">mod </span>metrics;
 <span class="attr">#[cfg(feature = <span class="string">&quot;mock&quot;</span>)]
@@ -80,13 +78,13 @@
 <span class="kw">pub mod </span>procedure;
 <span class="kw">pub mod </span>pubsub;
 <span class="kw">pub mod </span>selector;
-<span class="kw">mod </span>sequence;
 <span class="kw">pub mod </span>service;
+<span class="kw">pub mod </span>table_meta_alloc;
 <span class="kw">pub mod </span>table_routes;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::error::Result;
 
-<span class="kw">mod </span>inactive_node_manager;
+<span class="kw">mod </span>inactive_region_manager;
 
 <span class="kw">mod </span>greptimedb_telemetry;
 

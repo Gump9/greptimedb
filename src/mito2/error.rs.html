@@ -464,6 +464,7 @@
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -484,6 +485,7 @@
 <span class="kw">use </span>common_datasource::compression::CompressionType;
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>common_runtime::JoinError;
 <span class="kw">use </span>datatypes::arrow::error::ArrowError;
 <span class="kw">use </span>datatypes::prelude::ConcreteDataType;
@@ -495,47 +497,38 @@
 <span class="kw">use </span><span class="kw">crate</span>::sst::file::FileId;
 <span class="kw">use </span><span class="kw">crate</span>::worker::WorkerId;
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;OpenDAL operator failed. Location: {}, source: {}&quot;</span>, location, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;OpenDAL operator failed&quot;</span>))]
     </span>OpenDal {
         location: Location,
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Fail to compress object by {}, path: {}, source: {}&quot;</span>,
-        compress_type,
-        path,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to compress object by {}, path: {}&quot;</span>, compress_type, path))]
     </span>CompressObject {
         compress_type: CompressionType,
         path: String,
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Fail to decompress object by {}, path: {}, source: {}&quot;</span>,
-        compress_type,
-        path,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Fail to decompress object by {}, path: {}&quot;</span>, compress_type, path))]
     </span>DecompressObject {
         compress_type: CompressionType,
         path: String,
-        source: std::io::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::io::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to ser/de json object. Location: {}, source: {}&quot;</span>,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to ser/de json object&quot;</span>))]
     </span>SerdeJson {
         location: Location,
-        source: serde_json::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: serde_json::Error,
     },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid scan index, start: {}, end: {}&quot;</span>, start, end))]
@@ -545,107 +538,78 @@
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid UTF-8 content. Location: {}, source: {}&quot;</span>, location, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid UTF-8 content&quot;</span>))]
     </span>Utf8 {
         location: Location,
-        source: std::str::Utf8Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: std::str::Utf8Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot find RegionMetadata. Location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Cannot find RegionMetadata&quot;</span>))]
     </span>RegionMetadataNotFound { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to join handle, location: {}, source: {}&quot;</span>, location, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to join handle&quot;</span>))]
     </span>Join {
-        source: common_runtime::JoinError,
+        <span class="attr">#[snafu(source)]
+        </span>error: common_runtime::JoinError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Worker {} is stopped, location: {}&quot;</span>, id, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Worker {} is stopped&quot;</span>, id))]
     </span>WorkerStopped { id: WorkerId, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to recv result, location: {}, source: {}&quot;</span>, location, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to recv result&quot;</span>))]
     </span>Recv {
-        source: tokio::sync::oneshot::error::RecvError,
+        <span class="attr">#[snafu(source)]
+        </span>error: tokio::sync::oneshot::error::RecvError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid metadata, {}, location: {}&quot;</span>, reason, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid metadata, {}&quot;</span>, reason))]
     </span>InvalidMeta { reason: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid schema, source: {}, location: {}&quot;</span>, source, location))]
-    </span>InvalidSchema {
-        source: datatypes::error::Error,
-        location: Location,
-    },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid region metadata, source: {}, location: {}&quot;</span>, source, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid region metadata&quot;</span>))]
     </span>InvalidMetadata {
         source: store_api::metadata::MetadataError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} already exists, location: {}&quot;</span>, region_id, location))]
-    </span>RegionExists {
-        region_id: RegionId,
-        location: Location,
-    },
-
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to create RecordBatch from vectors, location: {}, source: {}&quot;</span>,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create RecordBatch from vectors&quot;</span>))]
     </span>NewRecordBatch {
         location: Location,
-        source: ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ArrowError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to write to buffer, location: {}, source: {}&quot;</span>,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write to buffer&quot;</span>))]
     </span>WriteBuffer {
         location: Location,
         source: common_datasource::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to write parquet file, path: {}, location: {}, source: {}&quot;</span>,
-        path,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write parquet file, path: {}&quot;</span>, path))]
     </span>WriteParquet {
         path: String,
         location: Location,
-        source: parquet::errors::ParquetError,
+        <span class="attr">#[snafu(source)]
+        </span>error: parquet::errors::ParquetError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to read parquet file, path: {}, location: {}, source: {}&quot;</span>,
-        path,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read parquet file, path: {}&quot;</span>, path))]
     </span>ReadParquet {
         path: String,
-        source: parquet::errors::ParquetError,
+        <span class="attr">#[snafu(source)]
+        </span>error: parquet::errors::ParquetError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} not found, location: {}&quot;</span>, region_id, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} not found&quot;</span>, region_id))]
     </span>RegionNotFound {
         region_id: RegionId,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Region {} is corrupted, reason: {}, location: {}&quot;</span>,
-        region_id,
-        reason,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} is corrupted, reason: {}&quot;</span>, region_id, reason))]
     </span>RegionCorrupted {
         region_id: RegionId,
         reason: String,
@@ -678,54 +642,36 @@
         source: datatypes::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to encode WAL entry, region_id: {}, location: {}, source: {}&quot;</span>,
-        region_id,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to encode WAL entry, region_id: {}&quot;</span>, region_id))]
     </span>EncodeWal {
         region_id: RegionId,
         location: Location,
-        source: EncodeError,
+        <span class="attr">#[snafu(source)]
+        </span>error: EncodeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write WAL, location: {}, source: {}&quot;</span>, location, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to write WAL&quot;</span>))]
     </span>WriteWal {
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to read WAL, region_id: {}, location: {}, source: {}&quot;</span>,
-        region_id,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to read WAL, region_id: {}&quot;</span>, region_id))]
     </span>ReadWal {
         region_id: RegionId,
         location: Location,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to decode WAL entry, region_id: {}, location: {}, source: {}&quot;</span>,
-        region_id,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to decode WAL entry, region_id: {}&quot;</span>, region_id))]
     </span>DecodeWal {
         region_id: RegionId,
         location: Location,
-        source: DecodeError,
+        <span class="attr">#[snafu(source)]
+        </span>error: DecodeError,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to delete WAL, region_id: {}, location: {}, source: {}&quot;</span>,
-        region_id,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete WAL, region_id: {}&quot;</span>, region_id))]
     </span>DeleteWal {
         region_id: RegionId,
         location: Location,
@@ -733,132 +679,180 @@
     },
 
     <span class="comment">// Shared error for each writer in the write group.
-    </span><span class="attr">#[snafu(display(<span class="string">&quot;Failed to write region, source: {}&quot;</span>, source))]
+    </span><span class="attr">#[snafu(display(<span class="string">&quot;Failed to write region&quot;</span>))]
     </span>WriteGroup { source: Arc&lt;Error&gt; },
-
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Row length mismatch, expect: {}, actual: {}, location: {}&quot;</span>,
-        expect,
-        actual,
-        location
-    ))]
-    </span>RowLengthMismatch {
-        expect: usize,
-        actual: usize,
-        location: Location,
-    },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Row value mismatches field data type&quot;</span>))]
     </span>FieldTypeMismatch { source: datatypes::error::Error },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to serialize field, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to serialize field&quot;</span>))]
     </span>SerializeField {
-        source: memcomparable::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: memcomparable::Error,
         location: Location,
     },
 
     <span class="attr">#[snafu(display(
-        <span class="string">&quot;Data type: {} does not support serialization/deserialization, location: {}&quot;</span>,
+        <span class="string">&quot;Data type: {} does not support serialization/deserialization&quot;</span>,
         data_type,
-        location
     ))]
     </span>NotSupportedField {
         data_type: ConcreteDataType,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to deserialize field, source: {}, location: {}&quot;</span>,
-        source,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to deserialize field&quot;</span>))]
     </span>DeserializeField {
-        source: memcomparable::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: memcomparable::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Invalid parquet SST file {}, location: {}, reason: {}&quot;</span>,
-        file,
-        location,
-        reason
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid parquet SST file {}, reason: {}&quot;</span>, file, reason))]
     </span>InvalidParquet {
         file: String,
         reason: String,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid batch, {}, location: {}&quot;</span>, reason, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid batch, {}&quot;</span>, reason))]
     </span>InvalidBatch { reason: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid arrow record batch, {}, location: {}&quot;</span>, reason, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid arrow record batch, {}&quot;</span>, reason))]
     </span>InvalidRecordBatch { reason: String, location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to convert array to vector, location: {}, source: {}&quot;</span>,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert array to vector&quot;</span>))]
     </span>ConvertVector {
         location: Location,
         source: datatypes::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to compute arrow arrays, location: {}, source: {}&quot;</span>,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to compute arrow arrays&quot;</span>))]
     </span>ComputeArrow {
         location: Location,
-        source: datatypes::arrow::error::ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: datatypes::arrow::error::ArrowError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to compute vector, location: {}, source: {}&quot;</span>, location, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to compute vector&quot;</span>))]
     </span>ComputeVector {
         location: Location,
         source: datatypes::error::Error,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Primary key length mismatch, expect: {}, actual: {}, location: {}&quot;</span>,
-        expect,
-        actual,
-        location
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Primary key length mismatch, expect: {}, actual: {}&quot;</span>, expect, actual))]
     </span>PrimaryKeyLengthMismatch {
         expect: usize,
         actual: usize,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid flume sender, location: {}&quot;</span>, location,))]
-    </span>InvalidFlumeSender { location: Location },
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid sender&quot;</span>,))]
+    </span>InvalidSender { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid scheduler state, location: {}&quot;</span>, location))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid scheduler state&quot;</span>))]
     </span>InvalidSchedulerState { location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop scheduler, location: {}, source: {}&quot;</span>, location, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop scheduler&quot;</span>))]
     </span>StopScheduler {
-        source: JoinError,
+        <span class="attr">#[snafu(source)]
+        </span>error: JoinError,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to build scan predicate, location: {}, source: {}&quot;</span>,
-        location,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to build scan predicate&quot;</span>))]
     </span>BuildPredicate {
         source: table::error::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete SST file, file id: {}, source: {}&quot;</span>, file_id, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to delete SST file, file id: {}&quot;</span>, file_id))]
     </span>DeleteSst {
         file_id: FileId,
-        source: object_store::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: object_store::Error,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to flush region {}&quot;</span>, region_id))]
+    </span>FlushRegion {
+        region_id: RegionId,
+        source: Arc&lt;Error&gt;,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} is dropped&quot;</span>, region_id))]
+    </span>RegionDropped {
+        region_id: RegionId,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} is closed&quot;</span>, region_id))]
+    </span>RegionClosed {
+        region_id: RegionId,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} is truncated&quot;</span>, region_id))]
+    </span>RegionTruncated {
+        region_id: RegionId,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Engine write buffer is full, rejecting write requests of region {}&quot;</span>,
+        region_id,
+    ))]
+    </span>RejectWrite {
+        region_id: RegionId,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to compact region {}&quot;</span>, region_id))]
+    </span>CompactRegion {
+        region_id: RegionId,
+        source: Arc&lt;Error&gt;,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Failed to compat readers for region {}, reason: {}&quot;</span>,
+        region_id,
+        reason,
+    ))]
+    </span>CompatReader {
+        region_id: RegionId,
+        reason: String,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalue region req&quot;</span>))]
+    </span>InvalidRegionRequest {
+        source: store_api::metadata::MetadataError,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Region {} is read only&quot;</span>, region_id))]
+    </span>RegionReadonly {
+        region_id: RegionId,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid options&quot;</span>))]
+    </span>JsonOptions {
+        <span class="attr">#[snafu(source)]
+        </span>error: serde_json::Error,
+        location: Location,
+    },
+
+    <span class="attr">#[snafu(display(
+        <span class="string">&quot;Empty region directory, region_id: {}, region_dir: {}&quot;</span>,
+        region_id,
+        region_dir,
+    ))]
+    </span>EmptyRegionDir {
+        region_id: RegionId,
+        region_dir: String,
         location: Location,
     },
 }
@@ -887,15 +881,13 @@
             | DecompressObject { .. }
             | SerdeJson { .. }
             | Utf8 { .. }
-            | RegionExists { .. }
             | NewRecordBatch { .. }
-            | RegionNotFound { .. }
             | RegionCorrupted { .. }
             | CreateDefault { .. }
             | InvalidParquet { .. } =&gt; StatusCode::Unexpected,
+            RegionNotFound { .. } =&gt; StatusCode::RegionNotFound,
             InvalidScanIndex { .. }
             | InvalidMeta { .. }
-            | InvalidSchema { .. }
             | InvalidRequest { .. }
             | FillDefault { .. }
             | InvalidMetadata { .. } =&gt; StatusCode::InvalidArguments,
@@ -907,7 +899,6 @@
             | DecodeWal { .. } =&gt; StatusCode::Internal,
             WriteBuffer { source, .. } =&gt; source.status_code(),
             WriteGroup { source, .. } =&gt; source.status_code(),
-            RowLengthMismatch { .. } =&gt; StatusCode::InvalidArguments,
             FieldTypeMismatch { source, .. } =&gt; source.status_code(),
             SerializeField { .. } =&gt; StatusCode::Internal,
             NotSupportedField { .. } =&gt; StatusCode::Unsupported,
@@ -918,11 +909,22 @@
             ComputeArrow { .. } =&gt; StatusCode::Internal,
             ComputeVector { .. } =&gt; StatusCode::Internal,
             PrimaryKeyLengthMismatch { .. } =&gt; StatusCode::InvalidArguments,
-            InvalidFlumeSender { .. } =&gt; StatusCode::InvalidArguments,
+            InvalidSender { .. } =&gt; StatusCode::InvalidArguments,
             InvalidSchedulerState { .. } =&gt; StatusCode::InvalidArguments,
             StopScheduler { .. } =&gt; StatusCode::Internal,
             BuildPredicate { source, .. } =&gt; source.status_code(),
             DeleteSst { .. } =&gt; StatusCode::StorageUnavailable,
+            FlushRegion { source, .. } =&gt; source.status_code(),
+            RegionDropped { .. } =&gt; StatusCode::Cancelled,
+            RegionClosed { .. } =&gt; StatusCode::Cancelled,
+            RegionTruncated { .. } =&gt; StatusCode::Cancelled,
+            RejectWrite { .. } =&gt; StatusCode::StorageUnavailable,
+            CompactRegion { source, .. } =&gt; source.status_code(),
+            CompatReader { .. } =&gt; StatusCode::Unexpected,
+            InvalidRegionRequest { source, .. } =&gt; source.status_code(),
+            RegionReadonly { .. } =&gt; StatusCode::RegionReadonly,
+            JsonOptions { .. } =&gt; StatusCode::InvalidArguments,
+            EmptyRegionDir { .. } =&gt; StatusCode::RegionNotFound,
         }
     }
 

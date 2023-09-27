@@ -34,6 +34,8 @@
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -53,6 +55,7 @@
 
 <span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>MysqlOptions {
+    <span class="kw">pub </span>enable: bool,
     <span class="kw">pub </span>addr: String,
     <span class="kw">pub </span>runtime_size: usize,
     <span class="attr">#[serde(default = <span class="string">&quot;Default::default&quot;</span>)]
@@ -63,6 +66,7 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>MysqlOptions {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            enable: <span class="bool-val">true</span>,
             addr: <span class="string">&quot;127.0.0.1:4002&quot;</span>.to_string(),
             runtime_size: <span class="number">2</span>,
             tls: TlsOption::default(),

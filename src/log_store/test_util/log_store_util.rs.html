@@ -26,6 +26,8 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -42,16 +44,18 @@
 
 </span><span class="kw">use </span>std::path::Path;
 
+<span class="kw">use </span>common_base::readable_size::ReadableSize;
+<span class="kw">use </span>common_config::WalConfig;
+
 <span class="kw">use </span><span class="kw">crate</span>::raft_engine::log_store::RaftEngineLogStore;
-<span class="kw">use </span><span class="kw">crate</span>::LogConfig;
 
 <span class="doccomment">/// Create a write log for the provided path, used for test.
 </span><span class="kw">pub async fn </span>create_tmp_local_file_log_store&lt;P: AsRef&lt;Path&gt;&gt;(path: P) -&gt; RaftEngineLogStore {
-    <span class="kw">let </span>cfg = LogConfig {
-        file_size: <span class="number">128 </span>* <span class="number">1024</span>,
-        log_file_dir: path.as_ref().display().to_string(),
+    <span class="kw">let </span>path = path.as_ref().display().to_string();
+    <span class="kw">let </span>cfg = WalConfig {
+        file_size: ReadableSize::kb(<span class="number">128</span>),
         ..Default::default()
     };
-    RaftEngineLogStore::try_new(cfg).<span class="kw">await</span>.unwrap()
+    RaftEngineLogStore::try_new(path, cfg).<span class="kw">await</span>.unwrap()
 }
 </code></pre></div></section></main></body></html>

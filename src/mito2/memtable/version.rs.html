@@ -69,6 +69,45 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -87,15 +126,21 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableRef;
+<span class="kw">use </span>smallvec::SmallVec;
+
+<span class="kw">use </span><span class="kw">crate</span>::memtable::{MemtableId, MemtableRef};
 
 <span class="doccomment">/// A version of current memtables in a region.
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MemtableVersion {
     <span class="doccomment">/// Mutable memtable.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) mutable: MemtableRef,
-    <span class="doccomment">/// Immutable memtable.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) immutable: <span class="prelude-ty">Option</span>&lt;MemtableRef&gt;,
+    <span class="doccomment">/// Immutable memtables.
+    ///
+    /// We only allow one flush job per region but if a flush job failed, then we
+    /// might need to store more than one immutable memtable on the next time we
+    /// flush the region.
+    </span>immutables: SmallVec&lt;[MemtableRef; <span class="number">2</span>]&gt;,
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>MemtableVersionRef = Arc&lt;MemtableVersion&gt;;
@@ -105,39 +150,72 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(mutable: MemtableRef) -&gt; MemtableVersion {
         MemtableVersion {
             mutable,
-            immutable: <span class="prelude-val">None</span>,
+            immutables: SmallVec::new(),
         }
+    }
+
+    <span class="doccomment">/// Immutable memtables.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>immutables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[MemtableRef] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.immutables
     }
 
     <span class="doccomment">/// Lists mutable and immutable memtables.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>list_memtables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;MemtableRef&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(immutable) = <span class="kw-2">&amp;</span><span class="self">self</span>.immutable {
-            <span class="macro">vec!</span>[<span class="self">self</span>.mutable.clone(), immutable.clone()]
-        } <span class="kw">else </span>{
-            <span class="macro">vec!</span>[<span class="self">self</span>.mutable.clone()]
-        }
+        <span class="kw">let </span><span class="kw-2">mut </span>mems = Vec::with_capacity(<span class="self">self</span>.immutables.len() + <span class="number">1</span>);
+        mems.push(<span class="self">self</span>.mutable.clone());
+        mems.extend_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.immutables);
+        mems
     }
 
     <span class="doccomment">/// Returns a new [MemtableVersion] which switches the old mutable memtable to immutable
     /// memtable.
     ///
-    /// Returns `None` if immutable memtable is `Some`.
+    /// Returns `None` if the mutable memtable is empty.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>freeze_mutable(<span class="kw-2">&amp;</span><span class="self">self</span>, mutable: MemtableRef) -&gt; <span class="prelude-ty">Option</span>&lt;MemtableVersion&gt; {
-        <span class="macro">debug_assert!</span>(<span class="self">self</span>.mutable.is_empty());
-        <span class="kw">if </span><span class="self">self</span>.immutable.is_some() {
-            <span class="comment">// There is already an immutable memtable.
+        <span class="macro">debug_assert!</span>(mutable.is_empty());
+        <span class="kw">if </span><span class="self">self</span>.mutable.is_empty() {
+            <span class="comment">// No need to freeze the mutable memtable.
             </span><span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
         <span class="comment">// Marks the mutable memtable as immutable so it can free the memory usage from our
         // soft limit.
         </span><span class="self">self</span>.mutable.mark_immutable();
-
+        <span class="comment">// Pushes the mutable memtable to immutable list.
+        </span><span class="kw">let </span>immutables = <span class="self">self
+            </span>.immutables
+            .iter()
+            .cloned()
+            .chain([<span class="self">self</span>.mutable.clone()])
+            .collect();
         <span class="prelude-val">Some</span>(MemtableVersion {
             mutable,
-            immutable: <span class="prelude-val">Some</span>(<span class="self">self</span>.mutable.clone()),
+            immutables,
         })
+    }
+
+    <span class="doccomment">/// Removes memtables by ids from immutable memtables.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>remove_memtables(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ids: <span class="kw-2">&amp;</span>[MemtableId]) {
+        <span class="self">self</span>.immutables = <span class="self">self
+            </span>.immutables
+            .iter()
+            .filter(|mem| !ids.contains(<span class="kw-2">&amp;</span>mem.id()))
+            .cloned()
+            .collect();
+    }
+
+    <span class="doccomment">/// Returns the memory usage of the mutable memtable.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>mutable_usage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.mutable.stats().estimated_bytes
+    }
+
+    <span class="doccomment">/// Returns true if the memtable version is empty.
+    ///
+    /// The version is empty when mutable memtable is empty and there is no
+    /// immutable memtables.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.mutable.is_empty() &amp;&amp; <span class="self">self</span>.immutables.is_empty()
     }
 }
 </code></pre></div></section></main></body></html>

@@ -130,6 +130,15 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -165,6 +174,7 @@
     <span class="kw">use </span>std::any::Any;
     <span class="kw">use </span>std::task::{Context, Poll};
 
+    <span class="kw">use </span>common_error::ext::StackError;
     <span class="kw">use </span>futures::StreamExt;
     <span class="kw">use </span>snafu::Snafu;
 
@@ -192,6 +202,14 @@
     <span class="kw">impl </span>ErrorExt <span class="kw">for </span>Error {
         <span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Any {
             <span class="self">self
+        </span>}
+    }
+
+    <span class="kw">impl </span>StackError <span class="kw">for </span>Error {
+        <span class="kw">fn </span>debug_fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: usize, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;) {}
+
+        <span class="kw">fn </span>next(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>StackError&gt; {
+            <span class="prelude-val">None
         </span>}
     }
 

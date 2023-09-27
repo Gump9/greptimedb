@@ -918,7 +918,7 @@
     {
         <span class="kw">let </span>streamer = <span class="self">self
             </span>.object_store
-            .list(<span class="kw-2">&amp;</span><span class="self">self</span>.path)
+            .lister_with(<span class="kw-2">&amp;</span><span class="self">self</span>.path)
             .<span class="kw">await
             </span>.context(ListObjectsSnafu { path: <span class="kw-2">&amp;</span><span class="self">self</span>.path })<span class="question-mark">?</span>;
         streamer

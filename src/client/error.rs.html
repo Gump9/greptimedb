@@ -122,6 +122,15 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -141,29 +150,37 @@
 <span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_error::status_code::StatusCode;
 <span class="kw">use </span>common_error::{GREPTIME_ERROR_CODE, GREPTIME_ERROR_MSG};
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>snafu::{Location, Snafu};
 <span class="kw">use </span>tonic::{Code, Status};
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
     <span class="attr">#[snafu(display(<span class="string">&quot;Illegal Flight messages, reason: {}&quot;</span>, reason))]
     </span>IllegalFlightMessages { reason: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to do Flight get, code: {}, source: {}&quot;</span>, tonic_code, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to do Flight get, code: {}&quot;</span>, tonic_code))]
     </span>FlightGet {
         addr: String,
         tonic_code: Code,
         source: BoxedError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert FlightData, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failure occurs during handling request&quot;</span>))]
+    </span>HandleRequest {
+        location: Location,
+        source: BoxedError,
+    },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to convert FlightData&quot;</span>))]
     </span>ConvertFlightData {
         location: Location,
         source: common_grpc::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Column datatype error, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Column datatype error&quot;</span>))]
     </span>ColumnDataType {
         location: Location,
         source: api::error::Error,
@@ -175,16 +192,15 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Missing required field in protobuf, field: {}&quot;</span>, field))]
     </span>MissingField { field: String, location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to create gRPC channel, peer address: {}, source: {}&quot;</span>,
-        addr,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create gRPC channel, peer address: {}&quot;</span>, addr))]
     </span>CreateChannel {
         addr: String,
         location: Location,
         source: common_grpc::error::Error,
     },
+
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to request RegionServer, code: {}&quot;</span>, code))]
+    </span>RegionServer { code: Code, source: BoxedError },
 
     <span class="comment">// Server error carried in Tonic Status&#39;s metadata.
     </span><span class="attr">#[snafu(display(<span class="string">&quot;{}&quot;</span>, msg))]
@@ -209,7 +225,9 @@
             | Error::ClientStreaming { .. } =&gt; StatusCode::Internal,
 
             Error::Server { code, .. } =&gt; <span class="kw-2">*</span>code,
-            Error::FlightGet { source, .. } =&gt; source.status_code(),
+            Error::FlightGet { source, .. }
+            | Error::HandleRequest { source, .. }
+            | Error::RegionServer { source, .. } =&gt; source.status_code(),
             Error::CreateChannel { source, .. } | Error::ConvertFlightData { source, .. } =&gt; {
                 source.status_code()
             }

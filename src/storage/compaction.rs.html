@@ -191,9 +191,6 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -308,9 +305,6 @@
     strategy: <span class="kw-2">&amp;</span>CompactionStrategy,
 ) -&gt; CompactionPickerRef&lt;S&gt; {
     <span class="kw">match </span>strategy {
-        CompactionStrategy::LeveledTimeWindow =&gt; {
-            Arc::new(LeveledTimeWindowPicker::default()) <span class="kw">as </span>Arc&lt;<span class="kw">_</span>&gt;
-        }
         CompactionStrategy::Twcs(twcs_opts) =&gt; Arc::new(TwcsPicker::new(
             twcs_opts.max_active_window_files,
             twcs_opts.max_inactive_window_files,

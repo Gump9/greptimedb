@@ -268,15 +268,6 @@
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -295,20 +286,16 @@
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::Instant;
 
-<span class="kw">use </span>catalog::remote::CachedMetaKvBackend;
+<span class="kw">use </span>catalog::kvbackend::{CachedMetaKvBackend, KvBackendCatalogManager};
 <span class="kw">use </span>client::client_manager::DatanodeClients;
 <span class="kw">use </span>client::{Client, Database, DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
 <span class="kw">use </span>common_base::Plugins;
 <span class="kw">use </span>common_error::ext::ErrorExt;
-<span class="kw">use </span>common_meta::key::TableMetadataManager;
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_recordbatch::RecordBatches;
 <span class="kw">use </span>common_telemetry::logging;
 <span class="kw">use </span>either::Either;
-<span class="kw">use </span>frontend::catalog::FrontendCatalogManager;
 <span class="kw">use </span>meta_client::client::MetaClientBuilder;
-<span class="kw">use </span>partition::manager::PartitionRuleManager;
-<span class="kw">use </span>partition::route::TableRoutes;
 <span class="kw">use </span>query::datafusion::DatafusionQueryEngine;
 <span class="kw">use </span>query::logical_optimizer::LogicalOptimizer;
 <span class="kw">use </span>query::parser::QueryLanguageParser;
@@ -459,7 +446,7 @@
                 .encode(<span class="kw-2">&amp;</span>plan)
                 .context(SubstraitEncodeLogicalPlanSnafu)<span class="question-mark">?</span>;
 
-            <span class="self">self</span>.database.logical_plan(plan.to_vec(), <span class="prelude-val">None</span>).<span class="kw">await
+            <span class="self">self</span>.database.logical_plan(plan.to_vec(), <span class="number">0</span>).<span class="kw">await
         </span>} <span class="kw">else </span>{
             <span class="self">self</span>.database.sql(<span class="kw-2">&amp;</span>sql).<span class="kw">await
         </span>}
@@ -533,24 +520,19 @@
 
     <span class="kw">let </span>cached_meta_backend = Arc::new(CachedMetaKvBackend::new(meta_client.clone()));
 
-    <span class="kw">let </span>table_routes = Arc::new(TableRoutes::new(meta_client));
-    <span class="kw">let </span>partition_manager = Arc::new(PartitionRuleManager::new(table_routes));
-
     <span class="kw">let </span>datanode_clients = Arc::new(DatanodeClients::default());
 
-    <span class="kw">let </span>catalog_list = Arc::new(FrontendCatalogManager::new(
+    <span class="kw">let </span>catalog_list = KvBackendCatalogManager::new(
         cached_meta_backend.clone(),
         cached_meta_backend.clone(),
-        partition_manager,
         datanode_clients,
-        Arc::new(TableMetadataManager::new(cached_meta_backend)),
-    ));
+    );
     <span class="kw">let </span>plugins: Arc&lt;Plugins&gt; = Default::default();
     <span class="kw">let </span>state = Arc::new(QueryEngineState::new(
         catalog_list,
+        <span class="prelude-val">None</span>,
+        <span class="prelude-val">None</span>,
         <span class="bool-val">false</span>,
-        <span class="prelude-val">None</span>,
-        <span class="prelude-val">None</span>,
         plugins.clone(),
     ));
 

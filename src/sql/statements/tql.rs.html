@@ -43,6 +43,8 @@
 <a href="#43" id="43">43</a>
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -56,14 +58,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
+
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub enum </span>Tql {
     Eval(TqlEval),
     Explain(TqlExplain),
     Analyze(TqlAnalyze),
 }
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>TqlEval {
     <span class="kw">pub </span>start: String,
     <span class="kw">pub </span>end: String,
@@ -72,7 +76,7 @@
 }
 
 <span class="doccomment">/// TQL EXPLAIN (like SQL EXPLAIN): doesn&#39;t execute the query but tells how the query would be executed.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>TqlExplain {
     <span class="kw">pub </span>start: String,
     <span class="kw">pub </span>end: String,
@@ -81,7 +85,7 @@
 }
 
 <span class="doccomment">/// TQL ANALYZE (like SQL ANALYZE): executes the plan and tells the detailed per-step execution time.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>TqlAnalyze {
     <span class="kw">pub </span>start: String,
     <span class="kw">pub </span>end: String,

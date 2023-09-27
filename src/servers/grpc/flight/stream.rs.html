@@ -175,7 +175,6 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -196,7 +195,7 @@
 <span class="kw">use </span>arrow_flight::FlightData;
 <span class="kw">use </span>common_grpc::flight::{FlightEncoder, FlightMessage};
 <span class="kw">use </span>common_recordbatch::SendableRecordBatchStream;
-<span class="kw">use </span>common_telemetry::warn;
+<span class="kw">use </span>common_telemetry::{warn, TRACE_ID};
 <span class="kw">use </span>futures::channel::mpsc;
 <span class="kw">use </span>futures::channel::mpsc::Sender;
 <span class="kw">use </span>futures::{SinkExt, Stream, StreamExt};
@@ -217,12 +216,11 @@
 }
 
 <span class="kw">impl </span>FlightRecordBatchStream {
-    <span class="kw">pub fn </span>new(recordbatches: SendableRecordBatchStream) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(recordbatches: SendableRecordBatchStream, trace_id: u64) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(tx, rx) = mpsc::channel::&lt;TonicResult&lt;FlightMessage&gt;&gt;(<span class="number">1</span>);
-        <span class="kw">let </span>join_handle =
-            common_runtime::spawn_read(
-                <span class="kw">async move </span>{ <span class="self">Self</span>::flight_data_stream(recordbatches, tx).<span class="kw">await </span>},
-            );
+        <span class="kw">let </span>join_handle = common_runtime::spawn_read(TRACE_ID.scope(trace_id, <span class="kw">async move </span>{
+            <span class="self">Self</span>::flight_data_stream(recordbatches, tx).<span class="kw">await
+        </span>}));
         <span class="self">Self </span>{
             rx,
             join_handle,
@@ -324,7 +322,7 @@
         <span class="kw">let </span>recordbatches = RecordBatches::try_new(schema.clone(), <span class="macro">vec!</span>[recordbatch.clone()])
             .unwrap()
             .as_stream();
-        <span class="kw">let </span><span class="kw-2">mut </span>stream = FlightRecordBatchStream::new(recordbatches);
+        <span class="kw">let </span><span class="kw-2">mut </span>stream = FlightRecordBatchStream::new(recordbatches, <span class="number">0</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>raw_data = Vec::with_capacity(<span class="number">2</span>);
         raw_data.push(stream.next().<span class="kw">await</span>.unwrap().unwrap());

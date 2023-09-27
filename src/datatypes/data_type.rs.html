@@ -745,6 +745,71 @@
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -762,6 +827,7 @@
 </span><span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>arrow::compute::cast <span class="kw">as </span>arrow_array_cast;
 <span class="kw">use </span>arrow::datatypes::{
     DataType <span class="kw">as </span>ArrowDataType, IntervalUnit <span class="kw">as </span>ArrowIntervalUnit, TimeUnit <span class="kw">as </span>ArrowTimeUnit,
 };
@@ -773,11 +839,13 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, Error, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::type_id::LogicalTypeId;
 <span class="kw">use </span><span class="kw">crate</span>::types::{
-    BinaryType, BooleanType, DateTimeType, DateType, DictionaryType, Float32Type, Float64Type,
-    Int16Type, Int32Type, Int64Type, Int8Type, IntervalDayTimeType, IntervalMonthDayNanoType,
-    IntervalType, IntervalYearMonthType, ListType, NullType, StringType, TimeMillisecondType,
-    TimeType, TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
-    TimestampSecondType, TimestampType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    BinaryType, BooleanType, DateTimeType, DateType, DictionaryType, DurationMicrosecondType,
+    DurationMillisecondType, DurationNanosecondType, DurationSecondType, DurationType, Float32Type,
+    Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntervalDayTimeType,
+    IntervalMonthDayNanoType, IntervalType, IntervalYearMonthType, ListType, NullType, StringType,
+    TimeMillisecondType, TimeType, TimestampMicrosecondType, TimestampMillisecondType,
+    TimestampNanosecondType, TimestampSecondType, TimestampType, UInt16Type, UInt32Type,
+    UInt64Type, UInt8Type,
 };
 <span class="kw">use </span><span class="kw">crate</span>::value::Value;
 <span class="kw">use </span><span class="kw">crate</span>::vectors::MutableVector;
@@ -810,7 +878,10 @@
     Timestamp(TimestampType),
     Time(TimeType),
 
-    <span class="comment">// Interval types:
+    <span class="comment">// Duration type:
+    </span>Duration(DurationType),
+
+    <span class="comment">// Interval type:
     </span>Interval(IntervalType),
 
     <span class="comment">// Compound types:
@@ -842,6 +913,7 @@
             ConcreteDataType::List(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;List&quot;</span>),
             ConcreteDataType::Dictionary(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Dictionary&quot;</span>),
             ConcreteDataType::Interval(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Interval&quot;</span>),
+            ConcreteDataType::Duration(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Duration&quot;</span>),
         }
     }
 }
@@ -860,6 +932,10 @@
         <span class="macro">matches!</span>(<span class="self">self</span>, ConcreteDataType::Boolean(<span class="kw">_</span>))
     }
 
+    <span class="kw">pub fn </span>is_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, ConcreteDataType::String(<span class="kw">_</span>))
+    }
+
     <span class="kw">pub fn </span>is_stringifiable(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(
             <span class="self">self</span>,
@@ -869,6 +945,7 @@
                 | ConcreteDataType::Timestamp(<span class="kw">_</span>)
                 | ConcreteDataType::Time(<span class="kw">_</span>)
                 | ConcreteDataType::Interval(<span class="kw">_</span>)
+                | ConcreteDataType::Duration(<span class="kw">_</span>)
         )
     }
 
@@ -884,6 +961,7 @@
                 | ConcreteDataType::Timestamp(<span class="kw">_</span>)
                 | ConcreteDataType::Time(<span class="kw">_</span>)
                 | ConcreteDataType::Interval(<span class="kw">_</span>)
+                | ConcreteDataType::Duration(<span class="kw">_</span>)
         )
     }
 
@@ -895,6 +973,26 @@
                 | ConcreteDataType::UInt32(<span class="kw">_</span>)
                 | ConcreteDataType::UInt64(<span class="kw">_</span>)
         )
+    }
+
+    <span class="kw">pub fn </span>is_numeric(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(
+            <span class="self">self</span>,
+            ConcreteDataType::Int8(<span class="kw">_</span>)
+                | ConcreteDataType::Int16(<span class="kw">_</span>)
+                | ConcreteDataType::Int32(<span class="kw">_</span>)
+                | ConcreteDataType::Int64(<span class="kw">_</span>)
+                | ConcreteDataType::UInt8(<span class="kw">_</span>)
+                | ConcreteDataType::UInt16(<span class="kw">_</span>)
+                | ConcreteDataType::UInt32(<span class="kw">_</span>)
+                | ConcreteDataType::UInt64(<span class="kw">_</span>)
+                | ConcreteDataType::Float32(<span class="kw">_</span>)
+                | ConcreteDataType::Float64(<span class="kw">_</span>)
+        )
+    }
+
+    <span class="kw">pub fn </span>is_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, ConcreteDataType::Timestamp(<span class="kw">_</span>))
     }
 
     <span class="kw">pub fn </span>numerics() -&gt; Vec&lt;ConcreteDataType&gt; {
@@ -935,9 +1033,6 @@
     <span class="doccomment">/// Try to cast data type as a [`TimestampType`].
     </span><span class="kw">pub fn </span>as_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TimestampType&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            ConcreteDataType::Int64(<span class="kw">_</span>) =&gt; {
-                <span class="prelude-val">Some</span>(TimestampType::Millisecond(TimestampMillisecondType))
-            }
             ConcreteDataType::Timestamp(t) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>t),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
@@ -948,6 +1043,20 @@
         <span class="kw">match </span><span class="self">self </span>{
             ConcreteDataType::Int64(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(TimeType::Millisecond(TimeMillisecondType)),
             ConcreteDataType::Time(t) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>t),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="doccomment">/// Checks if the data type can cast to another data type.
+    </span><span class="kw">pub fn </span>can_arrow_type_cast_to(<span class="kw-2">&amp;</span><span class="self">self</span>, to_type: <span class="kw-2">&amp;</span>ConcreteDataType) -&gt; bool {
+        <span class="kw">let </span>array = arrow_array::new_empty_array(<span class="kw-2">&amp;</span><span class="self">self</span>.as_arrow_type());
+        arrow_array_cast(array.as_ref(), <span class="kw-2">&amp;</span>to_type.as_arrow_type()).is_ok()
+    }
+
+    <span class="doccomment">/// Try to cast data type as a [`DurationType`].
+    </span><span class="kw">pub fn </span>as_duration(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DurationType&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            ConcreteDataType::Duration(d) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>d),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
@@ -992,6 +1101,9 @@
             }
             ArrowDataType::Time32(u) =&gt; ConcreteDataType::Time(TimeType::from_unit(u.into())),
             ArrowDataType::Time64(u) =&gt; ConcreteDataType::Time(TimeType::from_unit(u.into())),
+            ArrowDataType::Duration(u) =&gt; {
+                ConcreteDataType::Duration(DurationType::from_unit(u.into()))
+            }
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span>error::UnsupportedArrowTypeSnafu {
                     arrow_type: dt.clone(),
@@ -1065,15 +1177,38 @@
         <span class="self">Self</span>::time_datatype(TimeUnit::Nanosecond)
     }
 
-    <span class="kw">pub fn </span>interval_month_day_nano_datatype() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a [Duration(DurationSecondType)] datatype.
+    </span><span class="kw">pub fn </span>duration_second_datatype() -&gt; <span class="self">Self </span>{
+        ConcreteDataType::Duration(DurationType::Second(DurationSecondType))
+    }
+
+    <span class="doccomment">/// Creates a [Duration(DurationMillisecondType)] datatype.
+    </span><span class="kw">pub fn </span>duration_millisecond_datatype() -&gt; <span class="self">Self </span>{
+        ConcreteDataType::Duration(DurationType::Millisecond(DurationMillisecondType))
+    }
+
+    <span class="doccomment">/// Creates a [Duration(DurationMicrosecondType)] datatype.
+    </span><span class="kw">pub fn </span>duration_microsecond_datatype() -&gt; <span class="self">Self </span>{
+        ConcreteDataType::Duration(DurationType::Microsecond(DurationMicrosecondType))
+    }
+
+    <span class="doccomment">/// Creates a [Duration(DurationNanosecondType)] datatype.
+    </span><span class="kw">pub fn </span>duration_nanosecond_datatype() -&gt; <span class="self">Self </span>{
+        ConcreteDataType::Duration(DurationType::Nanosecond(DurationNanosecondType))
+    }
+
+    <span class="doccomment">/// Creates a [Interval(IntervalMonthDayNanoType)] datatype.
+    </span><span class="kw">pub fn </span>interval_month_day_nano_datatype() -&gt; <span class="self">Self </span>{
         ConcreteDataType::Interval(IntervalType::MonthDayNano(IntervalMonthDayNanoType))
     }
 
-    <span class="kw">pub fn </span>interval_year_month_datatype() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a [Interval(IntervalYearMonthType)] datatype.
+    </span><span class="kw">pub fn </span>interval_year_month_datatype() -&gt; <span class="self">Self </span>{
         ConcreteDataType::Interval(IntervalType::YearMonth(IntervalYearMonthType))
     }
 
-    <span class="kw">pub fn </span>interval_day_time_datatype() -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a [Interval(IntervalDayTimeType)] datatype.
+    </span><span class="kw">pub fn </span>interval_day_time_datatype() -&gt; <span class="self">Self </span>{
         ConcreteDataType::Interval(IntervalType::DayTime(IntervalDayTimeType))
     }
 
@@ -1093,6 +1228,15 @@
             ArrowTimeUnit::Millisecond =&gt; <span class="self">Self</span>::timestamp_millisecond_datatype(),
             ArrowTimeUnit::Microsecond =&gt; <span class="self">Self</span>::timestamp_microsecond_datatype(),
             ArrowTimeUnit::Nanosecond =&gt; <span class="self">Self</span>::timestamp_nanosecond_datatype(),
+        }
+    }
+
+    <span class="kw">pub fn </span>duration_datatype(unit: TimeUnit) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>unit {
+            TimeUnit::Second =&gt; <span class="self">Self</span>::duration_second_datatype(),
+            TimeUnit::Millisecond =&gt; <span class="self">Self</span>::duration_millisecond_datatype(),
+            TimeUnit::Microsecond =&gt; <span class="self">Self</span>::duration_microsecond_datatype(),
+            TimeUnit::Nanosecond =&gt; <span class="self">Self</span>::duration_nanosecond_datatype(),
         }
     }
 
@@ -1142,9 +1286,9 @@
     <span class="doccomment">/// Creates a mutable vector with given `capacity` of this type.
     </span><span class="kw">fn </span>create_mutable_vector(<span class="kw-2">&amp;</span><span class="self">self</span>, capacity: usize) -&gt; Box&lt;<span class="kw">dyn </span>MutableVector&gt;;
 
-    <span class="doccomment">/// Returns true if the data type is compatible with timestamp type so we can
-    /// use it as a timestamp.
-    </span><span class="kw">fn </span>is_timestamp_compatible(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
+    <span class="doccomment">/// Casts the value to specific DataType.
+    /// Return None if cast failed.
+    </span><span class="kw">fn </span>try_cast(<span class="kw-2">&amp;</span><span class="self">self</span>, from: Value) -&gt; <span class="prelude-ty">Option</span>&lt;Value&gt;;
 }
 
 <span class="kw">pub type </span>DataTypeRef = Arc&lt;<span class="kw">dyn </span>DataType&gt;;
@@ -1262,37 +1406,6 @@
     }
 
     <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_is_timestamp_compatible() {
-        <span class="macro">assert!</span>(ConcreteDataType::timestamp_datatype(TimeUnit::Second).is_timestamp_compatible());
-        <span class="macro">assert!</span>(
-            ConcreteDataType::timestamp_datatype(TimeUnit::Millisecond).is_timestamp_compatible()
-        );
-        <span class="macro">assert!</span>(
-            ConcreteDataType::timestamp_datatype(TimeUnit::Microsecond).is_timestamp_compatible()
-        );
-        <span class="macro">assert!</span>(
-            ConcreteDataType::timestamp_datatype(TimeUnit::Nanosecond).is_timestamp_compatible()
-        );
-        <span class="macro">assert!</span>(ConcreteDataType::timestamp_second_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(ConcreteDataType::timestamp_millisecond_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(ConcreteDataType::timestamp_microsecond_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(ConcreteDataType::timestamp_nanosecond_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(ConcreteDataType::int64_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::null_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::binary_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::boolean_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::date_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::datetime_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::string_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::int32_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::uint64_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::time_second_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::time_millisecond_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::time_microsecond_datatype().is_timestamp_compatible());
-        <span class="macro">assert!</span>(!ConcreteDataType::time_nanosecond_datatype().is_timestamp_compatible());
-    }
-
-    <span class="attr">#[test]
     </span><span class="kw">fn </span>test_is_null() {
         <span class="macro">assert!</span>(ConcreteDataType::null_datatype().is_null());
         <span class="macro">assert!</span>(!ConcreteDataType::int32_datatype().is_null());
@@ -1331,6 +1444,11 @@
         <span class="macro">assert!</span>(ConcreteDataType::interval_year_month_datatype().is_stringifiable());
         <span class="macro">assert!</span>(ConcreteDataType::interval_day_time_datatype().is_stringifiable());
         <span class="macro">assert!</span>(ConcreteDataType::interval_month_day_nano_datatype().is_stringifiable());
+
+        <span class="macro">assert!</span>(ConcreteDataType::duration_second_datatype().is_stringifiable());
+        <span class="macro">assert!</span>(ConcreteDataType::duration_millisecond_datatype().is_stringifiable());
+        <span class="macro">assert!</span>(ConcreteDataType::duration_microsecond_datatype().is_stringifiable());
+        <span class="macro">assert!</span>(ConcreteDataType::duration_nanosecond_datatype().is_stringifiable());
     }
 
     <span class="attr">#[test]
@@ -1352,6 +1470,10 @@
         <span class="macro">assert!</span>(ConcreteDataType::interval_year_month_datatype().is_signed());
         <span class="macro">assert!</span>(ConcreteDataType::interval_day_time_datatype().is_signed());
         <span class="macro">assert!</span>(ConcreteDataType::interval_month_day_nano_datatype().is_signed());
+        <span class="macro">assert!</span>(ConcreteDataType::duration_second_datatype().is_signed());
+        <span class="macro">assert!</span>(ConcreteDataType::duration_millisecond_datatype().is_signed());
+        <span class="macro">assert!</span>(ConcreteDataType::duration_microsecond_datatype().is_signed());
+        <span class="macro">assert!</span>(ConcreteDataType::duration_nanosecond_datatype().is_signed());
 
         <span class="macro">assert!</span>(!ConcreteDataType::uint8_datatype().is_signed());
         <span class="macro">assert!</span>(!ConcreteDataType::uint16_datatype().is_signed());
@@ -1381,6 +1503,10 @@
         <span class="macro">assert!</span>(!ConcreteDataType::interval_year_month_datatype().is_unsigned());
         <span class="macro">assert!</span>(!ConcreteDataType::interval_day_time_datatype().is_unsigned());
         <span class="macro">assert!</span>(!ConcreteDataType::interval_month_day_nano_datatype().is_unsigned());
+        <span class="macro">assert!</span>(!ConcreteDataType::duration_second_datatype().is_unsigned());
+        <span class="macro">assert!</span>(!ConcreteDataType::duration_millisecond_datatype().is_unsigned());
+        <span class="macro">assert!</span>(!ConcreteDataType::duration_microsecond_datatype().is_unsigned());
+        <span class="macro">assert!</span>(!ConcreteDataType::duration_nanosecond_datatype().is_unsigned());
 
         <span class="macro">assert!</span>(ConcreteDataType::uint8_datatype().is_unsigned());
         <span class="macro">assert!</span>(ConcreteDataType::uint16_datatype().is_unsigned());
@@ -1489,7 +1615,11 @@
             ))
             .to_string(),
             <span class="string">&quot;Interval&quot;
-        </span>)
+        </span>);
+        <span class="macro">assert_eq!</span>(
+            ConcreteDataType::duration_second_datatype().to_string(),
+            <span class="string">&quot;Duration&quot;
+        </span>);
     }
 }
 </code></pre></div></section></main></body></html>

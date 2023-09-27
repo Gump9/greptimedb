@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_NUM_WORKERS","DEFAULT_WRITE_BUFFER_SIZE"],"struct":["MitoConfig"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_MAX_BG_JOB","DEFAULT_NUM_WORKERS"],"struct":["MitoConfig"]};

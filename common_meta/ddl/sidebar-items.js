@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["alter_table","create_table","drop_table","truncate_table","utils"],"struct":["DdlContext","ExecutorContext","TableMetadataAllocatorContext"],"trait":["DdlTaskExecutor","TableMetadataAllocator"],"type":["DdlTaskExecutorRef","TableMetadataAllocatorRef"]};

@@ -260,6 +260,8 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -274,9 +276,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>common_telemetry::logging::LoggingOptions;
+</span><span class="kw">use </span>common_config::KvStoreConfig;
+<span class="kw">use </span>common_telemetry::logging::LoggingOptions;
 <span class="kw">use </span>config::{Config, Environment, File, FileFormat};
-<span class="kw">use </span>datanode::datanode::DatanodeOptions;
+<span class="kw">use </span>datanode::config::{DatanodeOptions, ProcedureConfig};
 <span class="kw">use </span>frontend::frontend::FrontendOptions;
 <span class="kw">use </span>meta_srv::metasrv::MetaSrvOptions;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -287,9 +290,13 @@
 <span class="kw">pub const </span>ENV_VAR_SEP: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__&quot;</span>;
 <span class="kw">pub const </span>ENV_LIST_SEP: <span class="kw-2">&amp;</span>str = <span class="string">&quot;,&quot;</span>;
 
-<span class="kw">pub struct </span>MixOptions {
-    <span class="kw">pub </span>fe_opts: FrontendOptions,
-    <span class="kw">pub </span>dn_opts: DatanodeOptions,
+<span class="doccomment">/// Options mixed up from datanode, frontend and metasrv.
+</span><span class="kw">pub struct </span>MixOptions {
+    <span class="kw">pub </span>data_home: String,
+    <span class="kw">pub </span>procedure: ProcedureConfig,
+    <span class="kw">pub </span>kv_store: KvStoreConfig,
+    <span class="kw">pub </span>frontend: FrontendOptions,
+    <span class="kw">pub </span>datanode: DatanodeOptions,
     <span class="kw">pub </span>logging: LoggingOptions,
 }
 
@@ -377,7 +384,7 @@
     <span class="kw">use </span>std::time::Duration;
 
     <span class="kw">use </span>common_test_util::temp_dir::create_named_temp_file;
-    <span class="kw">use </span>datanode::datanode::{DatanodeOptions, ObjectStoreConfig};
+    <span class="kw">use </span>datanode::config::{DatanodeOptions, ObjectStoreConfig};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -393,7 +400,7 @@
             mysql_addr = &quot;127.0.0.1:4406&quot;
             mysql_runtime_size = 2
 
-            [meta_client_options]
+            [meta_client]
             timeout_millis = 3000
             connect_timeout_millis = 5000
             tcp_nodelay = true
@@ -474,10 +481,10 @@
                     <span class="prelude-val">Some</span>(<span class="string">&quot;/other/wal/dir&quot;</span>),
                 ),
                 (
-                    <span class="comment">// meta_client_options.metasrv_addrs = 127.0.0.1:3001,127.0.0.1:3002,127.0.0.1:3003
+                    <span class="comment">// meta_client.metasrv_addrs = 127.0.0.1:3001,127.0.0.1:3002,127.0.0.1:3003
                     </span>[
                         env_prefix.to_string(),
-                        <span class="string">&quot;meta_client_options&quot;</span>.to_uppercase(),
+                        <span class="string">&quot;meta_client&quot;</span>.to_uppercase(),
                         <span class="string">&quot;metasrv_addrs&quot;</span>.to_uppercase(),
                     ]
                     .join(ENV_VAR_SEP),
@@ -505,16 +512,13 @@
                     <span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">42</span>))
                 );
                 <span class="macro">assert_eq!</span>(
-                    opts.meta_client_options.unwrap().metasrv_addrs,
+                    opts.meta_client.unwrap().metasrv_addrs,
                     <span class="macro">vec!</span>[
                         <span class="string">&quot;127.0.0.1:3001&quot;</span>.to_string(),
                         <span class="string">&quot;127.0.0.1:3002&quot;</span>.to_string(),
                         <span class="string">&quot;127.0.0.1:3003&quot;</span>.to_string()
                     ]
                 );
-
-                <span class="comment">// Should be the values from config file, not environment variables.
-                </span><span class="macro">assert_eq!</span>(opts.wal.dir.unwrap(), <span class="string">&quot;/tmp/greptimedb/wal&quot;</span>);
 
                 <span class="comment">// Should be default values.
                 </span><span class="macro">assert_eq!</span>(opts.node_id, <span class="prelude-val">None</span>);

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["PARQUET_METADATA_KEY"],"mod":["format","reader","writer"],"struct":["SstInfo","WriteOptions"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_ROW_GROUP_SIZE","DEFAULT_WRITE_BUFFER_SIZE","PARQUET_METADATA_KEY"],"mod":["format","reader","writer"],"struct":["SstInfo","WriteOptions"]};

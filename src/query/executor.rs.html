@@ -50,7 +50,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::query_engine::QueryEngineContext;
 
-<span class="doccomment">/// Executor to run [ExecutionPlan].
+<span class="doccomment">/// Executor to run [PhysicalPlan].
 </span><span class="kw">pub trait </span>QueryExecutor {
     <span class="kw">fn </span>execute_stream(
         <span class="kw-2">&amp;</span><span class="self">self</span>,

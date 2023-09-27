@@ -121,6 +121,17 @@
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -138,9 +149,11 @@
 <span class="kw">use </span>std::time::Instant;
 
 <span class="kw">use </span>axum::extract::{Json, Query, RawBody, State};
+<span class="kw">use </span>common_catalog::consts::DEFAULT_CATALOG_NAME;
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>schemars::JsonSchema;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>session::context::QueryContext;
 
 <span class="kw">use </span><span class="kw">crate</span>::http::{ApiState, JsonResponse};
 
@@ -174,6 +187,9 @@
     RawBody(body): RawBody,
 ) -&gt; Json&lt;JsonResponse&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(script_handler) = <span class="kw-2">&amp;</span>state.script_handler {
+        <span class="kw">let </span>catalog = params
+            .catalog
+            .unwrap_or_else(|| DEFAULT_CATALOG_NAME.to_string());
         <span class="kw">let </span>schema = params.db.as_ref();
 
         <span class="kw">if </span>schema.is_none() || schema.unwrap().is_empty() {
@@ -190,8 +206,10 @@
 
         <span class="kw">let </span>script = <span class="macro">unwrap_or_json_err!</span>(String::from_utf8(bytes.to_vec()));
 
+        <span class="comment">// Safety: schema and name are already checked above.
+        </span><span class="kw">let </span>query_ctx = QueryContext::with(<span class="kw-2">&amp;</span>catalog, schema.unwrap());
         <span class="kw">let </span>body = <span class="kw">match </span>script_handler
-            .insert_script(schema.unwrap(), name.unwrap(), <span class="kw-2">&amp;</span>script)
+            .insert_script(query_ctx, name.unwrap(), <span class="kw-2">&amp;</span>script)
             .<span class="kw">await
         </span>{
             <span class="prelude-val">Ok</span>(()) =&gt; JsonResponse::with_output(<span class="prelude-val">None</span>),
@@ -206,6 +224,7 @@
 
 <span class="attr">#[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
 </span><span class="kw">pub struct </span>ScriptQuery {
+    <span class="kw">pub </span>catalog: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub </span>db: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[serde(flatten)]
@@ -219,6 +238,9 @@
     Query(params): Query&lt;ScriptQuery&gt;,
 ) -&gt; Json&lt;JsonResponse&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(script_handler) = <span class="kw-2">&amp;</span>state.script_handler {
+        <span class="kw">let </span>catalog = params
+            .catalog
+            .unwrap_or_else(|| DEFAULT_CATALOG_NAME.to_string());
         <span class="kw">let </span>start = Instant::now();
         <span class="kw">let </span>schema = params.db.as_ref();
 
@@ -232,10 +254,10 @@
             <span class="macro">json_err!</span>(<span class="string">&quot;invalid name&quot;</span>);
         }
 
-        <span class="comment">// TODO(sunng87): query_context and db name resolution
-
-        </span><span class="kw">let </span>output = script_handler
-            .execute_script(schema.unwrap(), name.unwrap(), params.params)
+        <span class="comment">// Safety: schema and name are already checked above.
+        </span><span class="kw">let </span>query_ctx = QueryContext::with(<span class="kw-2">&amp;</span>catalog, schema.unwrap());
+        <span class="kw">let </span>output = script_handler
+            .execute_script(query_ctx, name.unwrap(), params.params)
             .<span class="kw">await</span>;
         <span class="kw">let </span>resp = JsonResponse::from_output(<span class="macro">vec!</span>[output]).<span class="kw">await</span>;
 

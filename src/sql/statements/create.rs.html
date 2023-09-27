@@ -320,6 +320,28 @@
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -334,13 +356,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::fmt::{Display, Formatter};
+</span><span class="kw">use </span>std::fmt::{Display, Formatter};
 
-<span class="kw">use </span>common_catalog::consts::IMMUTABLE_FILE_ENGINE;
+<span class="kw">use </span>common_catalog::consts::FILE_ENGINE;
 <span class="kw">use </span>itertools::Itertools;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
 <span class="kw">use </span><span class="kw">crate</span>::ast::{ColumnDef, Ident, ObjectName, SqlOption, TableConstraint, Value <span class="kw">as </span>SqlValue};
+<span class="kw">use </span><span class="kw">crate</span>::statements::OptionMap;
 
 <span class="kw">const </span>LINE_SEP: <span class="kw-2">&amp;</span>str = <span class="string">&quot;,\n&quot;</span>;
 <span class="kw">const </span>COMMA_SEP: <span class="kw-2">&amp;</span>str = <span class="string">&quot;, &quot;</span>;
@@ -379,7 +402,7 @@
     }  <span class="kw">if </span>name.value == TIME_INDEX)
 }
 
-<span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
+<span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>CreateTable {
     <span class="doccomment">/// Create if not exists
     </span><span class="kw">pub </span>if_not_exists: bool,
@@ -446,7 +469,7 @@
     }
 }
 
-<span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
+<span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>Partitions {
     <span class="kw">pub </span>column_list: Vec&lt;Ident&gt;,
     <span class="kw">pub </span>entries: Vec&lt;PartitionEntry&gt;,
@@ -461,7 +484,7 @@
     }
 }
 
-<span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
+<span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>PartitionEntry {
     <span class="kw">pub </span>name: Ident,
     <span class="kw">pub </span>value_list: Vec&lt;SqlValue&gt;,
@@ -483,9 +506,7 @@
         <span class="kw">if </span>!<span class="self">self</span>.column_list.is_empty() {
             <span class="macro">write!</span>(
                 f,
-                <span class="string">r#&quot;PARTITION BY RANGE COLUMNS ({}) (
-                    {}
-                )&quot;#</span>,
+                <span class="string">&quot;PARTITION BY RANGE COLUMNS ({}) (\n{}\n)&quot;</span>,
                 <span class="macro">format_list_comma!</span>(<span class="self">self</span>.column_list),
                 <span class="macro">format_list_indent!</span>(<span class="self">self</span>.entries),
             )
@@ -504,7 +525,7 @@
         <span class="kw">let </span>partitions = <span class="self">self</span>.format_partitions();
         <span class="kw">let </span>engine = <span class="kw-2">&amp;</span><span class="self">self</span>.engine;
         <span class="kw">let </span>options = <span class="self">self</span>.format_options();
-        <span class="kw">let </span>maybe_external = <span class="kw">if </span><span class="self">self</span>.engine == IMMUTABLE_FILE_ENGINE {
+        <span class="kw">let </span>maybe_external = <span class="kw">if </span><span class="self">self</span>.engine == FILE_ENGINE {
             <span class="string">&quot;EXTERNAL &quot;
         </span>} <span class="kw">else </span>{
             <span class="string">&quot;&quot;
@@ -521,14 +542,14 @@
     }
 }
 
-<span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
+<span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>CreateDatabase {
     <span class="kw">pub </span>name: ObjectName,
     <span class="doccomment">/// Create if not exists
     </span><span class="kw">pub </span>if_not_exists: bool,
 }
 
-<span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
+<span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>CreateExternalTable {
     <span class="doccomment">/// Table name
     </span><span class="kw">pub </span>name: ObjectName,
@@ -536,7 +557,7 @@
     <span class="kw">pub </span>constraints: Vec&lt;TableConstraint&gt;,
     <span class="doccomment">/// Table options in `WITH`.
     /// All keys are lowercase.
-    </span><span class="kw">pub </span>options: HashMap&lt;String, String&gt;,
+    </span><span class="kw">pub </span>options: OptionMap,
     <span class="kw">pub </span>if_not_exists: bool,
     <span class="kw">pub </span>engine: String,
 }
@@ -544,6 +565,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span><span class="kw">crate</span>::dialect::GreptimeDbDialect;
+    <span class="kw">use </span><span class="kw">crate</span>::error::Error::InvalidTableOption;
     <span class="kw">use </span><span class="kw">crate</span>::parser::ParserContext;
     <span class="kw">use </span><span class="kw">crate</span>::statements::statement::Statement;
 
@@ -551,7 +573,7 @@
     </span><span class="kw">fn </span>test_display_create_table() {
         <span class="kw">let </span>sql = <span class="string">r&quot;create table if not exists demo(
                              host string,
-                             ts bigint,
+                             ts timestamp,
                              cpu double default 0,
                              memory double,
                              TIME INDEX (ts),
@@ -575,17 +597,17 @@
                     <span class="string">r#&quot;
 CREATE TABLE IF NOT EXISTS demo (
   host STRING,
-  ts BIGINT,
+  ts TIMESTAMP,
   cpu DOUBLE DEFAULT 0,
   memory DOUBLE,
   TIME INDEX (ts),
   PRIMARY KEY (ts, host)
 )
 PARTITION BY RANGE COLUMNS (ts) (
-                      PARTITION r0 VALUES LESS THAN (5),
+  PARTITION r0 VALUES LESS THAN (5),
   PARTITION r1 VALUES LESS THAN (9),
   PARTITION r2 VALUES LESS THAN (MAXVALUE)
-                )
+)
 ENGINE=mito
 WITH(
   regions = 1,
@@ -606,7 +628,7 @@ WITH(
     </span><span class="kw">fn </span>test_display_empty_partition_column() {
         <span class="kw">let </span>sql = <span class="string">r&quot;create table if not exists demo(
             host string,
-            ts bigint,
+            ts timestamp,
             cpu double default 0,
             memory double,
             TIME INDEX (ts),
@@ -623,7 +645,7 @@ WITH(
                     <span class="string">r#&quot;
 CREATE TABLE IF NOT EXISTS demo (
   host STRING,
-  ts BIGINT,
+  ts TIMESTAMP,
   cpu DOUBLE DEFAULT 0,
   memory DOUBLE,
   TIME INDEX (ts),
@@ -640,6 +662,28 @@ ENGINE=mito
             }
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
         }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_validate_table_options() {
+        <span class="kw">let </span>sql = <span class="string">r&quot;create table if not exists demo(
+            host string,
+            ts bigint,
+            cpu double default 0,
+            memory double,
+            TIME INDEX (ts),
+            PRIMARY KEY(ts, host)
+      )
+      PARTITION BY RANGE COLUMNS (ts) (
+        PARTITION r0 VALUES LESS THAN (5),
+        PARTITION r1 VALUES LESS THAN (9),
+        PARTITION r2 VALUES LESS THAN (MAXVALUE),
+      )
+      engine=mito
+      with(regions=1, ttl=&#39;7d&#39;, hello=&#39;world&#39;);
+&quot;</span>;
+        <span class="kw">let </span>result = ParserContext::create_with_dialect(sql, <span class="kw-2">&amp;</span>GreptimeDbDialect {});
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(result, <span class="prelude-val">Err</span>(InvalidTableOption { .. })))
     }
 }
 </code></pre></div></section></main></body></html>

@@ -205,6 +205,20 @@
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -345,24 +359,38 @@
         <span class="prelude-val">Ok</span>((addr, channel))
     }
 
+    <span class="kw">fn </span>max_grpc_recv_message_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.inner.channel_manager.config().max_recv_message_size
+    }
+
+    <span class="kw">fn </span>max_grpc_send_message_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.inner.channel_manager.config().max_send_message_size
+    }
+
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>make_flight_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;FlightClient&gt; {
         <span class="kw">let </span>(addr, channel) = <span class="self">self</span>.find_channel()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(FlightClient {
             addr,
-            client: FlightServiceClient::new(channel),
+            client: FlightServiceClient::new(channel)
+                .max_decoding_message_size(<span class="self">self</span>.max_grpc_recv_message_size())
+                .max_encoding_message_size(<span class="self">self</span>.max_grpc_send_message_size()),
         })
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>make_database_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;DatabaseClient&gt; {
         <span class="kw">let </span>(<span class="kw">_</span>, channel) = <span class="self">self</span>.find_channel()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(DatabaseClient {
-            inner: GreptimeDatabaseClient::new(channel),
+            inner: GreptimeDatabaseClient::new(channel)
+                .max_decoding_message_size(<span class="self">self</span>.max_grpc_recv_message_size())
+                .max_encoding_message_size(<span class="self">self</span>.max_grpc_send_message_size()),
         })
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>raw_region_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PbRegionClient&lt;Channel&gt;&gt; {
         <span class="kw">let </span>(<span class="kw">_</span>, channel) = <span class="self">self</span>.find_channel()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(PbRegionClient::new(channel))
+        <span class="prelude-val">Ok</span>(PbRegionClient::new(channel)
+            .max_decoding_message_size(<span class="self">self</span>.max_grpc_recv_message_size())
+            .max_encoding_message_size(<span class="self">self</span>.max_grpc_send_message_size()))
     }
 
     <span class="kw">pub fn </span>make_prometheus_gateway_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PrometheusGatewayClient&lt;Channel&gt;&gt; {

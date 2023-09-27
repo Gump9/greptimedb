@@ -44,7 +44,7 @@
     Self: 'async_trait,
     'life0: 'async_trait,
     'life1: 'async_trait,
-    'life2: 'async_trait,</span></h4></section></summary><div class="docblock"><p>[<code>authenticate</code>] checks whether a user is valid and allowed to access the database.</p>
+    'life2: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Checks whether a user is valid and allowed to access the database.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.authorize" class="method"><a class="src rightside" href="../../src/auth/user_provider.rs.html#31">source</a><h4 class="code-header">fn <a href="#tymethod.authorize" class="fn">authorize</a>&lt;'life0, 'life1, 'life2, 'life3, 'async_trait&gt;(
     &amp;'life0 self,
     catalog: &amp;'life1 <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>,
@@ -55,9 +55,9 @@
     'life0: 'async_trait,
     'life1: 'async_trait,
     'life2: 'async_trait,
-    'life3: 'async_trait,</span></h4></section></summary><div class="docblock"><p>[<code>authorize</code>] checks whether a connection request
+    'life3: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Checks whether a connection request
 from a certain user to a certain catalog/schema is legal.
-This method should be called after [<code>authenticate</code>].</p>
+This method should be called after <a href="trait.UserProvider.html#tymethod.authenticate" title="method auth::user_provider::UserProvider::authenticate">authenticate()</a>.</p>
 </div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.auth" class="method"><a class="src rightside" href="../../src/auth/user_provider.rs.html#35-45">source</a><h4 class="code-header">fn <a href="#method.auth" class="fn">auth</a>&lt;'life0, 'life1, 'life2, 'life3, 'life4, 'async_trait&gt;(
     &amp;'life0 self,
     id: <a class="enum" href="../common/enum.Identity.html" title="enum auth::common::Identity">Identity</a>&lt;'life1&gt;,
@@ -70,6 +70,6 @@ This method should be called after [<code>authenticate</code>].</p>
     'life1: 'async_trait,
     'life2: 'async_trait,
     'life3: 'async_trait,
-    'life4: 'async_trait,</span></h4></section></summary><div class="docblock"><p>[<code>auth</code>] is a combination of [<code>authenticate</code>] and [<code>authorize</code>].
+    'life4: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Combination of <a href="trait.UserProvider.html#tymethod.authenticate" title="method auth::user_provider::UserProvider::authenticate">authenticate()</a> and <a href="trait.UserProvider.html#tymethod.authorize" title="method auth::user_provider::UserProvider::authorize">authorize()</a>.
 In most cases it’s preferred for both convenience and performance.</p>
 </div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-UserProvider-for-StaticUserProvider" class="impl"><a class="src rightside" href="../../src/auth/user_provider/static_user_provider.rs.html#96-157">source</a><a href="#impl-UserProvider-for-StaticUserProvider" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.UserProvider.html" title="trait auth::user_provider::UserProvider">UserProvider</a> for <a class="struct" href="static_user_provider/struct.StaticUserProvider.html" title="struct auth::user_provider::static_user_provider::StaticUserProvider">StaticUserProvider</a></h3></section></div><script src="../../implementors/auth/user_provider/trait.UserProvider.js" async></script></section></div></main></body></html>

@@ -60,6 +60,7 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -74,35 +75,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::collections::HashMap;
+</span><span class="kw">use </span>sqlparser::ast::ObjectName;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
-<span class="kw">use </span>sqlparser::ast::ObjectName;
+<span class="kw">use </span><span class="kw">crate</span>::statements::OptionMap;
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub enum </span>Copy {
     CopyTable(CopyTable),
     CopyDatabase(CopyDatabaseArgument),
 }
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub enum </span>CopyTable {
     To(CopyTableArgument),
     From(CopyTableArgument),
 }
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>CopyDatabaseArgument {
     <span class="kw">pub </span>database_name: ObjectName,
-    <span class="kw">pub </span>with: HashMap&lt;String, String&gt;,
-    <span class="kw">pub </span>connection: HashMap&lt;String, String&gt;,
+    <span class="kw">pub </span>with: OptionMap,
+    <span class="kw">pub </span>connection: OptionMap,
     <span class="kw">pub </span>location: String,
 }
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>CopyTableArgument {
     <span class="kw">pub </span>table_name: ObjectName,
-    <span class="kw">pub </span>with: HashMap&lt;String, String&gt;,
-    <span class="kw">pub </span>connection: HashMap&lt;String, String&gt;,
+    <span class="kw">pub </span>with: OptionMap,
+    <span class="kw">pub </span>connection: OptionMap,
     <span class="doccomment">/// Copy tbl [To|From] &#39;location&#39;.
     </span><span class="kw">pub </span>location: String,
 }

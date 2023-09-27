@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"storage":[["impl ManifestLogStorage for <a class=\"struct\" href=\"storage/manifest/storage/struct.ManifestObjectStore.html\" title=\"struct storage::manifest::storage::ManifestObjectStore\">ManifestObjectStore</a>"]]
+"storage":[["impl <a class=\"trait\" href=\"store_api/manifest/storage/trait.ManifestLogStorage.html\" title=\"trait store_api::manifest::storage::ManifestLogStorage\">ManifestLogStorage</a> for <a class=\"struct\" href=\"storage/manifest/storage/struct.ManifestObjectStore.html\" title=\"struct storage::manifest::storage::ManifestObjectStore\">ManifestObjectStore</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

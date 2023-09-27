@@ -509,7 +509,7 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>common_function_macro::range_fn;
+<span class="kw">use </span>common_macro::range_fn;
 <span class="kw">use </span>datafusion::arrow::array::{Float64Array, TimestampMillisecondArray};
 <span class="kw">use </span>datafusion::arrow::datatypes::TimeUnit;
 <span class="kw">use </span>datafusion::common::DataFusionError;
@@ -618,7 +618,7 @@
 
 <span class="doccomment">/// the population standard variance of the values in the specified interval.
 /// DataFusion&#39;s implementation:
-/// https://github.com/apache/arrow-datafusion/blob/292eb954fc0bad3a1febc597233ba26cb60bda3e/datafusion/physical-expr/src/aggregate/variance.rs#L224-#L241
+/// &lt;https://github.com/apache/arrow-datafusion/blob/292eb954fc0bad3a1febc597233ba26cb60bda3e/datafusion/physical-expr/src/aggregate/variance.rs#L224-#L241&gt;
 </span><span class="attr">#[range_fn(
     name = <span class="string">&quot;StdvarOverTime&quot;</span>,
     ret = <span class="string">&quot;Float64Array&quot;</span>,
@@ -648,7 +648,7 @@
 }
 
 <span class="doccomment">/// the population standard deviation of the values in the specified interval.
-/// Prometheus&#39;s implementation: https://github.com/prometheus/prometheus/blob/f55ab2217984770aa1eecd0f2d5f54580029b1c0/promql/functions.go#L556-L569
+/// Prometheus&#39;s implementation: &lt;https://github.com/prometheus/prometheus/blob/f55ab2217984770aa1eecd0f2d5f54580029b1c0/promql/functions.go#L556-L569&gt;
 </span><span class="attr">#[range_fn(
     name = <span class="string">&quot;StddevOverTime&quot;</span>,
     ret = <span class="string">&quot;Float64Array&quot;</span>,

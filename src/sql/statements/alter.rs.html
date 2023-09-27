@@ -52,6 +52,7 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -68,8 +69,9 @@
 
 </span><span class="kw">use </span>common_query::AddColumnLocation;
 <span class="kw">use </span>sqlparser::ast::{ColumnDef, Ident, ObjectName, TableConstraint};
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub struct </span>AlterTable {
     table_name: ObjectName,
     alter_operation: AlterTableOperation,
@@ -92,7 +94,7 @@
     }
 }
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Visit, VisitMut)]
 </span><span class="kw">pub enum </span>AlterTableOperation {
     <span class="doccomment">/// `ADD &lt;table_constraint&gt;`
     </span>AddConstraint(TableConstraint),

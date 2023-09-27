@@ -129,6 +129,28 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -143,13 +165,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::sync::Arc;
+</span><span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>common_telemetry::{error, info};
 <span class="kw">use </span>store_api::storage::RegionId;
 
 <span class="kw">use </span><span class="kw">crate</span>::access_layer::AccessLayerRef;
-<span class="kw">use </span><span class="kw">crate</span>::schedule::scheduler::{LocalScheduler, Scheduler};
+<span class="kw">use </span><span class="kw">crate</span>::cache::CacheManagerRef;
+<span class="kw">use </span><span class="kw">crate</span>::schedule::scheduler::SchedulerRef;
 <span class="kw">use </span><span class="kw">crate</span>::sst::file::FileId;
 
 <span class="doccomment">/// Request to remove a file.
@@ -162,24 +186,39 @@
 }
 
 <span class="doccomment">/// A worker to delete files in background.
-</span><span class="kw">pub trait </span>FilePurger: Send + Sync {
+</span><span class="kw">pub trait </span>FilePurger: Send + Sync + fmt::Debug {
     <span class="doccomment">/// Send a purge request to the background worker.
     </span><span class="kw">fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: PurgeRequest);
 }
 
 <span class="kw">pub type </span>FilePurgerRef = Arc&lt;<span class="kw">dyn </span>FilePurger&gt;;
 
-<span class="kw">pub struct </span>LocalFilePurger {
-    scheduler: Arc&lt;LocalScheduler&gt;,
-
+<span class="doccomment">/// Purger that purges file for current region.
+</span><span class="kw">pub struct </span>LocalFilePurger {
+    scheduler: SchedulerRef,
     sst_layer: AccessLayerRef,
+    cache_manager: <span class="prelude-ty">Option</span>&lt;CacheManagerRef&gt;,
+}
+
+<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>LocalFilePurger {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">&quot;LocalFilePurger&quot;</span>)
+            .field(<span class="string">&quot;sst_layer&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sst_layer)
+            .finish()
+    }
 }
 
 <span class="kw">impl </span>LocalFilePurger {
-    <span class="kw">pub fn </span>new(scheduler: Arc&lt;LocalScheduler&gt;, sst_layer: AccessLayerRef) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Creates a new purger.
+    </span><span class="kw">pub fn </span>new(
+        scheduler: SchedulerRef,
+        sst_layer: AccessLayerRef,
+        cache_manager: <span class="prelude-ty">Option</span>&lt;CacheManagerRef&gt;,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             scheduler,
             sst_layer,
+            cache_manager,
         }
     }
 }
@@ -189,6 +228,11 @@
         <span class="kw">let </span>file_id = request.file_id;
         <span class="kw">let </span>region_id = request.region_id;
         <span class="kw">let </span>sst_layer = <span class="self">self</span>.sst_layer.clone();
+
+        <span class="comment">// Remove meta of the file from cache.
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache_manager {
+            cache.remove_parquet_meta_data(region_id, file_id);
+        }
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.scheduler.schedule(Box::pin(<span class="kw">async move </span>{
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = sst_layer.delete_sst(file_id).<span class="kw">await </span>{
@@ -215,7 +259,7 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::access_layer::AccessLayer;
-    <span class="kw">use </span><span class="kw">crate</span>::schedule::scheduler::LocalScheduler;
+    <span class="kw">use </span><span class="kw">crate</span>::schedule::scheduler::{LocalScheduler, Scheduler};
     <span class="kw">use </span><span class="kw">crate</span>::sst::file::{FileHandle, FileId, FileMeta, FileTimeRange};
 
     <span class="attr">#[tokio::test]
@@ -235,7 +279,7 @@
         <span class="kw">let </span>scheduler = Arc::new(LocalScheduler::new(<span class="number">3</span>));
         <span class="kw">let </span>layer = Arc::new(AccessLayer::new(sst_dir, object_store.clone()));
 
-        <span class="kw">let </span>file_purger = Arc::new(LocalFilePurger::new(scheduler.clone(), layer));
+        <span class="kw">let </span>file_purger = Arc::new(LocalFilePurger::new(scheduler.clone(), layer, <span class="prelude-val">None</span>));
 
         {
             <span class="kw">let </span>handle = FileHandle::new(

@@ -144,6 +144,35 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -167,33 +196,27 @@
 <span class="kw">use </span>common_recordbatch::error::ExternalSnafu;
 <span class="kw">use </span>common_recordbatch::{RecordBatchStreamAdaptor, SendableRecordBatchStream};
 <span class="kw">use </span>common_time::range::TimestampRange;
-<span class="kw">use </span>object_store::ObjectStore;
 <span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>store_api::storage::ScanRequest;
 <span class="kw">use </span>table::predicate::Predicate;
 
+<span class="kw">use </span><span class="kw">crate</span>::access_layer::AccessLayerRef;
+<span class="kw">use </span><span class="kw">crate</span>::cache::CacheManagerRef;
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 <span class="kw">use </span><span class="kw">crate</span>::memtable::MemtableRef;
+<span class="kw">use </span><span class="kw">crate</span>::read::compat::{<span class="self">self</span>, CompatReader};
 <span class="kw">use </span><span class="kw">crate</span>::read::merge::MergeReaderBuilder;
 <span class="kw">use </span><span class="kw">crate</span>::read::projection::ProjectionMapper;
-<span class="kw">use </span><span class="kw">crate</span>::read::BatchReader;
+<span class="kw">use </span><span class="kw">crate</span>::read::{BatchReader, BoxedBatchReader};
 <span class="kw">use </span><span class="kw">crate</span>::sst::file::FileHandle;
-<span class="kw">use </span><span class="kw">crate</span>::sst::parquet::reader::ParquetReaderBuilder;
 
 <span class="doccomment">/// Scans a region and returns rows in a sorted sequence.
 ///
 /// The output order is always `order by primary key, time index`.
 </span><span class="kw">pub struct </span>SeqScan {
-    <span class="doccomment">/// Directory of SST files.
-    </span>file_dir: String,
-    <span class="doccomment">/// Object store that stores SST files.
-    </span>object_store: ObjectStore,
+    <span class="doccomment">/// Region SST access layer.
+    </span>access_layer: AccessLayerRef,
     <span class="doccomment">/// Maps projected Batches to RecordBatches.
     </span>mapper: Arc&lt;ProjectionMapper&gt;,
-    <span class="doccomment">/// Original scan request to scan memtable.
-    </span><span class="comment">// TODO(yingwen): Remove this if memtable::iter() takes another struct.
-    </span>request: ScanRequest,
-
     <span class="doccomment">/// Time range filter for time index.
     </span>time_range: <span class="prelude-ty">Option</span>&lt;TimestampRange&gt;,
     <span class="doccomment">/// Predicate to push down.
@@ -202,79 +225,64 @@
     </span>memtables: Vec&lt;MemtableRef&gt;,
     <span class="doccomment">/// Handles to SST files to scan.
     </span>files: Vec&lt;FileHandle&gt;,
+    <span class="doccomment">/// Cache.
+    </span>cache_manager: <span class="prelude-ty">Option</span>&lt;CacheManagerRef&gt;,
 }
 
 <span class="kw">impl </span>SeqScan {
     <span class="doccomment">/// Creates a new [SeqScan].
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
-        file_dir: String,
-        object_store: ObjectStore,
-        mapper: ProjectionMapper,
-        request: ScanRequest,
-    ) -&gt; SeqScan {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(access_layer: AccessLayerRef, mapper: ProjectionMapper) -&gt; SeqScan {
         SeqScan {
-            file_dir,
-            object_store,
+            access_layer,
             mapper: Arc::new(mapper),
             time_range: <span class="prelude-val">None</span>,
             predicate: <span class="prelude-val">None</span>,
             memtables: Vec::new(),
             files: Vec::new(),
-            request,
+            cache_manager: <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="doccomment">/// Set time range filter for time index.
+    <span class="doccomment">/// Sets time range filter for time index.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_time_range(<span class="kw-2">mut </span><span class="self">self</span>, time_range: <span class="prelude-ty">Option</span>&lt;TimestampRange&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.time_range = time_range;
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Set predicate to push down.
+    <span class="doccomment">/// Sets predicate to push down.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_predicate(<span class="kw-2">mut </span><span class="self">self</span>, predicate: <span class="prelude-ty">Option</span>&lt;Predicate&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.predicate = predicate;
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Set memtables to read.
+    <span class="doccomment">/// Sets memtables to read.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_memtables(<span class="kw-2">mut </span><span class="self">self</span>, memtables: Vec&lt;MemtableRef&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.memtables = memtables;
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Set files to read.
+    <span class="doccomment">/// Sets files to read.
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_files(<span class="kw-2">mut </span><span class="self">self</span>, files: Vec&lt;FileHandle&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.files = files;
         <span class="self">self
     </span>}
 
+    <span class="doccomment">/// Sets cache for this query.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_cache(<span class="kw-2">mut </span><span class="self">self</span>, cache: <span class="prelude-ty">Option</span>&lt;CacheManagerRef&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.cache_manager = cache;
+        <span class="self">self
+    </span>}
+
     <span class="doccomment">/// Builds a stream for the query.
-    </span><span class="kw">pub async fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
+    </span><span class="kw">pub async fn </span>build_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SendableRecordBatchStream&gt; {
         <span class="comment">// Scans all memtables and SSTs. Builds a merge reader to merge results.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = MergeReaderBuilder::new();
-        <span class="kw">for </span>mem <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.memtables {
-            <span class="kw">let </span>iter = mem.iter(<span class="self">self</span>.request.clone());
-            builder.push_batch_iter(iter);
-        }
-        <span class="kw">for </span>file <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.files {
-            <span class="kw">let </span>reader = ParquetReaderBuilder::new(
-                <span class="self">self</span>.file_dir.clone(),
-                file.clone(),
-                <span class="self">self</span>.object_store.clone(),
-            )
-            .predicate(<span class="self">self</span>.predicate.clone())
-            .time_range(<span class="self">self</span>.time_range)
-            .projection(<span class="prelude-val">Some</span>(<span class="self">self</span>.mapper.column_ids().to_vec()))
-            .build()
-            .<span class="kw">await</span><span class="question-mark">?</span>;
-            builder.push_batch_reader(Box::new(reader));
-        }
-        <span class="kw">let </span><span class="kw-2">mut </span>reader = builder.build().<span class="kw">await</span><span class="question-mark">?</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>reader = <span class="self">self</span>.build_reader().<span class="kw">await</span><span class="question-mark">?</span>;
+
         <span class="comment">// Creates a stream to poll the batch reader and convert batch into record batch.
         </span><span class="kw">let </span>mapper = <span class="self">self</span>.mapper.clone();
         <span class="kw">let </span>stream = <span class="macro">try_stream! </span>{
@@ -288,6 +296,56 @@
         ));
 
         <span class="prelude-val">Ok</span>(stream)
+    }
+
+    <span class="doccomment">/// Builds a [BoxedBatchReader] from sequential scan.
+    </span><span class="kw">pub async fn </span>build_reader(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BoxedBatchReader&gt; {
+        <span class="comment">// Scans all memtables and SSTs. Builds a merge reader to merge results.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = MergeReaderBuilder::new();
+        <span class="kw">for </span>mem <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.memtables {
+            <span class="comment">// TODO(hl): pass filters once memtable supports filter pushdown.
+            </span><span class="kw">let </span>iter = mem.iter(<span class="prelude-val">Some</span>(<span class="self">self</span>.mapper.column_ids()), <span class="kw-2">&amp;</span>[]);
+            builder.push_batch_iter(iter);
+        }
+        <span class="kw">for </span>file <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.files {
+            <span class="kw">let </span>reader = <span class="self">self
+                </span>.access_layer
+                .read_sst(file.clone())
+                .predicate(<span class="self">self</span>.predicate.clone())
+                .time_range(<span class="self">self</span>.time_range)
+                .projection(<span class="prelude-val">Some</span>(<span class="self">self</span>.mapper.column_ids().to_vec()))
+                .cache(<span class="self">self</span>.cache_manager.clone())
+                .build()
+                .<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">if </span>compat::has_same_columns(<span class="self">self</span>.mapper.metadata(), reader.metadata()) {
+                builder.push_batch_reader(Box::new(reader));
+            } <span class="kw">else </span>{
+                <span class="comment">// They have different schema. We need to adapt the batch first so the
+                // mapper can convert the it.
+                </span><span class="kw">let </span>compat_reader =
+                    CompatReader::new(<span class="kw-2">&amp;</span><span class="self">self</span>.mapper, reader.metadata().clone(), reader)<span class="question-mark">?</span>;
+                builder.push_batch_reader(Box::new(compat_reader));
+            }
+        }
+        <span class="prelude-val">Ok</span>(Box::new(builder.build().<span class="kw">await</span><span class="question-mark">?</span>))
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">impl </span>SeqScan {
+    <span class="doccomment">/// Returns number of memtables to scan.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>num_memtables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.memtables.len()
+    }
+
+    <span class="doccomment">/// Returns number of SST files to scan.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>num_files(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.files.len()
+    }
+
+    <span class="doccomment">/// Returns SST file ids to scan.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>file_ids(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;<span class="kw">crate</span>::sst::file::FileId&gt; {
+        <span class="self">self</span>.files.iter().map(|file| file.file_id()).collect()
     }
 }
 </code></pre></div></section></main></body></html>

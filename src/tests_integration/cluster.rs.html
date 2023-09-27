@@ -318,27 +318,6 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -362,40 +341,35 @@
 <span class="kw">use </span>client::Client;
 <span class="kw">use </span>common_base::Plugins;
 <span class="kw">use </span>common_grpc::channel_manager::{ChannelConfig, ChannelManager};
-<span class="kw">use </span>common_meta::key::TableMetadataManager;
 <span class="kw">use </span>common_meta::peer::Peer;
 <span class="kw">use </span>common_meta::DatanodeId;
 <span class="kw">use </span>common_runtime::Builder <span class="kw">as </span>RuntimeBuilder;
 <span class="kw">use </span>common_test_util::temp_dir::create_temp_dir;
-<span class="kw">use </span>datanode::datanode::{DatanodeOptions, ObjectStoreConfig, ProcedureConfig};
-<span class="kw">use </span>datanode::heartbeat::HeartbeatTask;
-<span class="kw">use </span>datanode::instance::Instance <span class="kw">as </span>DatanodeInstance;
+<span class="kw">use </span>datanode::config::{DatanodeOptions, ObjectStoreConfig};
+<span class="kw">use </span>datanode::datanode::{Datanode, DatanodeBuilder, ProcedureConfig};
 <span class="kw">use </span>frontend::frontend::FrontendOptions;
 <span class="kw">use </span>frontend::instance::{FrontendInstance, Instance <span class="kw">as </span>FeInstance};
 <span class="kw">use </span>meta_client::client::MetaClientBuilder;
 <span class="kw">use </span>meta_srv::cluster::MetaPeerClientRef;
-<span class="kw">use </span>meta_srv::metadata_service::{DefaultMetadataService, MetadataService};
 <span class="kw">use </span>meta_srv::metasrv::{MetaSrv, MetaSrvOptions};
 <span class="kw">use </span>meta_srv::mocks::MockInfo;
-<span class="kw">use </span>meta_srv::service::store::kv::{KvBackendAdapter, KvStoreRef};
+<span class="kw">use </span>meta_srv::service::store::kv::KvStoreRef;
 <span class="kw">use </span>meta_srv::service::store::memory::MemStore;
-<span class="kw">use </span>servers::grpc::greptime_handler::GreptimeRequestHandler;
 <span class="kw">use </span>servers::grpc::GrpcServer;
-<span class="kw">use </span>servers::query_handler::grpc::ServerGrpcQueryHandlerAdaptor;
 <span class="kw">use </span>servers::Mode;
 <span class="kw">use </span>tonic::transport::Server;
 <span class="kw">use </span>tower::service_fn;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_util::{
-    create_datanode_opts, create_tmp_dir_and_datanode_opts, FileDirGuard, StorageGuard, StorageType,
+    <span class="self">self</span>, create_datanode_opts, create_tmp_dir_and_datanode_opts, FileDirGuard, StorageGuard,
+    StorageType,
 };
 
 <span class="kw">pub struct </span>GreptimeDbCluster {
     <span class="kw">pub </span>storage_guards: Vec&lt;StorageGuard&gt;,
     <span class="kw">pub </span>_dir_guards: Vec&lt;FileDirGuard&gt;,
 
-    <span class="kw">pub </span>datanode_instances: HashMap&lt;DatanodeId, Arc&lt;DatanodeInstance&gt;&gt;,
-    <span class="kw">pub </span>datanode_heartbeat_tasks: HashMap&lt;DatanodeId, <span class="prelude-ty">Option</span>&lt;HeartbeatTask&gt;&gt;,
+    <span class="kw">pub </span>datanode_instances: HashMap&lt;DatanodeId, Datanode&gt;,
     <span class="kw">pub </span>kv_store: KvStoreRef,
     <span class="kw">pub </span>meta_srv: MetaSrv,
     <span class="kw">pub </span>frontend: Arc&lt;FeInstance&gt;,
@@ -436,7 +410,7 @@
 
         <span class="kw">let </span>meta_srv = <span class="self">self</span>.build_metasrv(datanode_clients.clone()).<span class="kw">await</span>;
 
-        <span class="kw">let </span>(datanode_instances, heartbeat_tasks, storage_guards, dir_guards) =
+        <span class="kw">let </span>(datanode_instances, storage_guards, dir_guards) =
             <span class="self">self</span>.build_datanodes(meta_srv.clone(), datanodes).<span class="kw">await</span>;
 
         build_datanode_clients(datanode_clients.clone(), <span class="kw-2">&amp;</span>datanode_instances, datanodes).<span class="kw">await</span>;
@@ -448,13 +422,14 @@
             </span>.build_frontend(meta_srv.clone(), datanode_clients)
             .<span class="kw">await</span>;
 
+        test_util::prepare_another_catalog_and_schema(frontend.as_ref()).<span class="kw">await</span>;
+
         frontend.start().<span class="kw">await</span>.unwrap();
 
         GreptimeDbCluster {
             storage_guards,
             _dir_guards: dir_guards,
             datanode_instances,
-            datanode_heartbeat_tasks: heartbeat_tasks,
             kv_store: <span class="self">self</span>.kv_store.clone(),
             meta_srv: meta_srv.meta_srv,
             frontend,
@@ -472,32 +447,19 @@
             ..Default::default()
         };
 
-        <span class="kw">let </span>mock =
-            meta_srv::mocks::mock(opt, <span class="self">self</span>.kv_store.clone(), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(datanode_clients)).<span class="kw">await</span>;
-        <span class="kw">let </span>table_metadata_manager = Arc::new(TableMetadataManager::new(KvBackendAdapter::wrap(
-            mock.meta_srv.kv_store().clone(),
-        )));
-        <span class="kw">let </span>metadata_service = DefaultMetadataService::new(table_metadata_manager);
-        metadata_service
-            .create_schema(<span class="string">&quot;another_catalog&quot;</span>, <span class="string">&quot;another_schema&quot;</span>, <span class="bool-val">true</span>)
-            .<span class="kw">await
-            </span>.unwrap();
-
-        mock
-    }
+        meta_srv::mocks::mock(opt, <span class="self">self</span>.kv_store.clone(), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(datanode_clients)).<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>build_datanodes(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         meta_srv: MockInfo,
         datanodes: u32,
     ) -&gt; (
-        HashMap&lt;DatanodeId, Arc&lt;DatanodeInstance&gt;&gt;,
-        HashMap&lt;DatanodeId, <span class="prelude-ty">Option</span>&lt;HeartbeatTask&gt;&gt;,
+        HashMap&lt;DatanodeId, Datanode&gt;,
         Vec&lt;StorageGuard&gt;,
         Vec&lt;FileDirGuard&gt;,
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>instances = HashMap::with_capacity(datanodes <span class="kw">as </span>usize);
-        <span class="kw">let </span><span class="kw-2">mut </span>heartbeat_tasks = HashMap::with_capacity(datanodes <span class="kw">as </span>usize);
         <span class="kw">let </span><span class="kw-2">mut </span>storage_guards = Vec::with_capacity(datanodes <span class="kw">as </span>usize);
         <span class="kw">let </span><span class="kw-2">mut </span>dir_guards = Vec::with_capacity(datanodes <span class="kw">as </span>usize);
 
@@ -508,12 +470,9 @@
                 <span class="kw">let </span>home_tmp_dir = create_temp_dir(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;gt_home_{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.cluster_name));
                 <span class="kw">let </span>home_dir = home_tmp_dir.path().to_str().unwrap().to_string();
 
-                <span class="kw">let </span>wal_tmp_dir = create_temp_dir(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;gt_wal_{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.cluster_name));
-                <span class="kw">let </span>wal_dir = wal_tmp_dir.path().to_str().unwrap().to_string();
-                dir_guards.push(FileDirGuard::new(home_tmp_dir, <span class="bool-val">false</span>));
-                dir_guards.push(FileDirGuard::new(wal_tmp_dir, <span class="bool-val">true</span>));
+                dir_guards.push(FileDirGuard::new(home_tmp_dir));
 
-                create_datanode_opts(store_config.clone(), home_dir, wal_dir)
+                create_datanode_opts(store_config.clone(), home_dir)
             } <span class="kw">else </span>{
                 <span class="kw">let </span>(opts, guard) = create_tmp_dir_and_datanode_opts(
                     StorageType::File,
@@ -522,19 +481,17 @@
 
                 storage_guards.push(guard.storage_guard);
                 dir_guards.push(guard.home_guard);
-                dir_guards.push(guard.wal_guard);
 
                 opts
             };
             opts.node_id = <span class="prelude-val">Some</span>(datanode_id);
             opts.mode = Mode::Distributed;
 
-            <span class="kw">let </span>dn_instance = <span class="self">self</span>.create_datanode(<span class="kw-2">&amp;</span>opts, meta_srv.clone()).<span class="kw">await</span>;
+            <span class="kw">let </span>datanode = <span class="self">self</span>.create_datanode(opts, meta_srv.clone()).<span class="kw">await</span>;
 
-            <span class="kw">let _ </span>= instances.insert(datanode_id, dn_instance.<span class="number">0</span>.clone());
-            <span class="kw">let _ </span>= heartbeat_tasks.insert(datanode_id, dn_instance.<span class="number">1</span>);
+            instances.insert(datanode_id, datanode);
         }
-        (instances, heartbeat_tasks, storage_guards, dir_guards)
+        (instances, storage_guards, dir_guards)
     }
 
     <span class="kw">async fn </span>wait_datanodes_alive(
@@ -556,19 +513,24 @@
         <span class="macro">panic!</span>(<span class="string">&quot;Some Datanodes are not alive in 10 seconds!&quot;</span>)
     }
 
-    <span class="kw">async fn </span>create_datanode(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        opts: <span class="kw-2">&amp;</span>DatanodeOptions,
-        meta_srv: MockInfo,
-    ) -&gt; (Arc&lt;DatanodeInstance&gt;, <span class="prelude-ty">Option</span>&lt;HeartbeatTask&gt;) {
-        <span class="kw">let </span>(instance, heartbeat) = DatanodeInstance::with_mock_meta_server(opts, meta_srv)
+    <span class="kw">async fn </span>create_datanode(<span class="kw-2">&amp;</span><span class="self">self</span>, opts: DatanodeOptions, meta_srv: MockInfo) -&gt; Datanode {
+        <span class="kw">let </span><span class="kw-2">mut </span>meta_client = MetaClientBuilder::new(<span class="number">1000</span>, opts.node_id.unwrap(), Role::Datanode)
+            .enable_router()
+            .enable_store()
+            .enable_heartbeat()
+            .channel_manager(meta_srv.channel_manager)
+            .build();
+        meta_client.start(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>meta_srv.server_addr]).<span class="kw">await</span>.unwrap();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>datanode = DatanodeBuilder::new(opts, <span class="prelude-val">None</span>, Arc::new(Plugins::default()))
+            .with_meta_client(meta_client)
+            .build()
             .<span class="kw">await
             </span>.unwrap();
-        instance.start().<span class="kw">await</span>.unwrap();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(heartbeat) = heartbeat.as_ref() {
-            heartbeat.start().<span class="kw">await</span>.unwrap();
-        }
-        (instance, heartbeat)
+
+        datanode.start_heartbeat().<span class="kw">await</span>.unwrap();
+
+        datanode
     }
 
     <span class="kw">async fn </span>build_frontend(
@@ -603,12 +565,12 @@
 
 <span class="kw">async fn </span>build_datanode_clients(
     clients: Arc&lt;DatanodeClients&gt;,
-    instances: <span class="kw-2">&amp;</span>HashMap&lt;DatanodeId, Arc&lt;DatanodeInstance&gt;&gt;,
+    instances: <span class="kw-2">&amp;</span>HashMap&lt;DatanodeId, Datanode&gt;,
     datanodes: u32,
 ) {
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..datanodes {
         <span class="kw">let </span>datanode_id = i <span class="kw">as </span>u64 + <span class="number">1</span>;
-        <span class="kw">let </span>instance = instances.get(<span class="kw-2">&amp;</span>datanode_id).cloned().unwrap();
+        <span class="kw">let </span>instance = instances.get(<span class="kw-2">&amp;</span>datanode_id).unwrap();
         <span class="kw">let </span>(addr, client) = create_datanode_client(instance).<span class="kw">await</span>;
         clients
             .insert_client(Peer::new(datanode_id, addr), client)
@@ -616,7 +578,7 @@
     }
 }
 
-<span class="kw">async fn </span>create_datanode_client(datanode_instance: Arc&lt;DatanodeInstance&gt;) -&gt; (String, Client) {
+<span class="kw">async fn </span>create_datanode_client(datanode: <span class="kw-2">&amp;</span>Datanode) -&gt; (String, Client) {
     <span class="kw">let </span>(client, server) = tokio::io::duplex(<span class="number">1024</span>);
 
     <span class="kw">let </span>runtime = Arc::new(
@@ -627,25 +589,21 @@
             .unwrap(),
     );
 
-    <span class="comment">// create a mock datanode grpc service, see example here:
-    // https://github.com/hyperium/tonic/blob/master/examples/src/mock/mock.rs
-    </span><span class="kw">let </span>query_handler = Arc::new(GreptimeRequestHandler::new(
-        ServerGrpcQueryHandlerAdaptor::arc(datanode_instance.clone()),
-        <span class="prelude-val">None</span>,
-        runtime.clone(),
-    ));
+    <span class="kw">let </span>flight_handler = <span class="prelude-val">Some</span>(Arc::new(datanode.region_server()) <span class="kw">as _</span>);
+    <span class="kw">let </span>region_server_handler = <span class="prelude-val">Some</span>(Arc::new(datanode.region_server()) <span class="kw">as _</span>);
     <span class="kw">let </span>grpc_server = GrpcServer::new(
-        ServerGrpcQueryHandlerAdaptor::arc(datanode_instance),
         <span class="prelude-val">None</span>,
-        <span class="prelude-val">Some</span>(query_handler),
         <span class="prelude-val">None</span>,
+        <span class="prelude-val">None</span>,
+        flight_handler,
+        region_server_handler,
         <span class="prelude-val">None</span>,
         runtime,
     );
     <span class="kw">let </span>_handle = tokio::spawn(<span class="kw">async move </span>{
         Server::builder()
             .add_service(grpc_server.create_flight_service())
-            .add_service(grpc_server.create_database_service())
+            .add_service(grpc_server.create_region_service())
             .serve_with_incoming(futures::stream::iter(<span class="macro">vec!</span>[<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, std::io::Error&gt;(server)]))
             .<span class="kw">await
     </span>});

@@ -75,7 +75,7 @@
 <span class="kw">use </span>api::v1::meta::Peer <span class="kw">as </span>PbPeer;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="attr">#[derive(Debug, Clone, Hash, Eq, PartialEq, Deserialize, Serialize)]
+<span class="attr">#[derive(Debug, Default, Clone, Hash, Eq, PartialEq, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>Peer {
     <span class="doccomment">/// Node identifier. Unique in a cluster.
     </span><span class="kw">pub </span>id: u64,

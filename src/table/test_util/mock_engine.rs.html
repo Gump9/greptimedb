@@ -147,7 +147,6 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -163,7 +162,6 @@
 // limitations under the License.
 
 </span><span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_procedure::BoxedProcedure;
@@ -203,7 +201,7 @@
         <span class="kw">let </span>schema_name = request.schema_name.clone();
         <span class="kw">let </span>table_name = request.table_name.clone();
 
-        <span class="kw">let </span>table_ref = Arc::new(EmptyTable::new(request));
+        <span class="kw">let </span>table_ref = EmptyTable::table(request);
 
         <span class="kw">let _ </span>= <span class="self">self
             </span>.tables

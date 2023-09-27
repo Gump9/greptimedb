@@ -499,6 +499,7 @@
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -513,27 +514,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::collections::BTreeMap;
+</span><span class="kw">use </span>std::collections::{BTreeMap, HashSet};
 <span class="kw">use </span>std::ops::Range;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>std::time::{Duration, Instant};
 
 <span class="kw">use </span>api::v1::meta::mailbox_message::Payload;
 <span class="kw">use </span>api::v1::meta::{
     HeartbeatRequest, HeartbeatResponse, MailboxMessage, RegionLease, RequestHeader,
     ResponseHeader, Role, PROTOCOL_VERSION,
 };
-<span class="kw">pub use </span>check_leader_handler::CheckLeaderHandler;
-<span class="kw">pub use </span>collect_stats_handler::CollectStatsHandler;
 <span class="kw">use </span>common_meta::instruction::{Instruction, InstructionReply};
+<span class="kw">use </span>common_meta::sequence::Sequence;
 <span class="kw">use </span>common_telemetry::{debug, info, timer, warn};
 <span class="kw">use </span>dashmap::DashMap;
-<span class="kw">pub use </span>failure_handler::RegionFailureHandler;
-<span class="kw">pub use </span>keep_lease_handler::KeepLeaseHandler;
 <span class="kw">use </span>metrics::{decrement_gauge, increment_gauge};
-<span class="kw">pub use </span>on_leader_start_handler::OnLeaderStartHandler;
-<span class="kw">pub use </span>persist_stats_handler::PersistStatsHandler;
-<span class="kw">pub use </span>response_header_handler::ResponseHeaderHandler;
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 <span class="kw">use </span>tokio::sync::mpsc::Sender;
 <span class="kw">use </span>tokio::sync::{oneshot, Notify, RwLock};
@@ -542,22 +537,22 @@
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, DeserializeFromJsonSnafu, <span class="prelude-ty">Result</span>, UnexpectedInstructionReplySnafu};
 <span class="kw">use </span><span class="kw">crate</span>::metasrv::Context;
 <span class="kw">use </span><span class="kw">crate</span>::metrics::{METRIC_META_HANDLER_EXECUTE, METRIC_META_HEARTBEAT_CONNECTION_NUM};
-<span class="kw">use </span><span class="kw">crate</span>::sequence::Sequence;
 <span class="kw">use </span><span class="kw">crate</span>::service::mailbox::{
     BroadcastChannel, Channel, Mailbox, MailboxReceiver, MailboxRef, MessageId,
 };
 
-<span class="kw">mod </span>check_leader_handler;
-<span class="kw">mod </span>collect_stats_handler;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>failure_handler;
-<span class="kw">mod </span>keep_lease_handler;
+<span class="kw">pub mod </span>check_leader_handler;
+<span class="kw">pub mod </span>collect_stats_handler;
+<span class="kw">pub mod </span>failure_handler;
+<span class="kw">pub mod </span>filter_inactive_region_stats;
+<span class="kw">pub mod </span>keep_lease_handler;
 <span class="kw">pub mod </span>mailbox_handler;
 <span class="kw">pub mod </span>node_stat;
-<span class="kw">mod </span>on_leader_start_handler;
-<span class="kw">mod </span>persist_stats_handler;
+<span class="kw">pub mod </span>on_leader_start_handler;
+<span class="kw">pub mod </span>persist_stats_handler;
 <span class="kw">pub mod </span>publish_heartbeat_handler;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>region_lease_handler;
-<span class="kw">mod </span>response_header_handler;
+<span class="kw">pub mod </span>region_lease_handler;
+<span class="kw">pub mod </span>response_header_handler;
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>HeartbeatHandler: Send + Sync {
@@ -582,7 +577,8 @@
     <span class="kw">pub </span>header: <span class="prelude-ty">Option</span>&lt;ResponseHeader&gt;,
     <span class="kw">pub </span>instructions: Vec&lt;Instruction&gt;,
     <span class="kw">pub </span>stat: <span class="prelude-ty">Option</span>&lt;Stat&gt;,
-    <span class="kw">pub </span>region_leases: Vec&lt;RegionLease&gt;,
+    <span class="kw">pub </span>inactive_region_ids: HashSet&lt;u64&gt;,
+    <span class="kw">pub </span>region_lease: <span class="prelude-ty">Option</span>&lt;RegionLease&gt;,
 }
 
 <span class="kw">impl </span>HeartbeatAccumulator {
@@ -757,7 +753,7 @@
         <span class="kw">let </span>header = std::mem::take(<span class="kw-2">&amp;mut </span>acc.header);
         <span class="kw">let </span>res = HeartbeatResponse {
             header,
-            region_leases: acc.region_leases,
+            region_lease: acc.region_lease,
             ..Default::default()
         };
         <span class="prelude-val">Ok</span>(res)
@@ -768,7 +764,7 @@
     pushers: Pushers,
     sequence: Sequence,
     senders: DashMap&lt;MessageId, oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;MailboxMessage&gt;&gt;&gt;,
-    timeouts: DashMap&lt;MessageId, Duration&gt;,
+    timeouts: DashMap&lt;MessageId, Instant&gt;,
     timeout_notify: Notify,
 }
 
@@ -815,7 +811,7 @@
                 <span class="self">self</span>.timeout_notify.notified().<span class="kw">await</span>;
             }
 
-            <span class="kw">let </span>now = Duration::from_millis(common_time::util::current_time_millis() <span class="kw">as </span>u64);
+            <span class="kw">let </span>now = Instant::now();
             <span class="kw">let </span>timeout_ids = <span class="self">self
                 </span>.timeouts
                 .iter()
@@ -842,7 +838,11 @@
         <span class="comment">// In this implementation, we pre-occupy the message_id of 0,
         // and we use `message_id = 0` to mark a Message as a one-way call.
         </span><span class="kw">loop </span>{
-            <span class="kw">let </span>next = <span class="self">self</span>.sequence.next().<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">let </span>next = <span class="self">self
+                </span>.sequence
+                .next()
+                .<span class="kw">await
+                </span>.context(error::NextSequenceSnafu)<span class="question-mark">?</span>;
             <span class="kw">if </span>next &gt; <span class="number">0 </span>{
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(next);
             }
@@ -866,8 +866,7 @@
 
         <span class="kw">let </span>(tx, rx) = oneshot::channel();
         <span class="kw">let _ </span>= <span class="self">self</span>.senders.insert(message_id, tx);
-        <span class="kw">let </span>deadline =
-            Duration::from_millis(common_time::util::current_time_millis() <span class="kw">as </span>u64) + timeout;
+        <span class="kw">let </span>deadline = Instant::now() + timeout;
         <span class="kw">let _ </span>= <span class="self">self</span>.timeouts.insert(message_id, deadline);
         <span class="self">self</span>.timeout_notify.notify_one();
 
@@ -903,15 +902,18 @@
     <span class="kw">use </span>std::time::Duration;
 
     <span class="kw">use </span>api::v1::meta::{MailboxMessage, RequestHeader, Role, PROTOCOL_VERSION};
+    <span class="kw">use </span>common_meta::sequence::Sequence;
     <span class="kw">use </span>tokio::sync::mpsc;
 
+    <span class="kw">use </span><span class="kw">crate</span>::handler::check_leader_handler::CheckLeaderHandler;
+    <span class="kw">use </span><span class="kw">crate</span>::handler::collect_stats_handler::CollectStatsHandler;
     <span class="kw">use </span><span class="kw">crate</span>::handler::mailbox_handler::MailboxHandler;
-    <span class="kw">use </span><span class="kw">crate</span>::handler::{
-        CheckLeaderHandler, CollectStatsHandler, HeartbeatHandlerGroup, HeartbeatMailbox,
-        OnLeaderStartHandler, PersistStatsHandler, Pusher, ResponseHeaderHandler,
-    };
-    <span class="kw">use </span><span class="kw">crate</span>::sequence::Sequence;
+    <span class="kw">use </span><span class="kw">crate</span>::handler::on_leader_start_handler::OnLeaderStartHandler;
+    <span class="kw">use </span><span class="kw">crate</span>::handler::persist_stats_handler::PersistStatsHandler;
+    <span class="kw">use </span><span class="kw">crate</span>::handler::response_header_handler::ResponseHeaderHandler;
+    <span class="kw">use </span><span class="kw">crate</span>::handler::{HeartbeatHandlerGroup, HeartbeatMailbox, Pusher};
     <span class="kw">use </span><span class="kw">crate</span>::service::mailbox::{Channel, MailboxReceiver, MailboxRef};
+    <span class="kw">use </span><span class="kw">crate</span>::service::store::kv::KvBackendAdapter;
     <span class="kw">use </span><span class="kw">crate</span>::service::store::memory::MemStore;
 
     <span class="attr">#[tokio::test]
@@ -955,7 +957,7 @@
             .<span class="kw">await</span>;
 
         <span class="kw">let </span>kv_store = Arc::new(MemStore::new());
-        <span class="kw">let </span>seq = Sequence::new(<span class="string">&quot;test_seq&quot;</span>, <span class="number">0</span>, <span class="number">10</span>, kv_store);
+        <span class="kw">let </span>seq = Sequence::new(<span class="string">&quot;test_seq&quot;</span>, <span class="number">0</span>, <span class="number">10</span>, KvBackendAdapter::wrap(kv_store));
         <span class="kw">let </span>mailbox = HeartbeatMailbox::create(handler_group.pushers(), seq);
 
         <span class="kw">let </span>msg = MailboxMessage {

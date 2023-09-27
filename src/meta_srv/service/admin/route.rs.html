@@ -69,23 +69,6 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -102,21 +85,18 @@
 
 </span><span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">use </span>api::v1::meta::TableRouteValue;
-<span class="kw">use </span>common_meta::key::TABLE_ROUTE_PREFIX;
-<span class="kw">use </span>common_meta::rpc::store::{RangeRequest, RangeResponse};
-<span class="kw">use </span>common_meta::util;
-<span class="kw">use </span>prost::Message;
+<span class="kw">use </span>common_catalog::parse_full_table_name;
+<span class="kw">use </span>common_meta::key::table_name::TableNameKey;
+<span class="kw">use </span>common_meta::key::TableMetadataManagerRef;
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 <span class="kw">use </span>tonic::codegen::http;
 
 <span class="kw">use </span><span class="kw">super</span>::HttpHandler;
 <span class="kw">use </span><span class="kw">crate</span>::error;
-<span class="kw">use </span><span class="kw">crate</span>::error::Result;
-<span class="kw">use </span><span class="kw">crate</span>::service::store::kv::KvStoreRef;
+<span class="kw">use </span><span class="kw">crate</span>::error::{<span class="prelude-ty">Result</span>, TableNotFoundSnafu, TableRouteNotFoundSnafu};
 
 <span class="kw">pub struct </span>RouteHandler {
-    <span class="kw">pub </span>kv_store: KvStoreRef,
+    <span class="kw">pub </span>table_metadata_manager: TableMetadataManagerRef,
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -126,52 +106,38 @@
         _path: <span class="kw-2">&amp;</span>str,
         params: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;http::Response&lt;String&gt;&gt; {
-        <span class="kw">let </span>full_table_name = params
-            .get(<span class="string">&quot;full_table_name&quot;</span>)
-            .map(|full_table_name| full_table_name.replace(<span class="string">&#39;.&#39;</span>, <span class="string">&quot;-&quot;</span>))
-            .context(error::MissingRequiredParameterSnafu {
-                param: <span class="string">&quot;full_table_name&quot;</span>,
-            })<span class="question-mark">?</span>;
+        <span class="kw">let </span>table_name =
+            params
+                .get(<span class="string">&quot;full_table_name&quot;</span>)
+                .context(error::MissingRequiredParameterSnafu {
+                    param: <span class="string">&quot;full_table_name&quot;</span>,
+                })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>route_key = <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, TABLE_ROUTE_PREFIX, full_table_name).into_bytes();
+        <span class="kw">let </span>(catalog, schema, table) =
+            parse_full_table_name(table_name).context(error::InvalidFullTableNameSnafu)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>range_end = util::get_prefix_end_key(<span class="kw-2">&amp;</span>route_key);
+        <span class="kw">let </span>key = TableNameKey::new(catalog, schema, table);
 
-        <span class="kw">let </span>req = RangeRequest {
-            key: route_key,
-            range_end,
-            keys_only: <span class="bool-val">false</span>,
-            ..Default::default()
-        };
+        <span class="kw">let </span>table_id = <span class="self">self
+            </span>.table_metadata_manager
+            .table_name_manager()
+            .get(key)
+            .<span class="kw">await
+            </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?
+            </span>.map(|x| x.table_id())
+            .context(TableNotFoundSnafu { name: table_name })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>resp = <span class="self">self</span>.kv_store.range(req).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">let </span>show = pretty_fmt(resp)<span class="question-mark">?</span>;
-
+        <span class="kw">let </span>table_route_value = <span class="self">self
+            </span>.table_metadata_manager
+            .table_route_manager()
+            .get(table_id)
+            .<span class="kw">await
+            </span>.context(error::TableMetadataManagerSnafu)<span class="question-mark">?
+            </span>.context(TableRouteNotFoundSnafu { table_id })<span class="question-mark">?</span>;
         http::Response::builder()
             .status(http::StatusCode::OK)
-            .body(show)
+            .body(serde_json::to_string(<span class="kw-2">&amp;</span>table_route_value).unwrap())
             .context(error::InvalidHttpBodySnafu)
     }
-}
-
-<span class="kw">fn </span>pretty_fmt(response: RangeResponse) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>show = <span class="string">&quot;&quot;</span>.to_string();
-
-    <span class="kw">for </span>kv <span class="kw">in </span>response.kvs.into_iter() {
-        <span class="kw">let </span>route_key = String::from_utf8(kv.key).unwrap();
-        <span class="kw">let </span>route_val =
-            TableRouteValue::decode(<span class="kw-2">&amp;</span>kv.value[..]).context(error::DecodeTableRouteSnafu)<span class="question-mark">?</span>;
-
-        show.push_str(<span class="string">&quot;route_key:\n&quot;</span>);
-        show.push_str(<span class="kw-2">&amp;</span>route_key);
-        show.push(<span class="string">&#39;\n&#39;</span>);
-
-        show.push_str(<span class="string">&quot;route_value:\n&quot;</span>);
-        show.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:#?}&quot;</span>, route_val));
-        show.push(<span class="string">&#39;\n&#39;</span>);
-    }
-
-    <span class="prelude-val">Ok</span>(show)
 }
 </code></pre></div></section></main></body></html>

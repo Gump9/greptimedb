@@ -173,34 +173,6 @@
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -220,20 +192,22 @@
 </span><span class="kw">use </span>std::collections::{hash_map, HashMap};
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>store_api::logstore::LogStore;
 <span class="kw">use </span>store_api::metadata::RegionMetadata;
 <span class="kw">use </span>store_api::storage::RegionId;
-<span class="kw">use </span>tokio::sync::oneshot::Sender;
 
-<span class="kw">use </span><span class="kw">crate</span>::error::{RegionNotFoundSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::error::{RejectWriteSnafu, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span><span class="kw">crate</span>::region_write_ctx::RegionWriteCtx;
 <span class="kw">use </span><span class="kw">crate</span>::request::{SenderWriteRequest, WriteRequest};
 <span class="kw">use </span><span class="kw">crate</span>::worker::RegionWorkerLoop;
 
 <span class="kw">impl</span>&lt;S: LogStore&gt; RegionWorkerLoop&lt;S&gt; {
     <span class="doccomment">/// Takes and handles all write requests.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_write_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>, write_requests: Vec&lt;SenderWriteRequest&gt;) {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_write_requests(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        <span class="kw-2">mut </span>write_requests: Vec&lt;SenderWriteRequest&gt;,
+        allow_stall: bool,
+    ) {
         <span class="kw">if </span>write_requests.is_empty() {
             <span class="kw">return</span>;
         }
@@ -244,6 +218,16 @@
         <span class="kw">if </span><span class="self">self</span>.should_reject_write() {
             <span class="comment">// The memory pressure is still too high, reject write requests.
             </span>reject_write_requests(write_requests);
+            <span class="comment">// Also reject all stalled requests.
+            </span><span class="kw">let </span>stalled = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stalled_requests);
+            reject_write_requests(stalled.requests);
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.write_buffer_manager.should_stall() &amp;&amp; allow_stall {
+            <span class="comment">// TODO(yingwen): stalled metrics.
+            </span><span class="self">self</span>.stalled_requests.append(<span class="kw-2">&amp;mut </span>write_requests);
+            <span class="self">self</span>.listener.on_write_stall();
             <span class="kw">return</span>;
         }
 
@@ -251,21 +235,21 @@
 
         <span class="comment">// Write to WAL.
         </span><span class="kw">let </span><span class="kw-2">mut </span>wal_writer = <span class="self">self</span>.wal.writer();
-        <span class="kw">for </span>region_ctx <span class="kw">in </span>region_ctxs.values_mut().filter_map(|v| v.write_ctx_mut()) {
+        <span class="kw">for </span>region_ctx <span class="kw">in </span>region_ctxs.values_mut() {
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = region_ctx.add_wal_entry(<span class="kw-2">&amp;mut </span>wal_writer).map_err(Arc::new) {
                 region_ctx.set_error(e);
             }
         }
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = wal_writer.write_to_wal().<span class="kw">await</span>.map_err(Arc::new) {
             <span class="comment">// Failed to write wal.
-            </span><span class="kw">for </span><span class="kw-2">mut </span>region_ctx <span class="kw">in </span>region_ctxs.into_values().filter_map(|v| v.into_write_ctx()) {
+            </span><span class="kw">for </span><span class="kw-2">mut </span>region_ctx <span class="kw">in </span>region_ctxs.into_values() {
                 region_ctx.set_error(e.clone());
             }
             <span class="kw">return</span>;
         }
 
         <span class="comment">// Write to memtables.
-        </span><span class="kw">for </span><span class="kw-2">mut </span>region_ctx <span class="kw">in </span>region_ctxs.into_values().filter_map(|v| v.into_write_ctx()) {
+        </span><span class="kw">for </span><span class="kw-2">mut </span>region_ctx <span class="kw">in </span>region_ctxs.into_values() {
             region_ctx.write_memtable();
         }
     }
@@ -276,57 +260,44 @@
     </span><span class="kw">fn </span>prepare_region_write_ctx(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         write_requests: Vec&lt;SenderWriteRequest&gt;,
-    ) -&gt; HashMap&lt;RegionId, MaybeStalling&gt; {
+    ) -&gt; HashMap&lt;RegionId, RegionWriteCtx&gt; {
         <span class="comment">// Initialize region write context map.
         </span><span class="kw">let </span><span class="kw-2">mut </span>region_ctxs = HashMap::new();
         <span class="kw">for </span><span class="kw-2">mut </span>sender_req <span class="kw">in </span>write_requests {
             <span class="kw">let </span>region_id = sender_req.request.region_id;
 
+            <span class="comment">// If region is waiting for alteration, add requests to pending writes.
+            </span><span class="kw">if </span><span class="self">self</span>.flush_scheduler.has_pending_ddls(region_id) {
+                <span class="comment">// TODO(yingwen): consider adding some metrics for this.
+                // Safety: The region has pending ddls.
+                </span><span class="self">self</span>.flush_scheduler
+                    .add_write_request_to_pending(sender_req);
+                <span class="kw">continue</span>;
+            }
+
             <span class="comment">// Checks whether the region exists and is it stalling.
             </span><span class="kw">if let </span>hash_map::Entry::Vacant(e) = region_ctxs.entry(region_id) {
-                <span class="kw">let </span><span class="prelude-val">Some</span>(region) = <span class="self">self</span>.regions.get_region(region_id) <span class="kw">else </span>{
-                    <span class="comment">// No such region.
-                    </span>send_result(sender_req.sender, RegionNotFoundSnafu { region_id }.fail());
-
-                    <span class="kw">continue</span>;
+                <span class="kw">let </span><span class="prelude-val">Some</span>(region) = <span class="self">self
+                    </span>.regions
+                    .writable_region_or(region_id, <span class="kw-2">&amp;mut </span>sender_req.sender)
+                <span class="kw">else </span>{
+                    <span class="comment">// No such region or the region is read only.
+                    </span><span class="kw">continue</span>;
                 };
 
-                <span class="comment">// A new region to write, checks whether we need to flush this region.
-                </span><span class="self">self</span>.flush_region_if_full(<span class="kw-2">&amp;</span>region);
-                <span class="comment">// Checks whether the region is stalling.
-                </span><span class="kw">let </span>maybe_stalling = <span class="kw">if </span><span class="self">self</span>.flush_scheduler.is_stalling(region_id) {
-                    <span class="comment">// Region is stalling so there is no write context for it.
-                    </span>MaybeStalling::Stalling
-                } <span class="kw">else </span>{
-                    <span class="comment">// Initialize the context.
-                    </span>MaybeStalling::Writable(RegionWriteCtx::new(
-                        region.region_id,
-                        <span class="kw-2">&amp;</span>region.version_control,
-                    ))
-                };
+                <span class="kw">let </span>region_ctx = RegionWriteCtx::new(region.region_id, <span class="kw-2">&amp;</span>region.version_control);
 
-                e.insert(maybe_stalling);
+                e.insert(region_ctx);
             }
 
             <span class="comment">// Safety: Now we ensure the region exists.
-            </span><span class="kw">let </span>maybe_stalling = region_ctxs.get_mut(<span class="kw-2">&amp;</span>region_id).unwrap();
-
-            <span class="comment">// Get stalling status of a region.
-            </span><span class="kw">let </span>MaybeStalling::Writable(region_ctx) = maybe_stalling <span class="kw">else </span>{
-                <span class="comment">// If this region is stalling, we need to add requests to pending queue
-                // and write to the region later.
-                // Safety: We have checked the region is stalling.
-                </span><span class="self">self</span>.flush_scheduler
-                    .add_write_request_to_pending(sender_req)
-                    .unwrap();
-                <span class="kw">continue</span>;
-            };
+            </span><span class="kw">let </span>region_ctx = region_ctxs.get_mut(<span class="kw-2">&amp;</span>region_id).unwrap();
 
             <span class="comment">// Checks whether request schema is compatible with region schema.
             </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                 maybe_fill_missing_columns(<span class="kw-2">&amp;mut </span>sender_req.request, <span class="kw-2">&amp;</span>region_ctx.version().metadata)
             {
-                send_result(sender_req.sender, <span class="prelude-val">Err</span>(e));
+                sender_req.sender.send(<span class="prelude-val">Err</span>(e));
 
                 <span class="kw">continue</span>;
             }
@@ -344,41 +315,22 @@
 
     <span class="doccomment">/// Returns true if the engine needs to reject some write requests.
     </span><span class="kw">fn </span>should_reject_write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="comment">// If memory usage reaches high threshold (we should also consider pending flush requests) returns true.
-        // TODO(yingwen): Implement this.
-        </span><span class="bool-val">false
-    </span>}
-}
-
-<span class="doccomment">/// An entry to store the write context or stalling flag.
-</span><span class="kw">enum </span>MaybeStalling {
-    <span class="doccomment">/// The region is writable.
-    </span>Writable(RegionWriteCtx),
-    <span class="doccomment">/// The region is stalling and we should not write to it.
-    </span>Stalling,
-}
-
-<span class="kw">impl </span>MaybeStalling {
-    <span class="doccomment">/// Converts itself to a [RegionWriteCtx] if it is writable.
-    </span><span class="kw">fn </span>into_write_ctx(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;RegionWriteCtx&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            MaybeStalling::Writable(v) =&gt; <span class="prelude-val">Some</span>(v),
-            MaybeStalling::Stalling =&gt; <span class="prelude-val">None</span>,
-        }
-    }
-
-    <span class="doccomment">/// Gets a mutable reference of [RegionWriteCtx] if it is writable.
-    </span><span class="kw">fn </span>write_ctx_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>RegionWriteCtx&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            MaybeStalling::Writable(v) =&gt; <span class="prelude-val">Some</span>(v),
-            MaybeStalling::Stalling =&gt; <span class="prelude-val">None</span>,
-        }
+        <span class="comment">// If memory usage reaches high threshold (we should also consider stalled requests) returns true.
+        </span><span class="self">self</span>.write_buffer_manager.memory_usage() + <span class="self">self</span>.stalled_requests.estimated_size
+            &gt;= <span class="self">self</span>.config.global_write_buffer_reject_size.as_bytes() <span class="kw">as </span>usize
     }
 }
 
 <span class="doccomment">/// Send rejected error to all `write_requests`.
-</span><span class="kw">fn </span>reject_write_requests(_write_requests: Vec&lt;SenderWriteRequest&gt;) {
-    <span class="macro">unimplemented!</span>()
+</span><span class="kw">fn </span>reject_write_requests(write_requests: Vec&lt;SenderWriteRequest&gt;) {
+    <span class="kw">for </span>req <span class="kw">in </span>write_requests {
+        req.sender.send(
+            RejectWriteSnafu {
+                region_id: req.request.region_id,
+            }
+            .fail(),
+        );
+    }
 }
 
 <span class="doccomment">/// Checks the schema and fill missing columns.
@@ -395,13 +347,5 @@
     }
 
     <span class="prelude-val">Ok</span>(())
-}
-
-<span class="doccomment">/// Send result to the request.
-</span><span class="kw">fn </span>send_result(sender: <span class="prelude-ty">Option</span>&lt;Sender&lt;<span class="prelude-ty">Result</span>&lt;Output&gt;&gt;&gt;, res: <span class="prelude-ty">Result</span>&lt;Output&gt;) {
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = sender {
-        <span class="comment">// Ignore send result.
-        </span><span class="kw">let _ </span>= sender.send(res);
-    }
 }
 </code></pre></div></section></main></body></html>

@@ -533,7 +533,7 @@
     x + y
 }
 
-<span class="doccomment">/// Refer to https://github.com/prometheus/prometheus/blob/main/promql/functions.go#L299
+<span class="doccomment">/// Refer to &lt;https://github.com/prometheus/prometheus/blob/main/promql/functions.go#L299&gt;
 </span><span class="kw">fn </span>holt_winter_impl(values: <span class="kw-2">&amp;</span>[f64], sf: f64, tf: f64) -&gt; <span class="prelude-ty">Option</span>&lt;f64&gt; {
     <span class="kw">if </span>sf.is_nan() || tf.is_nan() || values.is_empty() {
         <span class="kw">return </span><span class="prelude-val">Some</span>(f64::NAN);

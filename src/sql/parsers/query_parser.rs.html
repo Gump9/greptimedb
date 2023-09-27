@@ -57,6 +57,11 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -92,6 +97,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>snafu::ErrorCompat;
+
     <span class="kw">use </span><span class="kw">crate</span>::dialect::GreptimeDbDialect;
     <span class="kw">use </span><span class="kw">crate</span>::parser::ParserContext;
 
@@ -112,6 +119,9 @@
         <span class="macro">assert!</span>(result.is_err());
         <span class="macro">assert!</span>(result
             .unwrap_err()
+            .iter_chain()
+            .last()
+            .unwrap()
             .to_string()
             .contains(<span class="string">&quot;Expected an expression&quot;</span>));
     }

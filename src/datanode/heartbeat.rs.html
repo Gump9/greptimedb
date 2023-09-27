@@ -293,6 +293,95 @@
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -311,22 +400,28 @@
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::Duration;
 
-<span class="kw">use </span>api::v1::meta::{HeartbeatRequest, NodeStat, Peer};
-<span class="kw">use </span>catalog::remote::region_alive_keeper::RegionAliveKeepers;
-<span class="kw">use </span>catalog::{datanode_stat, CatalogManagerRef};
+<span class="kw">use </span>api::v1::meta::{HeartbeatRequest, Peer, RegionStat, Role};
+<span class="kw">use </span>common_grpc::channel_manager::{ChannelConfig, ChannelManager};
+<span class="kw">use </span>common_meta::distributed_time_constants::META_KEEP_ALIVE_INTERVAL_SECS;
+<span class="kw">use </span>common_meta::heartbeat::handler::parse_mailbox_message::ParseMailboxMessageHandler;
 <span class="kw">use </span>common_meta::heartbeat::handler::{
-    HeartbeatResponseHandlerContext, HeartbeatResponseHandlerExecutorRef,
+    HandlerGroupExecutor, HeartbeatResponseHandlerContext, HeartbeatResponseHandlerExecutorRef,
 };
 <span class="kw">use </span>common_meta::heartbeat::mailbox::{HeartbeatMailbox, MailboxRef};
 <span class="kw">use </span>common_meta::heartbeat::utils::outgoing_message_to_mailbox_message;
 <span class="kw">use </span>common_telemetry::{debug, error, info, trace, warn};
-<span class="kw">use </span>meta_client::client::{HeartbeatSender, MetaClient};
+<span class="kw">use </span>meta_client::client::{HeartbeatSender, MetaClient, MetaClientBuilder};
+<span class="kw">use </span>meta_client::MetaClientOptions;
 <span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>tokio::sync::mpsc;
+<span class="kw">use </span>tokio::sync::{mpsc, Notify};
 <span class="kw">use </span>tokio::time::Instant;
 
-<span class="kw">use </span><span class="kw">crate</span>::datanode::DatanodeOptions;
+<span class="kw">use </span><span class="self">self</span>::handler::RegionHeartbeatResponseHandler;
+<span class="kw">use </span><span class="kw">crate</span>::alive_keeper::RegionAliveKeeper;
+<span class="kw">use </span><span class="kw">crate</span>::config::DatanodeOptions;
 <span class="kw">use </span><span class="kw">crate</span>::error::{<span class="self">self</span>, MetaClientInitSnafu, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::event_listener::RegionServerEventReceiver;
+<span class="kw">use </span><span class="kw">crate</span>::region_server::RegionServer;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>handler;
 
@@ -337,10 +432,10 @@
     server_hostname: <span class="prelude-ty">Option</span>&lt;String&gt;,
     running: Arc&lt;AtomicBool&gt;,
     meta_client: Arc&lt;MetaClient&gt;,
-    catalog_manager: CatalogManagerRef,
+    region_server: RegionServer,
     interval: u64,
     resp_handler_executor: HeartbeatResponseHandlerExecutorRef,
-    region_alive_keepers: Arc&lt;RegionAliveKeepers&gt;,
+    region_alive_keeper: Arc&lt;RegionAliveKeeper&gt;,
 }
 
 <span class="kw">impl </span>Drop <span class="kw">for </span>HeartbeatTask {
@@ -351,28 +446,34 @@
 
 <span class="kw">impl </span>HeartbeatTask {
     <span class="doccomment">/// Create a new heartbeat task instance.
-    </span><span class="kw">pub fn </span>new(
-        node_id: u64,
+    </span><span class="kw">pub async fn </span>try_new(
         opts: <span class="kw-2">&amp;</span>DatanodeOptions,
-        meta_client: Arc&lt;MetaClient&gt;,
-        catalog_manager: CatalogManagerRef,
-        resp_handler_executor: HeartbeatResponseHandlerExecutorRef,
-        heartbeat_interval_millis: u64,
-        region_alive_keepers: Arc&lt;RegionAliveKeepers&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            node_id,
+        region_server: RegionServer,
+        meta_client: MetaClient,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>region_alive_keeper = Arc::new(RegionAliveKeeper::new(
+            region_server.clone(),
+            opts.heartbeat.interval_millis,
+        ));
+        <span class="kw">let </span>resp_handler_executor = Arc::new(HandlerGroupExecutor::new(<span class="macro">vec!</span>[
+            Arc::new(ParseMailboxMessageHandler),
+            Arc::new(RegionHeartbeatResponseHandler::new(region_server.clone())),
+            region_alive_keeper.clone(),
+        ]));
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            node_id: opts.node_id.unwrap_or(<span class="number">0</span>),
             <span class="comment">// We use datanode&#39;s start time millis as the node&#39;s epoch.
             </span>node_epoch: common_time::util::current_time_millis() <span class="kw">as </span>u64,
             server_addr: opts.rpc_addr.clone(),
             server_hostname: opts.rpc_hostname.clone(),
             running: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
-            meta_client,
-            catalog_manager,
-            interval: heartbeat_interval_millis,
+            meta_client: Arc::new(meta_client),
+            region_server,
+            interval: opts.heartbeat.interval_millis,
             resp_handler_executor,
-            region_alive_keepers,
-        }
+            region_alive_keeper,
+        })
     }
 
     <span class="kw">pub async fn </span>create_streams(
@@ -380,6 +481,8 @@
         running: Arc&lt;AtomicBool&gt;,
         handler_executor: HeartbeatResponseHandlerExecutorRef,
         mailbox: MailboxRef,
+        <span class="kw-2">mut </span>notify: <span class="prelude-ty">Option</span>&lt;Arc&lt;Notify&gt;&gt;,
+        quit_signal: Arc&lt;Notify&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;HeartbeatSender&gt; {
         <span class="kw">let </span>client_id = meta_client.id();
 
@@ -395,16 +498,19 @@
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = res.mailbox_message.as_ref() {
                     <span class="macro">info!</span>(<span class="string">&quot;Received mailbox message: {msg:?}, meta_client id: {client_id:?}&quot;</span>);
                 }
-
                 <span class="kw">let </span>ctx = HeartbeatResponseHandlerContext::new(mailbox.clone(), res);
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">Self</span>::handle_response(ctx, handler_executor.clone()).<span class="kw">await </span>{
                     <span class="macro">error!</span>(e; <span class="string">&quot;Error while handling heartbeat response&quot;</span>);
+                }
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(notify) = notify.take() {
+                    notify.notify_one();
                 }
                 <span class="kw">if </span>!running.load(Ordering::Acquire) {
                     <span class="macro">info!</span>(<span class="string">&quot;Heartbeat task shutdown&quot;</span>);
                 }
             }
-            <span class="macro">info!</span>(<span class="string">&quot;Heartbeat handling loop exit.&quot;</span>)
+            quit_signal.notify_one();
+            <span class="macro">info!</span>(<span class="string">&quot;Heartbeat handling loop exit.&quot;</span>);
         });
         <span class="prelude-val">Ok</span>(tx)
     }
@@ -421,7 +527,11 @@
     }
 
     <span class="doccomment">/// Start heartbeat task, spawn background task.
-    </span><span class="kw">pub async fn </span>start(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub async fn </span>start(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        event_receiver: RegionServerEventReceiver,
+        notify: <span class="prelude-ty">Option</span>&lt;Arc&lt;Notify&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>running = <span class="self">self</span>.running.clone();
         <span class="kw">if </span>running
             .compare_exchange(<span class="bool-val">false</span>, <span class="bool-val">true</span>, Ordering::AcqRel, Ordering::Acquire)
@@ -436,31 +546,39 @@
         <span class="kw">let </span>addr = resolve_addr(<span class="kw-2">&amp;</span><span class="self">self</span>.server_addr, <span class="kw-2">&amp;</span><span class="self">self</span>.server_hostname);
         <span class="macro">info!</span>(<span class="string">&quot;Starting heartbeat to Metasrv with interval {interval}. My node id is {node_id}, address is {addr}.&quot;</span>);
 
-        <span class="self">self</span>.region_alive_keepers.start().<span class="kw">await</span>;
-
         <span class="kw">let </span>meta_client = <span class="self">self</span>.meta_client.clone();
-        <span class="kw">let </span>catalog_manager_clone = <span class="self">self</span>.catalog_manager.clone();
+        <span class="kw">let </span>region_server_clone = <span class="self">self</span>.region_server.clone();
 
         <span class="kw">let </span>handler_executor = <span class="self">self</span>.resp_handler_executor.clone();
 
         <span class="kw">let </span>(outgoing_tx, <span class="kw-2">mut </span>outgoing_rx) = mpsc::channel(<span class="number">16</span>);
         <span class="kw">let </span>mailbox = Arc::new(HeartbeatMailbox::new(outgoing_tx));
 
+        <span class="kw">let </span>quit_signal = Arc::new(tokio::sync::Notify::new());
+
         <span class="kw">let </span><span class="kw-2">mut </span>tx = <span class="self">Self</span>::create_streams(
             <span class="kw-2">&amp;</span>meta_client,
             running.clone(),
             handler_executor.clone(),
             mailbox.clone(),
+            notify,
+            quit_signal.clone(),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">let </span>epoch = <span class="self">self</span>.region_alive_keepers.epoch();
-        <span class="kw">let </span>_handle = common_runtime::spawn_bg(<span class="kw">async move </span>{
+        <span class="kw">let </span>self_peer = <span class="prelude-val">Some</span>(Peer {
+            id: node_id,
+            addr: addr.clone(),
+        });
+        <span class="kw">let </span>epoch = <span class="self">self</span>.region_alive_keeper.epoch();
+
+        <span class="self">self</span>.region_alive_keeper.start(<span class="prelude-val">Some</span>(event_receiver)).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        common_runtime::spawn_bg(<span class="kw">async move </span>{
             <span class="kw">let </span>sleep = tokio::time::sleep(Duration::from_millis(<span class="number">0</span>));
             <span class="macro">tokio::pin!</span>(sleep);
-
             <span class="kw">loop </span>{
-                <span class="kw">if </span>!running.load(Ordering::Acquire) {
+                <span class="kw">if </span>!running.load(Ordering::Relaxed) {
                     <span class="macro">info!</span>(<span class="string">&quot;shutdown heartbeat task&quot;</span>);
                     <span class="kw">break</span>;
                 }
@@ -470,10 +588,7 @@
                             <span class="kw">match </span>outgoing_message_to_mailbox_message(message) {
                                 <span class="prelude-val">Ok</span>(message) =&gt; {
                                     <span class="kw">let </span>req = HeartbeatRequest {
-                                        peer: <span class="prelude-val">Some</span>(Peer {
-                                            id: node_id,
-                                            addr: addr.clone(),
-                                        }),
+                                        peer: self_peer.clone(),
                                         mailbox_message: <span class="prelude-val">Some</span>(message),
                                         ..Default::default()
                                     };
@@ -489,22 +604,22 @@
                         </span>}
                     }
                     <span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>sleep =&gt; {
-                        <span class="kw">let </span>(region_num, region_stats) = datanode_stat(<span class="kw-2">&amp;</span>catalog_manager_clone).<span class="kw">await</span>;
+                        <span class="kw">let </span>region_stats = <span class="self">Self</span>::load_region_stats(<span class="kw-2">&amp;</span>region_server_clone).<span class="kw">await</span>;
+                        <span class="kw">let </span>now = Instant::now();
+                        <span class="kw">let </span>duration_since_epoch = (now - epoch).as_millis() <span class="kw">as </span>u64;
                         <span class="kw">let </span>req = HeartbeatRequest {
-                            peer: <span class="prelude-val">Some</span>(Peer {
-                                id: node_id,
-                                addr: addr.clone(),
-                            }),
-                            node_stat: <span class="prelude-val">Some</span>(NodeStat {
-                                region_num: region_num <span class="kw">as _</span>,
-                                ..Default::default()
-                            }),
+                            peer: self_peer.clone(),
                             region_stats,
-                            duration_since_epoch: (Instant::now() - epoch).as_millis() <span class="kw">as </span>u64,
+                            duration_since_epoch,
                             node_epoch,
                             ..Default::default()
                         };
-                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(interval));
+                        sleep.as_mut().reset(now + Duration::from_millis(interval));
+                        <span class="prelude-val">Some</span>(req)
+                    }
+                    <span class="comment">// If the heartbeat stream is broken, send a dummy heartbeat request to re-create the heartbeat stream.
+                    </span><span class="kw">_ </span>= quit_signal.notified() =&gt; {
+                        <span class="kw">let </span>req = HeartbeatRequest::default();
                         <span class="prelude-val">Some</span>(req)
                     }
                 };
@@ -517,14 +632,25 @@
                             running.clone(),
                             handler_executor.clone(),
                             mailbox.clone(),
+                            <span class="prelude-val">None</span>,
+                            quit_signal.clone(),
                         )
                         .<span class="kw">await
                         </span>{
                             <span class="prelude-val">Ok</span>(new_tx) =&gt; {
                                 <span class="macro">info!</span>(<span class="string">&quot;Reconnected to metasrv&quot;</span>);
                                 tx = new_tx;
+                                <span class="comment">// Triggers to send heartbeat immediately.
+                                </span>sleep.as_mut().reset(Instant::now());
                             }
                             <span class="prelude-val">Err</span>(e) =&gt; {
+                                <span class="comment">// Before the META_LEASE_SECS expires,
+                                // any retries are meaningless, it always reads the old meta leader address.
+                                // Triggers to retry after META_KEEP_ALIVE_INTERVAL_SECS.
+                                </span>sleep.as_mut().reset(
+                                    Instant::now()
+                                        + Duration::from_secs(META_KEEP_ALIVE_INTERVAL_SECS),
+                                );
                                 <span class="macro">error!</span>(e;<span class="string">&quot;Failed to reconnect to metasrv!&quot;</span>);
                             }
                         }
@@ -534,6 +660,19 @@
         });
 
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">async fn </span>load_region_stats(region_server: <span class="kw-2">&amp;</span>RegionServer) -&gt; Vec&lt;RegionStat&gt; {
+        <span class="kw">let </span>regions = region_server.opened_regions();
+        regions
+            .into_iter()
+            .map(|(region_id, engine)| RegionStat {
+                region_id: region_id.as_u64(),
+                engine,
+                <span class="comment">// TODO(ruihang): scratch more info
+                </span>..Default::default()
+            })
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
     }
 
     <span class="kw">pub async fn </span>close(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -566,6 +705,45 @@
         }
         <span class="prelude-val">None </span>=&gt; bind_addr.to_owned(),
     }
+}
+
+<span class="doccomment">/// Create metasrv client instance and spawn heartbeat loop.
+</span><span class="kw">pub async fn </span>new_metasrv_client(
+    node_id: u64,
+    meta_config: <span class="kw-2">&amp;</span>MetaClientOptions,
+) -&gt; <span class="prelude-ty">Result</span>&lt;MetaClient&gt; {
+    <span class="kw">let </span>cluster_id = <span class="number">0</span>; <span class="comment">// TODO(hl): read from config
+    </span><span class="kw">let </span>member_id = node_id;
+
+    <span class="kw">let </span>config = ChannelConfig::new()
+        .timeout(Duration::from_millis(meta_config.timeout_millis))
+        .connect_timeout(Duration::from_millis(meta_config.connect_timeout_millis))
+        .tcp_nodelay(meta_config.tcp_nodelay);
+    <span class="kw">let </span>channel_manager = ChannelManager::with_config(config.clone());
+    <span class="kw">let </span>heartbeat_channel_manager = ChannelManager::with_config(
+        config
+            .timeout(Duration::from_millis(meta_config.heartbeat_timeout_millis))
+            .connect_timeout(Duration::from_millis(meta_config.heartbeat_timeout_millis)),
+    );
+
+    <span class="kw">let </span><span class="kw-2">mut </span>meta_client = MetaClientBuilder::new(cluster_id, member_id, Role::Datanode)
+        .enable_heartbeat()
+        .enable_router()
+        .enable_store()
+        .channel_manager(channel_manager)
+        .heartbeat_channel_manager(heartbeat_channel_manager)
+        .build();
+    meta_client
+        .start(<span class="kw-2">&amp;</span>meta_config.metasrv_addrs)
+        .<span class="kw">await
+        </span>.context(MetaClientInitSnafu)<span class="question-mark">?</span>;
+
+    <span class="comment">// required only when the heartbeat_client is enabled
+    </span>meta_client
+        .ask_leader()
+        .<span class="kw">await
+        </span>.context(MetaClientInitSnafu)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(meta_client)
 }
 
 <span class="attr">#[cfg(test)]

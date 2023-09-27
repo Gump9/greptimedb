@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ParquetReader","ParquetReaderBuilder"],"type":["BoxedRecordBatchStream"]};
+window.SIDEBAR_ITEMS = {"struct":["AsyncFileReaderCache","ParquetReader","ParquetReaderBuilder"],"type":["BoxedRecordBatchStream"]};

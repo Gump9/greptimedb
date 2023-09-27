@@ -89,6 +89,10 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -106,33 +110,37 @@
 </span><span class="kw">use </span>std::any::Any;
 
 <span class="kw">use </span>common_error::ext::ErrorExt;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>common_runtime::error::Error <span class="kw">as </span>RuntimeError;
 <span class="kw">use </span>snafu::{Location, Snafu};
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start log store gc task, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to start log store gc task&quot;</span>))]
     </span>StartGcTask {
         location: Location,
         source: RuntimeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop log store gc task, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to stop log store gc task&quot;</span>))]
     </span>StopGcTask {
         location: Location,
         source: RuntimeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to add entry to LogBatch, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to add entry to LogBatch&quot;</span>))]
     </span>AddEntryLogBatch {
-        source: raft_engine::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: raft_engine::Error,
         location: Location,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to perform raft-engine operation, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to perform raft-engine operation&quot;</span>))]
     </span>RaftEngine {
-        source: raft_engine::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: raft_engine::Error,
         location: Location,
     },
 
@@ -143,19 +151,19 @@
     </span>IllegalNamespace { ns: u64, location: Location },
 
     <span class="attr">#[snafu(display(
-        <span class="string">&quot;Failed to fetch entries from namespace: {}, start: {}, end: {}, max size: {}, source: {}&quot;</span>,
+        <span class="string">&quot;Failed to fetch entries from namespace: {}, start: {}, end: {}, max size: {}&quot;</span>,
+        ns,
         start,
         end,
         max_size,
-        source,
-        ns
     ))]
     </span>FetchEntry {
         ns: u64,
         start: u64,
         end: u64,
         max_size: usize,
-        source: raft_engine::Error,
+        <span class="attr">#[snafu(source)]
+        </span>error: raft_engine::Error,
         location: Location,
     },
 

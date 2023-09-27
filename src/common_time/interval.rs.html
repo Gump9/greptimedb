@@ -960,7 +960,7 @@
         IntervalFormat::from(<span class="self">self</span>).to_sql_standard_string()
     }
 
-    <span class="doccomment">/// Interval Type and i128[MonthDayNano] Convert
+    <span class="doccomment">/// Interval Type and i128 [IntervalUnit::MonthDayNano] Convert
     /// v consists of months(i32) | days(i32) | nsecs(i64)
     </span><span class="kw">pub fn </span>from_i128(v: i128) -&gt; <span class="self">Self </span>{
         Interval {
@@ -971,7 +971,7 @@
         }
     }
 
-    <span class="doccomment">/// `Interval` Type and i64[DayTime] Convert
+    <span class="doccomment">/// `Interval` Type and i64 [IntervalUnit::DayTime] Convert
     /// v consists of days(i32) | milliseconds(i32)
     </span><span class="kw">pub fn </span>from_i64(v: i64) -&gt; <span class="self">Self </span>{
         Interval {
@@ -982,7 +982,7 @@
         }
     }
 
-    <span class="doccomment">/// `Interval` Type and i32[YearMonth] Convert
+    <span class="doccomment">/// `Interval` Type and i32 [IntervalUnit::YearMonth] Convert
     /// v consists of months(i32)
     </span><span class="kw">pub fn </span>from_i32(v: i32) -&gt; <span class="self">Self </span>{
         Interval {
@@ -1050,7 +1050,7 @@
     }
 }
 
-<span class="doccomment">/// https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-INTERVAL-OUTPUT
+<span class="doccomment">/// &lt;https://www.postgresql.org/docs/current/datatype-datetime.html#DATATYPE-INTERVAL-OUTPUT&gt;
 /// support postgres format, iso8601 format and sql standard format
 </span><span class="attr">#[derive(Debug, Clone, Default, Copy, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>IntervalFormat {
@@ -1140,7 +1140,7 @@
     }
 
     <span class="doccomment">/// Convert IntervalFormat to sql standard format string
-    /// SQL standard pattern - [years - months] [days] [hours:minutes:seconds[.fractional seconds]]
+    /// SQL standard pattern `- [years - months] [days] [hours:minutes:seconds[.fractional seconds]]`
     /// for example: 1-2 3:4:5.678
     </span><span class="kw">pub fn </span>to_sql_standard_string(<span class="self">self</span>) -&gt; String {
         <span class="kw">if </span><span class="self">self</span>.is_zero() {
@@ -1173,7 +1173,7 @@
     }
 
     <span class="doccomment">/// Convert IntervalFormat to postgres format string
-    /// postgres pattern - [years - months] [days] [hours[:minutes[:seconds[.fractional seconds]]]]
+    /// postgres pattern `- [years - months] [days] [hours[:minutes[:seconds[.fractional seconds]]]]`
     /// for example: -1 year -2 mons +3 days -04:05:06
     </span><span class="kw">pub fn </span>to_postgres_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">if </span><span class="self">self</span>.is_zero() {

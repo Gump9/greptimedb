@@ -85,6 +85,12 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -106,7 +112,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_runtime::Runtime;
-<span class="kw">use </span>common_telemetry::{debug, error};
+<span class="kw">use </span>common_telemetry::{debug, error, TRACE_ID};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
 <span class="kw">use </span>tonic::{Request, Response};
 
@@ -132,8 +138,14 @@
     }
 
     <span class="kw">async fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>, request: RegionRequest) -&gt; <span class="prelude-ty">Result</span>&lt;RegionResponse&gt; {
+        <span class="kw">let </span>trace_id = request
+            .header
+            .context(InvalidQuerySnafu {
+                reason: <span class="string">&quot;Expecting non-empty region request header.&quot;</span>,
+            })<span class="question-mark">?
+            </span>.trace_id;
         <span class="kw">let </span>query = request.body.context(InvalidQuerySnafu {
-            reason: <span class="string">&quot;Expecting non-empty GreptimeRequest.&quot;</span>,
+            reason: <span class="string">&quot;Expecting non-empty region request body.&quot;</span>,
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>handler = <span class="self">self</span>.handler.clone();
@@ -145,7 +157,7 @@
         //   - Obtaining a `JoinHandle` to get the panic message (if there&#39;s any).
         //     From its docs, `JoinHandle` is cancel safe. The task keeps running even it&#39;s handle been dropped.
         // 2. avoid the handler blocks the gRPC runtime incidentally.
-        </span><span class="kw">let </span>handle = <span class="self">self</span>.runtime.spawn(<span class="kw">async move </span>{
+        </span><span class="kw">let </span>handle = <span class="self">self</span>.runtime.spawn(TRACE_ID.scope(trace_id, <span class="kw">async move </span>{
             handler.handle(query).<span class="kw">await</span>.map_err(|e| {
                 <span class="kw">if </span>e.status_code().should_log_error() {
                     <span class="macro">error!</span>(e; <span class="string">&quot;Failed to handle request&quot;</span>);
@@ -155,7 +167,7 @@
                 }
                 e
             })
-        });
+        }));
 
         handle.<span class="kw">await</span>.context(JoinTaskSnafu)<span class="question-mark">?
     </span>}

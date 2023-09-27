@@ -102,26 +102,6 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -140,21 +120,17 @@
 
 <span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>snafu::{Location, Snafu};
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Column `{}` not found in table `{}`&quot;</span>, column_name, table_name))]
-    </span>ColumnNotFound {
-        column_name: String,
-        table_name: String,
-    },
-
     <span class="attr">#[snafu(display(<span class="string">&quot;Illegal delete request, reason: {reason}&quot;</span>))]
     </span>IllegalDeleteRequest { reason: String, location: Location },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Column datatype error, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Column datatype error&quot;</span>))]
     </span>ColumnDataType {
         location: Location,
         source: api::error::Error,
@@ -179,7 +155,7 @@
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Invalid column proto: {}&quot;</span>, err_msg))]
     </span>InvalidColumnProto { err_msg: String, location: Location },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create vector, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create vector&quot;</span>))]
     </span>CreateVector {
         location: Location,
         source: datatypes::error::Error,
@@ -188,28 +164,15 @@
     <span class="attr">#[snafu(display(<span class="string">&quot;Missing required field in protobuf, field: {}&quot;</span>, field))]
     </span>MissingField { field: String, location: Location },
 
-    <span class="attr">#[snafu(display(
-        <span class="string">&quot;Invalid column proto definition, column: {}, source: {}&quot;</span>,
-        column,
-        source
-    ))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Invalid column proto definition, column: {}&quot;</span>, column))]
     </span>InvalidColumnDef {
         column: String,
         location: Location,
         source: api::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Unrecognized table option: {}&quot;</span>, source))]
-    </span>UnrecognizedTableOption {
-        location: Location,
-        source: table::error::Error,
-    },
-
     <span class="attr">#[snafu(display(<span class="string">&quot;Unexpected values length, reason: {}&quot;</span>, reason))]
     </span>UnexpectedValuesLength { reason: String, location: Location },
-
-    <span class="attr">#[snafu(display(<span class="string">&quot;The column name already exists, column: {}&quot;</span>, column))]
-    </span>ColumnAlreadyExists { column: String, location: Location },
 
     <span class="attr">#[snafu(display(<span class="string">&quot;Unknown location type: {}&quot;</span>, location_type))]
     </span>UnknownLocationType {
@@ -223,8 +186,6 @@
 <span class="kw">impl </span>ErrorExt <span class="kw">for </span>Error {
     <span class="kw">fn </span>status_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StatusCode {
         <span class="kw">match </span><span class="self">self </span>{
-            Error::ColumnNotFound { .. } =&gt; StatusCode::TableColumnNotFound,
-
             Error::IllegalDeleteRequest { .. } =&gt; StatusCode::InvalidArguments,
 
             Error::ColumnDataType { .. } =&gt; StatusCode::Internal,
@@ -235,10 +196,9 @@
             Error::CreateVector { .. } =&gt; StatusCode::InvalidArguments,
             Error::MissingField { .. } =&gt; StatusCode::InvalidArguments,
             Error::InvalidColumnDef { source, .. } =&gt; source.status_code(),
-            Error::UnrecognizedTableOption { .. } =&gt; StatusCode::InvalidArguments,
-            Error::UnexpectedValuesLength { .. }
-            | Error::ColumnAlreadyExists { .. }
-            | Error::UnknownLocationType { .. } =&gt; StatusCode::InvalidArguments,
+            Error::UnexpectedValuesLength { .. } | Error::UnknownLocationType { .. } =&gt; {
+                StatusCode::InvalidArguments
+            }
         }
     }
 

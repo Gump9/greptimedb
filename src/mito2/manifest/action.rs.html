@@ -250,6 +250,54 @@
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -267,28 +315,29 @@
 </span><span class="doccomment">//! Defines [RegionMetaAction] related structs and [RegionCheckpoint].
 
 </span><span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{OptionExt, ResultExt};
-<span class="kw">use </span>store_api::manifest::action::{ProtocolAction, ProtocolVersion};
 <span class="kw">use </span>store_api::manifest::ManifestVersion;
 <span class="kw">use </span>store_api::metadata::RegionMetadataRef;
 <span class="kw">use </span>store_api::storage::{RegionId, SequenceNumber};
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{RegionMetadataNotFoundSnafu, <span class="prelude-ty">Result</span>, SerdeJsonSnafu, Utf8Snafu};
 <span class="kw">use </span><span class="kw">crate</span>::sst::file::{FileId, FileMeta};
+<span class="kw">use </span><span class="kw">crate</span>::wal::EntryId;
 
 <span class="doccomment">/// Actions that can be applied to region manifest.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>RegionMetaAction {
-    <span class="doccomment">/// Set the min/max supported protocol version
-    </span>Protocol(ProtocolAction),
     <span class="doccomment">/// Change region&#39;s metadata for request like ALTER
     </span>Change(RegionChange),
     <span class="doccomment">/// Edit region&#39;s state for changing options or file list.
     </span>Edit(RegionEdit),
     <span class="doccomment">/// Remove the region.
     </span>Remove(RegionRemove),
+    <span class="doccomment">/// Truncate the region.
+    </span>Truncate(RegionTruncate),
 }
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -301,13 +350,25 @@
 </span><span class="kw">pub struct </span>RegionEdit {
     <span class="kw">pub </span>files_to_add: Vec&lt;FileMeta&gt;,
     <span class="kw">pub </span>files_to_remove: Vec&lt;FileMeta&gt;,
-    <span class="kw">pub </span>compaction_time_window: <span class="prelude-ty">Option</span>&lt;i64&gt;,
+    <span class="attr">#[serde(with = <span class="string">&quot;humantime_serde&quot;</span>)]
+    </span><span class="kw">pub </span>compaction_time_window: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="kw">pub </span>flushed_entry_id: <span class="prelude-ty">Option</span>&lt;EntryId&gt;,
     <span class="kw">pub </span>flushed_sequence: <span class="prelude-ty">Option</span>&lt;SequenceNumber&gt;,
 }
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>RegionRemove {
     <span class="kw">pub </span>region_id: RegionId,
+}
+
+<span class="doccomment">/// Last data truncated in the region.
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>RegionTruncate {
+    <span class="kw">pub </span>region_id: RegionId,
+    <span class="doccomment">/// Last WAL entry id of truncated data.
+    </span><span class="kw">pub </span>truncated_entry_id: EntryId,
+    <span class="comment">// Last sequence number of truncated data.
+    </span><span class="kw">pub </span>truncated_sequence: SequenceNumber,
 }
 
 <span class="doccomment">/// The region manifest data.
@@ -317,15 +378,28 @@
     </span><span class="kw">pub </span>metadata: RegionMetadataRef,
     <span class="doccomment">/// SST files.
     </span><span class="kw">pub </span>files: HashMap&lt;FileId, FileMeta&gt;,
+    <span class="doccomment">/// Last WAL entry id of flushed data.
+    </span><span class="kw">pub </span>flushed_entry_id: EntryId,
+    <span class="doccomment">/// Last sequence of flushed data.
+    </span><span class="kw">pub </span>flushed_sequence: SequenceNumber,
     <span class="doccomment">/// Current manifest version.
     </span><span class="kw">pub </span>manifest_version: ManifestVersion,
+    <span class="doccomment">/// Last WAL entry id of truncated data.
+    </span><span class="kw">pub </span>truncated_entry_id: <span class="prelude-ty">Option</span>&lt;EntryId&gt;,
+    <span class="doccomment">/// Inferred compaction time window.
+    </span><span class="attr">#[serde(with = <span class="string">&quot;humantime_serde&quot;</span>)]
+    </span><span class="kw">pub </span>compaction_time_window: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
 }
 
 <span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>RegionManifestBuilder {
     metadata: <span class="prelude-ty">Option</span>&lt;RegionMetadataRef&gt;,
     files: HashMap&lt;FileId, FileMeta&gt;,
+    flushed_entry_id: EntryId,
+    flushed_sequence: SequenceNumber,
     manifest_version: ManifestVersion,
+    truncated_entry_id: <span class="prelude-ty">Option</span>&lt;EntryId&gt;,
+    compaction_time_window: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
 }
 
 <span class="kw">impl </span>RegionManifestBuilder {
@@ -335,7 +409,11 @@
             <span class="self">Self </span>{
                 metadata: <span class="prelude-val">Some</span>(s.metadata),
                 files: s.files,
+                flushed_entry_id: s.flushed_entry_id,
                 manifest_version: s.manifest_version,
+                flushed_sequence: s.flushed_sequence,
+                truncated_entry_id: s.truncated_entry_id,
+                compaction_time_window: s.compaction_time_window,
             }
         } <span class="kw">else </span>{
             Default::default()
@@ -355,9 +433,26 @@
         <span class="kw">for </span>file <span class="kw">in </span>edit.files_to_remove {
             <span class="self">self</span>.files.remove(<span class="kw-2">&amp;</span>file.file_id);
         }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(flushed_entry_id) = edit.flushed_entry_id {
+            <span class="self">self</span>.flushed_entry_id = <span class="self">self</span>.flushed_entry_id.max(flushed_entry_id);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(flushed_sequence) = edit.flushed_sequence {
+            <span class="self">self</span>.flushed_sequence = <span class="self">self</span>.flushed_sequence.max(flushed_sequence);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(window) = edit.compaction_time_window {
+            <span class="self">self</span>.compaction_time_window = <span class="prelude-val">Some</span>(window);
+        }
     }
 
-    <span class="doccomment">/// Check if the builder keeps a [RegionMetadata](crate::metadata::RegionMetadata).
+    <span class="kw">pub fn </span>apply_truncate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, manifest_version: ManifestVersion, truncate: RegionTruncate) {
+        <span class="self">self</span>.manifest_version = manifest_version;
+        <span class="self">self</span>.flushed_entry_id = truncate.truncated_entry_id;
+        <span class="self">self</span>.flushed_sequence = truncate.truncated_sequence;
+        <span class="self">self</span>.truncated_entry_id = <span class="prelude-val">Some</span>(truncate.truncated_entry_id);
+        <span class="self">self</span>.files.clear();
+    }
+
+    <span class="doccomment">/// Check if the builder keeps a [RegionMetadata](store_api::metadata::RegionMetadata).
     </span><span class="kw">pub fn </span>contains_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.metadata.is_some()
     }
@@ -367,7 +462,11 @@
         <span class="prelude-val">Ok</span>(RegionManifest {
             metadata,
             files: <span class="self">self</span>.files,
+            flushed_entry_id: <span class="self">self</span>.flushed_entry_id,
+            flushed_sequence: <span class="self">self</span>.flushed_sequence,
             manifest_version: <span class="self">self</span>.manifest_version,
+            truncated_entry_id: <span class="self">self</span>.truncated_entry_id,
+            compaction_time_window: <span class="self">self</span>.compaction_time_window,
         })
     }
 }
@@ -419,11 +518,6 @@
 }
 
 <span class="kw">impl </span>RegionMetaActionList {
-    <span class="kw">fn </span>set_protocol(<span class="kw-2">&amp;mut </span><span class="self">self</span>, action: ProtocolAction) {
-        <span class="comment">// The protocol action should be the first action in action list by convention.
-        </span><span class="self">self</span>.actions.insert(<span class="number">0</span>, RegionMetaAction::Protocol(action));
-    }
-
     <span class="doccomment">/// Encode self into json in the form of string lines.
     </span><span class="kw">pub fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
         <span class="kw">let </span>json = serde_json::to_string(<span class="kw-2">&amp;</span><span class="self">self</span>).context(SerdeJsonSnafu)<span class="question-mark">?</span>;
@@ -435,22 +529,6 @@
         <span class="kw">let </span>data = std::str::from_utf8(bytes).context(Utf8Snafu)<span class="question-mark">?</span>;
 
         serde_json::from_str(data).context(SerdeJsonSnafu)
-    }
-}
-
-<span class="kw">pub struct </span>RegionMetaActionIter {
-    <span class="comment">// log_iter: ObjectStoreLogIterator,
-    </span>reader_version: ProtocolVersion,
-    last_protocol: <span class="prelude-ty">Option</span>&lt;ProtocolAction&gt;,
-}
-
-<span class="kw">impl </span>RegionMetaActionIter {
-    <span class="kw">pub fn </span>last_protocol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ProtocolAction&gt; {
-        <span class="self">self</span>.last_protocol.clone()
-    }
-
-    <span class="kw">async fn </span>next_action(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(ManifestVersion, RegionMetaActionList)&gt;&gt; {
-        <span class="macro">todo!</span>()
     }
 }
 
@@ -469,27 +547,45 @@
     // modification to manifest-related structs is compatible with older manifests.
     </span><span class="attr">#[test]
     </span><span class="kw">fn </span>test_region_manifest_compatibility() {
-        <span class="kw">let </span>region_edit = <span class="string">r#&quot;{&quot;region_version&quot;:0,&quot;flushed_sequence&quot;:null,&quot;files_to_add&quot;:[{&quot;region_id&quot;:4402341478400,&quot;file_name&quot;:&quot;4b220a70-2b03-4641-9687-b65d94641208.parquet&quot;,&quot;time_range&quot;:[{&quot;value&quot;:1451609210000,&quot;unit&quot;:&quot;Millisecond&quot;},{&quot;value&quot;:1451609520000,&quot;unit&quot;:&quot;Millisecond&quot;}],&quot;level&quot;:1}],&quot;files_to_remove&quot;:[{&quot;region_id&quot;:4402341478400,&quot;file_name&quot;:&quot;34b6ebb9-b8a5-4a4b-b744-56f67defad02.parquet&quot;,&quot;time_range&quot;:[{&quot;value&quot;:1451609210000,&quot;unit&quot;:&quot;Millisecond&quot;},{&quot;value&quot;:1451609520000,&quot;unit&quot;:&quot;Millisecond&quot;}],&quot;level&quot;:0}]}&quot;#</span>;
+        <span class="kw">let </span>region_edit = <span class="string">r#&quot;{
+            &quot;flushed_entry_id&quot;:null,
+            &quot;compaction_time_window&quot;:null,
+            &quot;files_to_add&quot;:[
+            {&quot;region_id&quot;:4402341478400,&quot;file_id&quot;:&quot;4b220a70-2b03-4641-9687-b65d94641208&quot;,&quot;time_range&quot;:[{&quot;value&quot;:1451609210000,&quot;unit&quot;:&quot;Millisecond&quot;},{&quot;value&quot;:1451609520000,&quot;unit&quot;:&quot;Millisecond&quot;}],&quot;level&quot;:1,&quot;file_size&quot;:100}
+            ],
+            &quot;files_to_remove&quot;:[
+            {&quot;region_id&quot;:4402341478400,&quot;file_id&quot;:&quot;34b6ebb9-b8a5-4a4b-b744-56f67defad02&quot;,&quot;time_range&quot;:[{&quot;value&quot;:1451609210000,&quot;unit&quot;:&quot;Millisecond&quot;},{&quot;value&quot;:1451609520000,&quot;unit&quot;:&quot;Millisecond&quot;}],&quot;level&quot;:0,&quot;file_size&quot;:100}
+            ]
+        }&quot;#</span>;
         <span class="kw">let _ </span>= serde_json::from_str::&lt;RegionEdit&gt;(region_edit).unwrap();
 
-        <span class="kw">let </span>region_change = <span class="string">r#&quot; {&quot;committed_sequence&quot;:42,&quot;metadata&quot;:{&quot;column_metadatas&quot;:[{&quot;column_schema&quot;:{&quot;name&quot;:&quot;a&quot;,&quot;data_type&quot;:{&quot;Int64&quot;:{}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},&quot;semantic_type&quot;:&quot;Tag&quot;,&quot;column_id&quot;:1},{&quot;column_schema&quot;:{&quot;name&quot;:&quot;b&quot;,&quot;data_type&quot;:{&quot;Float64&quot;:{}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},&quot;semantic_type&quot;:&quot;Field&quot;,&quot;column_id&quot;:2},{&quot;column_schema&quot;:{&quot;name&quot;:&quot;c&quot;,&quot;data_type&quot;:{&quot;Timestamp&quot;:{&quot;Millisecond&quot;:null}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},&quot;semantic_type&quot;:&quot;Timestamp&quot;,&quot;column_id&quot;:3}],&quot;version&quot;:9,&quot;primary_key&quot;:[1],&quot;region_id&quot;:5299989648942}}&quot;#</span>;
+        <span class="kw">let </span>region_edit = <span class="string">r#&quot;{
+            &quot;flushed_entry_id&quot;:10,
+            &quot;flushed_sequence&quot;:10,
+            &quot;compaction_time_window&quot;:null,
+            &quot;files_to_add&quot;:[
+            {&quot;region_id&quot;:4402341478400,&quot;file_id&quot;:&quot;4b220a70-2b03-4641-9687-b65d94641208&quot;,&quot;time_range&quot;:[{&quot;value&quot;:1451609210000,&quot;unit&quot;:&quot;Millisecond&quot;},{&quot;value&quot;:1451609520000,&quot;unit&quot;:&quot;Millisecond&quot;}],&quot;level&quot;:1,&quot;file_size&quot;:100}
+            ],
+            &quot;files_to_remove&quot;:[
+            {&quot;region_id&quot;:4402341478400,&quot;file_id&quot;:&quot;34b6ebb9-b8a5-4a4b-b744-56f67defad02&quot;,&quot;time_range&quot;:[{&quot;value&quot;:1451609210000,&quot;unit&quot;:&quot;Millisecond&quot;},{&quot;value&quot;:1451609520000,&quot;unit&quot;:&quot;Millisecond&quot;}],&quot;level&quot;:0,&quot;file_size&quot;:100}
+            ]
+        }&quot;#</span>;
+        <span class="kw">let _ </span>= serde_json::from_str::&lt;RegionEdit&gt;(region_edit).unwrap();
+
+        <span class="kw">let </span>region_change = <span class="string">r#&quot; {
+            &quot;metadata&quot;:{
+                &quot;column_metadatas&quot;:[
+                {&quot;column_schema&quot;:{&quot;name&quot;:&quot;a&quot;,&quot;data_type&quot;:{&quot;Int64&quot;:{}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},&quot;semantic_type&quot;:&quot;Tag&quot;,&quot;column_id&quot;:1},{&quot;column_schema&quot;:{&quot;name&quot;:&quot;b&quot;,&quot;data_type&quot;:{&quot;Float64&quot;:{}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},&quot;semantic_type&quot;:&quot;Field&quot;,&quot;column_id&quot;:2},{&quot;column_schema&quot;:{&quot;name&quot;:&quot;c&quot;,&quot;data_type&quot;:{&quot;Timestamp&quot;:{&quot;Millisecond&quot;:null}},&quot;is_nullable&quot;:false,&quot;is_time_index&quot;:false,&quot;default_constraint&quot;:null,&quot;metadata&quot;:{}},&quot;semantic_type&quot;:&quot;Timestamp&quot;,&quot;column_id&quot;:3}
+                ],
+                &quot;primary_key&quot;:[1],
+                &quot;region_id&quot;:5299989648942,
+                &quot;schema_version&quot;:0
+            }
+            }&quot;#</span>;
         <span class="kw">let _ </span>= serde_json::from_str::&lt;RegionChange&gt;(region_change).unwrap();
 
         <span class="kw">let </span>region_remove = <span class="string">r#&quot;{&quot;region_id&quot;:42}&quot;#</span>;
         <span class="kw">let _ </span>= serde_json::from_str::&lt;RegionRemove&gt;(region_remove).unwrap();
-
-        <span class="kw">let </span>protocol_action = <span class="string">r#&quot;{&quot;min_reader_version&quot;:1,&quot;min_writer_version&quot;:2}&quot;#</span>;
-        <span class="kw">let _ </span>= serde_json::from_str::&lt;ProtocolAction&gt;(protocol_action).unwrap();
-    }
-
-    <span class="kw">fn </span>mock_file_meta() -&gt; FileMeta {
-        FileMeta {
-            region_id: <span class="number">0</span>.into(),
-            file_id: FileId::random(),
-            time_range: (<span class="number">0</span>.into(), <span class="number">10000</span>.into()),
-            level: <span class="number">0</span>,
-            file_size: <span class="number">1024</span>,
-        }
     }
 
     <span class="attr">#[test]

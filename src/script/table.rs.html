@@ -371,9 +371,6 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -389,52 +386,68 @@
 // limitations under the License.
 
 </span><span class="doccomment">//! Scripts table
-</span><span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::sync::Arc;
+</span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>catalog::error::CompileScriptInternalSnafu;
-<span class="kw">use </span>catalog::{CatalogManagerRef, OpenSystemTableHook, RegisterSystemTableRequest};
-<span class="kw">use </span>common_catalog::consts::{
-    DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME, MITO_ENGINE, SCRIPTS_TABLE_ID,
+<span class="kw">use </span>api::helper::ColumnDataTypeWrapper;
+<span class="kw">use </span>api::v1::greptime_request::Request;
+<span class="kw">use </span>api::v1::value::ValueData;
+<span class="kw">use </span>api::v1::{
+    ColumnDataType, ColumnSchema <span class="kw">as </span>PbColumnSchema, Row, RowInsertRequest, RowInsertRequests, Rows,
+    SemanticType,
 };
-<span class="kw">use </span>common_catalog::format_full_table_name;
-<span class="kw">use </span>common_error::ext::BoxedError;
+<span class="kw">use </span>catalog::error::CompileScriptInternalSnafu;
+<span class="kw">use </span>common_error::ext::{BoxedError, ErrorExt};
 <span class="kw">use </span>common_query::Output;
 <span class="kw">use </span>common_recordbatch::{util <span class="kw">as </span>record_util, RecordBatch, SendableRecordBatchStream};
 <span class="kw">use </span>common_telemetry::logging;
 <span class="kw">use </span>common_time::util;
 <span class="kw">use </span>datafusion::datasource::DefaultTableSource;
+<span class="kw">use </span>datafusion::logical_expr::{and, col, lit};
 <span class="kw">use </span>datafusion_common::TableReference;
 <span class="kw">use </span>datafusion_expr::LogicalPlanBuilder;
-<span class="kw">use </span>datatypes::prelude::{ConcreteDataType, ScalarVector};
+<span class="kw">use </span>datatypes::prelude::ScalarVector;
 <span class="kw">use </span>datatypes::schema::{ColumnSchema, RawSchema};
-<span class="kw">use </span>datatypes::vectors::{StringVector, TimestampMillisecondVector, Vector, VectorRef};
-<span class="kw">use </span>query::parser::QueryLanguageParser;
+<span class="kw">use </span>datatypes::vectors::{StringVector, Vector};
 <span class="kw">use </span>query::plan::LogicalPlan;
 <span class="kw">use </span>query::QueryEngineRef;
-<span class="kw">use </span>session::context::QueryContextBuilder;
+<span class="kw">use </span>servers::query_handler::grpc::GrpcQueryHandlerRef;
+<span class="kw">use </span>session::context::{QueryContextBuilder, QueryContextRef};
 <span class="kw">use </span>snafu::{ensure, OptionExt, ResultExt};
-<span class="kw">use </span>table::requests::{CreateTableRequest, InsertRequest, TableOptions};
+<span class="kw">use </span>table::metadata::TableInfo;
 <span class="kw">use </span>table::table::adapter::DfTableProviderAdapter;
 <span class="kw">use </span>table::TableRef;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::{
     BuildDfLogicalPlanSnafu, CastTypeSnafu, CollectRecordsSnafu, ExecuteInternalStatementSnafu,
-    FindColumnInScriptsTableSnafu, FindScriptSnafu, FindScriptsTableSnafu, InsertScriptSnafu,
-    RegisterScriptsTableSnafu, <span class="prelude-ty">Result</span>, ScriptNotFoundSnafu, ScriptsTableNotFoundSnafu,
+    FindColumnInScriptsTableSnafu, InsertScriptSnafu, <span class="prelude-ty">Result</span>, ScriptNotFoundSnafu,
 };
-<span class="kw">use </span><span class="kw">crate</span>::python::utils::block_on_async;
 <span class="kw">use </span><span class="kw">crate</span>::python::PyScript;
 
 <span class="kw">pub const </span>SCRIPTS_TABLE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;scripts&quot;</span>;
 
-<span class="kw">pub struct </span>ScriptsTable {
-    catalog_manager: CatalogManagerRef,
+<span class="kw">pub type </span>ScriptsTableRef&lt;E&gt; = Arc&lt;ScriptsTable&lt;E&gt;&gt;;
+
+<span class="doccomment">/// The scripts table that keeps the script content etc.
+</span><span class="kw">pub struct </span>ScriptsTable&lt;E: ErrorExt + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+    table: TableRef,
+    grpc_handler: GrpcQueryHandlerRef&lt;E&gt;,
     query_engine: QueryEngineRef,
-    name: String,
 }
 
-<span class="kw">impl </span>ScriptsTable {
+<span class="kw">impl</span>&lt;E: ErrorExt + Send + Sync + <span class="lifetime">&#39;static</span>&gt; ScriptsTable&lt;E&gt; {
+    <span class="doccomment">/// Create a new `[ScriptsTable]` based on the table.
+    </span><span class="kw">pub fn </span>new(
+        table: TableRef,
+        grpc_handler: GrpcQueryHandlerRef&lt;E&gt;,
+        query_engine: QueryEngineRef,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            table,
+            grpc_handler,
+            query_engine,
+        }
+    }
+
     <span class="kw">fn </span>get_str_col_by_name&lt;<span class="lifetime">&#39;a</span>&gt;(record: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>RecordBatch, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StringVector&gt; {
         <span class="kw">let </span>column = record
             .column_by_name(name)
@@ -458,6 +471,8 @@
         table: TableRef,
         query_engine: QueryEngineRef,
     ) -&gt; catalog::error::Result&lt;()&gt; {
+        <span class="kw">let </span>table_info = table.table_info();
+
         <span class="kw">let </span>rbs = <span class="self">Self</span>::table_full_scan(table, <span class="kw-2">&amp;</span>query_engine)
             .<span class="kw">await
             </span>.map_err(BoxedError::new)
@@ -487,6 +502,12 @@
             script_list.extend(part_of_scripts_list);
         }
 
+        <span class="macro">logging::info!</span>(
+            <span class="string">&quot;Found {} scripts in {}&quot;</span>,
+            script_list.len(),
+            table_info.full_table_name()
+        );
+
         <span class="kw">for </span>(name, script) <span class="kw">in </span>script_list {
             <span class="kw">match </span>PyScript::from_script(<span class="kw-2">&amp;</span>script, query_engine.clone()) {
                 <span class="prelude-val">Ok</span>(script) =&gt; {
@@ -507,142 +528,87 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">pub async fn </span>new(
-        catalog_manager: CatalogManagerRef,
-        query_engine: QueryEngineRef,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>schema = build_scripts_schema();
-        <span class="comment">// TODO(dennis): we put scripts table into default catalog and schema.
-        // maybe put into system catalog?
-        </span><span class="kw">let </span>request = CreateTableRequest {
-            id: SCRIPTS_TABLE_ID,
-            catalog_name: DEFAULT_CATALOG_NAME.to_string(),
-            schema_name: DEFAULT_SCHEMA_NAME.to_string(),
-            table_name: SCRIPTS_TABLE_NAME.to_string(),
-            desc: <span class="prelude-val">Some</span>(<span class="string">&quot;Scripts table&quot;</span>.to_string()),
-            schema,
-            region_numbers: <span class="macro">vec!</span>[<span class="number">0</span>],
-            <span class="comment">//schema and name as primary key
-            </span>primary_key_indices: <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">1</span>],
-            create_if_not_exists: <span class="bool-val">true</span>,
-            table_options: TableOptions::default(),
-            engine: MITO_ENGINE.to_string(),
-        };
-        <span class="kw">let </span>callback_query_engine = query_engine.clone();
-        <span class="kw">let </span>script_recompile_callback: OpenSystemTableHook = Arc::new(<span class="kw">move </span>|table: TableRef| {
-            <span class="kw">let </span>callback_query_engine = callback_query_engine.clone();
-            block_on_async(<span class="kw">async move </span>{
-                <span class="self">Self</span>::recompile_register_udf(table, callback_query_engine.clone()).<span class="kw">await
-            </span>})
-            .unwrap()
-        });
-
-        catalog_manager
-            .register_system_table(RegisterSystemTableRequest {
-                create_table_request: request,
-                open_hook: <span class="prelude-val">Some</span>(script_recompile_callback),
-            })
-            .<span class="kw">await
-            </span>.context(RegisterScriptsTableSnafu)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            catalog_manager,
-            query_engine,
-            name: format_full_table_name(
-                DEFAULT_CATALOG_NAME,
-                DEFAULT_SCHEMA_NAME,
-                SCRIPTS_TABLE_NAME,
-            ),
-        })
-    }
 
     <span class="kw">pub async fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, schema: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str, script: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>now = util::current_time_millis();
-        <span class="kw">let </span>columns_values: HashMap&lt;String, VectorRef&gt; = HashMap::from([
-            (
-                <span class="string">&quot;schema&quot;</span>.to_string(),
-                Arc::new(StringVector::from(<span class="macro">vec!</span>[schema])) <span class="kw">as </span>VectorRef,
-            ),
-            (<span class="string">&quot;name&quot;</span>.to_string(), Arc::new(StringVector::from(<span class="macro">vec!</span>[name]))),
-            (
-                <span class="string">&quot;script&quot;</span>.to_string(),
-                Arc::new(StringVector::from(<span class="macro">vec!</span>[script])) <span class="kw">as </span>VectorRef,
-            ),
-            (
-                <span class="string">&quot;engine&quot;</span>.to_string(),
-                <span class="comment">// TODO(dennis): we only supports python right now.
-                </span>Arc::new(StringVector::from(<span class="macro">vec!</span>[<span class="string">&quot;python&quot;</span>])) <span class="kw">as </span>VectorRef,
-            ),
-            (
-                <span class="string">&quot;timestamp&quot;</span>.to_string(),
-                <span class="comment">// Timestamp in key part is intentionally left to 0
-                </span>Arc::new(TimestampMillisecondVector::from_slice([<span class="number">0</span>])) <span class="kw">as </span>VectorRef,
-            ),
-            (
-                <span class="string">&quot;gmt_created&quot;</span>.to_string(),
-                Arc::new(TimestampMillisecondVector::from_slice([now])) <span class="kw">as </span>VectorRef,
-            ),
-            (
-                <span class="string">&quot;gmt_modified&quot;</span>.to_string(),
-                Arc::new(TimestampMillisecondVector::from_slice([now])) <span class="kw">as </span>VectorRef,
-            ),
-        ]);
-        <span class="kw">let </span>table = <span class="self">self
-            </span>.catalog_manager
-            .table(
-                DEFAULT_CATALOG_NAME,
-                DEFAULT_SCHEMA_NAME,
-                SCRIPTS_TABLE_NAME,
-            )
-            .<span class="kw">await
-            </span>.context(FindScriptsTableSnafu)<span class="question-mark">?
-            </span>.context(ScriptsTableNotFoundSnafu)<span class="question-mark">?</span>;
 
-        <span class="kw">let _ </span>= table
-            .insert(InsertRequest {
-                catalog_name: DEFAULT_CATALOG_NAME.to_string(),
-                schema_name: DEFAULT_SCHEMA_NAME.to_string(),
-                table_name: SCRIPTS_TABLE_NAME.to_string(),
-                columns_values,
-                region_number: <span class="number">0</span>,
-            })
-            .<span class="kw">await
-            </span>.context(InsertScriptSnafu { name })<span class="question-mark">?</span>;
+        <span class="kw">let </span>table_info = <span class="self">self</span>.table.table_info();
 
-        <span class="macro">logging::info!</span>(<span class="string">&quot;Inserted script: name={} into scripts table.&quot;</span>, name);
+        <span class="kw">let </span>insert = RowInsertRequest {
+            table_name: SCRIPTS_TABLE_NAME.to_string(),
+            rows: <span class="prelude-val">Some</span>(Rows {
+                schema: build_insert_column_schemas(),
+                rows: <span class="macro">vec!</span>[Row {
+                    values: <span class="macro">vec!</span>[
+                        ValueData::StringValue(schema.to_string()).into(),
+                        ValueData::StringValue(name.to_string()).into(),
+                        <span class="comment">// TODO(dennis): we only supports python right now.
+                        </span>ValueData::StringValue(<span class="string">&quot;python&quot;</span>.to_string()).into(),
+                        ValueData::StringValue(script.to_string()).into(),
+                        <span class="comment">// Timestamp in key part is intentionally left to 0
+                        </span>ValueData::TimestampMillisecondValue(<span class="number">0</span>).into(),
+                        ValueData::TimestampMillisecondValue(now).into(),
+                    ],
+                }],
+            }),
+        };
+
+        <span class="kw">let </span>requests = RowInsertRequests {
+            inserts: <span class="macro">vec!</span>[insert],
+        };
+
+        <span class="kw">let </span>output = <span class="self">self
+            </span>.grpc_handler
+            .do_query(Request::RowInserts(requests), query_ctx(<span class="kw-2">&amp;</span>table_info))
+            .<span class="kw">await
+            </span>.map_err(BoxedError::new)
+            .context(InsertScriptSnafu { name })<span class="question-mark">?</span>;
+
+        <span class="macro">logging::info!</span>(
+            <span class="string">&quot;Inserted script: {} into scripts table: {}, output: {:?}.&quot;</span>,
+            name,
+            table_info.full_table_name(),
+            output
+        );
 
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">pub async fn </span>find_script_by_name(<span class="kw-2">&amp;</span><span class="self">self</span>, schema: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
-        <span class="comment">// FIXME(dennis): SQL injection
-        // TODO(dennis): we use sql to find the script, the better way is use a function
-        //               such as `find_record_by_primary_key` in table_engine.
-        </span><span class="kw">let </span>sql = <span class="macro">format!</span>(
-            <span class="string">&quot;select script from {} where schema=&#39;{}&#39; and name=&#39;{}&#39;&quot;</span>,
-            <span class="self">self</span>.name(),
-            schema,
-            name
+        <span class="kw">let </span>table_info = <span class="self">self</span>.table.table_info();
+
+        <span class="kw">let </span>table_name = TableReference::full(
+            table_info.catalog_name.clone(),
+            table_info.schema_name.clone(),
+            table_info.name.clone(),
         );
-        <span class="kw">let </span>stmt = QueryLanguageParser::parse_sql(<span class="kw-2">&amp;</span>sql).unwrap();
-        <span class="kw">let </span>ctx = QueryContextBuilder::default().build();
 
-        <span class="kw">let </span>plan = <span class="self">self
-            </span>.query_engine
-            .planner()
-            .plan(stmt, ctx.clone())
-            .<span class="kw">await
-            </span>.unwrap();
+        <span class="kw">let </span>table_provider = Arc::new(DfTableProviderAdapter::new(<span class="self">self</span>.table.clone()));
+        <span class="kw">let </span>table_source = Arc::new(DefaultTableSource::new(table_provider));
 
-        <span class="kw">let </span>stream = <span class="kw">match </span><span class="self">self
+        <span class="kw">let </span>plan = LogicalPlanBuilder::scan(table_name, table_source, <span class="prelude-val">None</span>)
+            .context(BuildDfLogicalPlanSnafu)<span class="question-mark">?
+            </span>.filter(and(
+                col(<span class="string">&quot;schema&quot;</span>).eq(lit(schema)),
+                col(<span class="string">&quot;name&quot;</span>).eq(lit(name)),
+            ))
+            .context(BuildDfLogicalPlanSnafu)<span class="question-mark">?
+            </span>.project(<span class="macro">vec!</span>[col(<span class="string">&quot;script&quot;</span>)])
+            .context(BuildDfLogicalPlanSnafu)<span class="question-mark">?
+            </span>.build()
+            .context(BuildDfLogicalPlanSnafu)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>output = <span class="self">self
             </span>.query_engine
-            .execute(plan, ctx)
+            .execute(LogicalPlan::DfPlan(plan), query_ctx(<span class="kw-2">&amp;</span>table_info))
             .<span class="kw">await
-            </span>.context(FindScriptSnafu { name })<span class="question-mark">?
-        </span>{
+            </span>.context(ExecuteInternalStatementSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>stream = <span class="kw">match </span>output {
             Output::Stream(stream) =&gt; stream,
+            Output::RecordBatches(record_batches) =&gt; record_batches.as_stream(),
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
         };
+
         <span class="kw">let </span>records = record_util::collect(stream)
             .<span class="kw">await
             </span>.context(CollectRecordsSnafu)<span class="question-mark">?</span>;
@@ -664,12 +630,9 @@
             })<span class="question-mark">?</span>;
 
         <span class="macro">assert_eq!</span>(script_column.len(), <span class="number">1</span>);
-        <span class="prelude-val">Ok</span>(script_column.get_data(<span class="number">0</span>).unwrap().to_string())
-    }
 
-    <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.name
+        <span class="comment">// Safety: asserted above
+        </span><span class="prelude-val">Ok</span>(script_column.get_data(<span class="number">0</span>).unwrap().to_string())
     }
 
     <span class="kw">async fn </span>table_full_scan(
@@ -692,10 +655,7 @@
             .context(BuildDfLogicalPlanSnafu)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>output = query_engine
-            .execute(
-                LogicalPlan::DfPlan(plan),
-                QueryContextBuilder::default().build(),
-            )
+            .execute(LogicalPlan::DfPlan(plan), query_ctx(<span class="kw-2">&amp;</span>table_info))
             .<span class="kw">await
             </span>.context(ExecuteInternalStatementSnafu)<span class="question-mark">?</span>;
         <span class="kw">let </span>stream = <span class="kw">match </span>output {
@@ -707,46 +667,80 @@
     }
 }
 
+<span class="doccomment">/// Build the inserted column schemas
+</span><span class="kw">fn </span>build_insert_column_schemas() -&gt; Vec&lt;PbColumnSchema&gt; {
+    <span class="macro">vec!</span>[
+        <span class="comment">// The schema that script belongs to.
+        </span>PbColumnSchema {
+            column_name: <span class="string">&quot;schema&quot;</span>.to_string(),
+            datatype: ColumnDataType::String.into(),
+            semantic_type: SemanticType::Tag.into(),
+        },
+        PbColumnSchema {
+            column_name: <span class="string">&quot;name&quot;</span>.to_string(),
+            datatype: ColumnDataType::String.into(),
+            semantic_type: SemanticType::Tag.into(),
+        },
+        PbColumnSchema {
+            column_name: <span class="string">&quot;engine&quot;</span>.to_string(),
+            datatype: ColumnDataType::String.into(),
+            semantic_type: SemanticType::Tag.into(),
+        },
+        PbColumnSchema {
+            column_name: <span class="string">&quot;script&quot;</span>.to_string(),
+            datatype: ColumnDataType::String.into(),
+            semantic_type: SemanticType::Field.into(),
+        },
+        PbColumnSchema {
+            column_name: <span class="string">&quot;greptime_timestamp&quot;</span>.to_string(),
+            datatype: ColumnDataType::TimestampMillisecond.into(),
+            semantic_type: SemanticType::Timestamp.into(),
+        },
+        PbColumnSchema {
+            column_name: <span class="string">&quot;gmt_modified&quot;</span>.to_string(),
+            datatype: ColumnDataType::TimestampMillisecond.into(),
+            semantic_type: SemanticType::Field.into(),
+        },
+    ]
+}
+
+<span class="kw">fn </span>query_ctx(table_info: <span class="kw-2">&amp;</span>TableInfo) -&gt; QueryContextRef {
+    QueryContextBuilder::default()
+        .current_catalog(table_info.catalog_name.to_string())
+        .current_schema(table_info.schema_name.to_string())
+        .build()
+}
+
+<span class="doccomment">/// Returns the scripts schema&#39;s primary key indices
+</span><span class="kw">pub fn </span>get_primary_key_indices() -&gt; Vec&lt;usize&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>indices = <span class="macro">vec!</span>[];
+    <span class="kw">for </span>(index, c) <span class="kw">in </span>build_insert_column_schemas().into_iter().enumerate() {
+        <span class="kw">if </span>c.semantic_type == (SemanticType::Tag <span class="kw">as </span>i32) {
+            indices.push(index);
+        }
+    }
+
+    indices
+}
+
 <span class="doccomment">/// Build scripts table
 </span><span class="kw">pub fn </span>build_scripts_schema() -&gt; RawSchema {
-    <span class="kw">let </span>cols = <span class="macro">vec!</span>[
-        ColumnSchema::new(
-            <span class="string">&quot;schema&quot;</span>.to_string(),
-            ConcreteDataType::string_datatype(),
-            <span class="bool-val">false</span>,
-        ),
-        ColumnSchema::new(
-            <span class="string">&quot;name&quot;</span>.to_string(),
-            ConcreteDataType::string_datatype(),
-            <span class="bool-val">false</span>,
-        ),
-        ColumnSchema::new(
-            <span class="string">&quot;script&quot;</span>.to_string(),
-            ConcreteDataType::string_datatype(),
-            <span class="bool-val">false</span>,
-        ),
-        ColumnSchema::new(
-            <span class="string">&quot;engine&quot;</span>.to_string(),
-            ConcreteDataType::string_datatype(),
-            <span class="bool-val">false</span>,
-        ),
-        ColumnSchema::new(
-            <span class="string">&quot;timestamp&quot;</span>.to_string(),
-            ConcreteDataType::timestamp_millisecond_datatype(),
-            <span class="bool-val">false</span>,
-        )
-        .with_time_index(<span class="bool-val">true</span>),
-        ColumnSchema::new(
-            <span class="string">&quot;gmt_created&quot;</span>.to_string(),
-            ConcreteDataType::timestamp_millisecond_datatype(),
-            <span class="bool-val">false</span>,
-        ),
-        ColumnSchema::new(
-            <span class="string">&quot;gmt_modified&quot;</span>.to_string(),
-            ConcreteDataType::timestamp_millisecond_datatype(),
-            <span class="bool-val">false</span>,
-        ),
-    ];
+    <span class="kw">let </span>cols = build_insert_column_schemas()
+        .into_iter()
+        .map(|c| {
+            <span class="kw">let </span>cs = ColumnSchema::new(
+                c.column_name,
+                <span class="comment">// Safety: the type always exists
+                </span>ColumnDataTypeWrapper::try_new(c.datatype).unwrap().into(),
+                <span class="bool-val">false</span>,
+            );
+            <span class="kw">if </span>c.semantic_type == SemanticType::Timestamp <span class="kw">as </span>i32 {
+                cs.with_time_index(<span class="bool-val">true</span>)
+            } <span class="kw">else </span>{
+                cs
+            }
+        })
+        .collect();
 
     RawSchema::new(cols)
 }

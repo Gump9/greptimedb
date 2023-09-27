@@ -288,6 +288,7 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -321,6 +322,7 @@
 <span class="kw">use </span>pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
 <span class="kw">use </span>query::query_engine::DescribeResult;
 <span class="kw">use </span>session::Session;
+<span class="kw">use </span>snafu::ErrorCompat;
 <span class="kw">use </span>sql::dialect::PostgreSqlDialect;
 <span class="kw">use </span>sql::parser::ParserContext;
 
@@ -380,7 +382,7 @@
         <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Ok</span>(Response::Error(Box::new(ErrorInfo::new(
             <span class="string">&quot;ERROR&quot;</span>.to_string(),
             <span class="string">&quot;XX000&quot;</span>.to_string(),
-            e.to_string(),
+            e.iter_chain().last().unwrap().to_string(),
         )))),
     }
 }

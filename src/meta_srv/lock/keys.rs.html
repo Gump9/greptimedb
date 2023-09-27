@@ -26,10 +26,6 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
-<a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -53,12 +49,8 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>table_metadata_lock_key(region: <span class="kw-2">&amp;</span>RegionIdent) -&gt; Key {
     <span class="macro">format!</span>(
-        <span class="string">&quot;table_metadata_lock_({}-{}.{}.{}-{})&quot;</span>,
-        region.cluster_id,
-        region.table_ident.catalog,
-        region.table_ident.schema,
-        region.table_ident.table,
-        region.table_ident.table_id,
+        <span class="string">&quot;table_metadata_lock_({}-{})&quot;</span>,
+        region.cluster_id, region.table_id,
     )
     .into_bytes()
 }

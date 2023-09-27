@@ -104,6 +104,32 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -185,6 +211,32 @@
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Some</span>(resp.kvs.remove(<span class="number">0</span>))
         })
+    }
+
+    <span class="doccomment">/// Puts a value at a key. If `if_not_exists` is `true`, the operation
+    /// ensures the key does not exist before applying the PUT operation.
+    /// Otherwise, it simply applies the PUT operation without checking for
+    /// the key&#39;s existence.
+    </span><span class="kw">async fn </span>put_conditionally(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        key: Vec&lt;u8&gt;,
+        value: Vec&lt;u8&gt;,
+        if_not_exists: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::Error&gt; {
+        <span class="kw">let </span>success = <span class="kw">if </span>if_not_exists {
+            <span class="kw">let </span>req = CompareAndPutRequest::new()
+                .with_key(key)
+                .with_expect(<span class="macro">vec!</span>[])
+                .with_value(value);
+            <span class="kw">let </span>res = <span class="self">self</span>.compare_and_put(req).<span class="kw">await</span><span class="question-mark">?</span>;
+            res.success
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>req = PutRequest::new().with_key(key).with_value(value);
+            <span class="self">self</span>.put(req).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="bool-val">true
+        </span>};
+
+        <span class="prelude-val">Ok</span>(success)
     }
 
     <span class="doccomment">/// Check if the key exists, not returning the value.

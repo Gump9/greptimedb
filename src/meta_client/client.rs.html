@@ -907,6 +907,32 @@
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -930,7 +956,10 @@
 <span class="kw">mod </span>store;
 
 <span class="kw">use </span>api::v1::meta::Role;
+<span class="kw">use </span>common_error::ext::BoxedError;
 <span class="kw">use </span>common_grpc::channel_manager::{ChannelConfig, ChannelManager};
+<span class="kw">use </span>common_meta::ddl::{DdlTaskExecutor, ExecutorContext};
+<span class="kw">use </span>common_meta::error::{<span class="self">self </span><span class="kw">as </span>meta_error, <span class="prelude-ty">Result </span><span class="kw">as </span>MetaResult};
 <span class="kw">use </span>common_meta::rpc::ddl::{SubmitDdlTaskRequest, SubmitDdlTaskResponse};
 <span class="kw">use </span>common_meta::rpc::lock::{LockRequest, LockResponse, UnlockRequest};
 <span class="kw">use </span>common_meta::rpc::router::{RouteRequest, RouteResponse};
@@ -968,6 +997,7 @@
     enable_ddl: bool,
     channel_manager: <span class="prelude-ty">Option</span>&lt;ChannelManager&gt;,
     ddl_channel_manager: <span class="prelude-ty">Option</span>&lt;ChannelManager&gt;,
+    heartbeat_channel_manager: <span class="prelude-ty">Option</span>&lt;ChannelManager&gt;,
 }
 
 <span class="kw">impl </span>MetaClientBuilder {
@@ -1028,6 +1058,13 @@
         </span>}
     }
 
+    <span class="kw">pub fn </span>heartbeat_channel_manager(<span class="self">self</span>, channel_manager: ChannelManager) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            heartbeat_channel_manager: <span class="prelude-val">Some</span>(channel_manager),
+            ..<span class="self">self
+        </span>}
+    }
+
     <span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; MetaClient {
         <span class="kw">let </span><span class="kw-2">mut </span>client = <span class="kw">if let </span><span class="prelude-val">Some</span>(mgr) = <span class="self">self</span>.channel_manager {
             MetaClient::with_channel_manager(<span class="self">self</span>.id, mgr)
@@ -1042,10 +1079,11 @@
         <span class="kw">let </span>mgr = client.channel_manager.clone();
 
         <span class="kw">if </span><span class="self">self</span>.enable_heartbeat {
+            <span class="kw">let </span>mgr = <span class="self">self</span>.heartbeat_channel_manager.unwrap_or(mgr.clone());
             client.heartbeat = <span class="prelude-val">Some</span>(HeartbeatClient::new(
                 <span class="self">self</span>.id,
                 <span class="self">self</span>.role,
-                mgr.clone(),
+                mgr,
                 DEFAULT_ASK_LEADER_MAX_RETRY,
             ));
         }
@@ -1081,6 +1119,20 @@
     store: <span class="prelude-ty">Option</span>&lt;StoreClient&gt;,
     lock: <span class="prelude-ty">Option</span>&lt;LockClient&gt;,
     ddl: <span class="prelude-ty">Option</span>&lt;DdlClient&gt;,
+}
+
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl </span>DdlTaskExecutor <span class="kw">for </span>MetaClient {
+    <span class="kw">async fn </span>submit_ddl_task(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _ctx: <span class="kw-2">&amp;</span>ExecutorContext,
+        request: SubmitDdlTaskRequest,
+    ) -&gt; MetaResult&lt;SubmitDdlTaskResponse&gt; {
+        <span class="self">self</span>.submit_ddl_task(request)
+            .<span class="kw">await
+            </span>.map_err(BoxedError::new)
+            .context(meta_error::ExternalSnafu)
+    }
 }
 
 <span class="kw">impl </span>MetaClient {

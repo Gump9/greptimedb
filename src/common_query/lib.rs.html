@@ -68,6 +68,7 @@
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -84,8 +85,8 @@
 
 </span><span class="kw">use </span>std::fmt::{Debug, Formatter};
 
-<span class="kw">use </span>api::greptime_proto::v1::add_column::location::LocationType;
-<span class="kw">use </span>api::greptime_proto::v1::add_column::Location;
+<span class="kw">use </span>api::greptime_proto::v1::add_column_location::LocationType;
+<span class="kw">use </span>api::greptime_proto::v1::AddColumnLocation <span class="kw">as </span>Location;
 <span class="kw">use </span>common_recordbatch::{RecordBatches, SendableRecordBatchStream};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -96,6 +97,7 @@
 <span class="kw">pub mod </span>physical_plan;
 <span class="kw">pub mod </span>prelude;
 <span class="kw">mod </span>signature;
+<span class="kw">use </span>sqlparser_derive::{Visit, VisitMut};
 
 <span class="comment">// sql output
 </span><span class="kw">pub enum </span>Output {
@@ -118,7 +120,7 @@
 
 <span class="kw">pub use </span>datafusion::physical_plan::ExecutionPlan <span class="kw">as </span>DfPhysicalPlan;
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Visit, VisitMut)]
 </span><span class="kw">pub enum </span>AddColumnLocation {
     First,
     After { column_name: String },
@@ -129,11 +131,11 @@
         <span class="kw">match </span>value {
             AddColumnLocation::First =&gt; Location {
                 location_type: LocationType::First.into(),
-                after_cloumn_name: <span class="string">&quot;&quot;</span>.to_string(),
+                after_column_name: <span class="string">&quot;&quot;</span>.to_string(),
             },
             AddColumnLocation::After { column_name } =&gt; Location {
                 location_type: LocationType::After.into(),
-                after_cloumn_name: column_name.to_string(),
+                after_column_name: column_name.to_string(),
             },
         }
     }

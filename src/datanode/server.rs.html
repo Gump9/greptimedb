@@ -93,27 +93,6 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -128,28 +107,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>std::default::Default;
-<span class="kw">use </span>std::net::SocketAddr;
+</span><span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>common_runtime::Builder <span class="kw">as </span>RuntimeBuilder;
 <span class="kw">use </span>futures::future;
-<span class="kw">use </span>servers::grpc::GrpcServer;
+<span class="kw">use </span>servers::grpc::{GrpcServer, GrpcServerConfig};
 <span class="kw">use </span>servers::http::{HttpServer, HttpServerBuilder};
 <span class="kw">use </span>servers::metrics_handler::MetricsHandler;
-<span class="kw">use </span>servers::query_handler::grpc::ServerGrpcQueryHandlerAdaptor;
 <span class="kw">use </span>servers::server::Server;
 <span class="kw">use </span>snafu::ResultExt;
 
-<span class="kw">use </span><span class="kw">crate</span>::datanode::DatanodeOptions;
+<span class="kw">use </span><span class="kw">crate</span>::config::DatanodeOptions;
 <span class="kw">use </span><span class="kw">crate</span>::error::{
-    ParseAddrSnafu, <span class="prelude-ty">Result</span>, RuntimeResourceSnafu, ShutdownServerSnafu, StartServerSnafu,
-    WaitForGrpcServingSnafu,
+    ParseAddrSnafu, <span class="prelude-ty">Result</span>, ShutdownServerSnafu, StartServerSnafu, WaitForGrpcServingSnafu,
 };
-<span class="kw">use </span><span class="kw">crate</span>::instance::InstanceRef;
 <span class="kw">use </span><span class="kw">crate</span>::region_server::RegionServer;
-
-<span class="kw">pub mod </span>grpc;
 
 <span class="doccomment">/// All rpc services.
 </span><span class="kw">pub struct </span>Services {
@@ -158,40 +130,26 @@
 }
 
 <span class="kw">impl </span>Services {
-    <span class="kw">pub async fn </span>try_new(instance: InstanceRef, opts: <span class="kw-2">&amp;</span>DatanodeOptions) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="comment">// TODO(ruihang): remove database service once region server is ready.
-        </span><span class="kw">let </span>enable_region_server = <span class="macro">option_env!</span>(<span class="string">&quot;ENABLE_REGION_SERVER&quot;</span>).is_some();
-
-        <span class="kw">let </span>grpc_runtime = Arc::new(
-            RuntimeBuilder::default()
-                .worker_threads(opts.rpc_runtime_size)
-                .thread_name(<span class="string">&quot;grpc-io-handlers&quot;</span>)
-                .build()
-                .context(RuntimeResourceSnafu)<span class="question-mark">?</span>,
-        );
-
-        <span class="kw">let </span>region_server = RegionServer::new(instance.query_engine(), grpc_runtime.clone());
-        <span class="kw">let </span>flight_handler = <span class="kw">if </span>enable_region_server {
-            <span class="prelude-val">Some</span>(Arc::new(region_server.clone()) <span class="kw">as _</span>)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-        <span class="kw">let </span>region_server_handler = <span class="kw">if </span>enable_region_server {
-            <span class="prelude-val">Some</span>(Arc::new(region_server.clone()) <span class="kw">as _</span>)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
+    <span class="kw">pub async fn </span>try_new(region_server: RegionServer, opts: <span class="kw-2">&amp;</span>DatanodeOptions) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>flight_handler = <span class="prelude-val">Some</span>(Arc::new(region_server.clone()) <span class="kw">as _</span>);
+        <span class="kw">let </span>region_server_handler = <span class="prelude-val">Some</span>(Arc::new(region_server.clone()) <span class="kw">as _</span>);
+        <span class="kw">let </span>runtime = region_server.runtime();
+        <span class="kw">let </span>grpc_config = GrpcServerConfig {
+            max_recv_message_size: opts.rpc_max_recv_message_size,
+            max_send_message_size: opts.rpc_max_send_message_size,
+        };
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             grpc_server: GrpcServer::new(
-                ServerGrpcQueryHandlerAdaptor::arc(instance),
+                <span class="prelude-val">Some</span>(grpc_config),
+                <span class="prelude-val">None</span>,
                 <span class="prelude-val">None</span>,
                 flight_handler,
                 region_server_handler,
                 <span class="prelude-val">None</span>,
-                grpc_runtime,
+                runtime,
             ),
-            http_server: HttpServerBuilder::new(opts.http_opts.clone())
+            http_server: HttpServerBuilder::new(opts.http.clone())
                 .with_metrics_handler(MetricsHandler)
                 .with_greptime_config_options(opts.to_toml_string())
                 .build(),
@@ -202,8 +160,8 @@
         <span class="kw">let </span>grpc_addr: SocketAddr = opts.rpc_addr.parse().context(ParseAddrSnafu {
             addr: <span class="kw-2">&amp;</span>opts.rpc_addr,
         })<span class="question-mark">?</span>;
-        <span class="kw">let </span>http_addr = opts.http_opts.addr.parse().context(ParseAddrSnafu {
-            addr: <span class="kw-2">&amp;</span>opts.http_opts.addr,
+        <span class="kw">let </span>http_addr = opts.http.addr.parse().context(ParseAddrSnafu {
+            addr: <span class="kw-2">&amp;</span>opts.http.addr,
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>grpc = <span class="self">self</span>.grpc_server.start(grpc_addr);
         <span class="kw">let </span>http = <span class="self">self</span>.http_server.start(http_addr);

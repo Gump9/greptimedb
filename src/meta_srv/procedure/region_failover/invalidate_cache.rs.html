@@ -155,12 +155,12 @@
 
 </span><span class="kw">use </span>api::v1::meta::MailboxMessage;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>common_meta::ident::TableIdent;
 <span class="kw">use </span>common_meta::instruction::Instruction;
 <span class="kw">use </span>common_meta::RegionIdent;
 <span class="kw">use </span>common_telemetry::info;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>table::metadata::TableId;
 
 <span class="kw">use </span><span class="kw">super</span>::failover_end::RegionFailoverEnd;
 <span class="kw">use super</span>::{RegionFailoverContext, State};
@@ -174,9 +174,9 @@
     <span class="kw">async fn </span>broadcast_invalidate_table_cache_messages(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ctx: <span class="kw-2">&amp;</span>RegionFailoverContext,
-        table_ident: <span class="kw-2">&amp;</span>TableIdent,
+        table_id: TableId,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>instruction = Instruction::InvalidateTableCache(table_ident.clone());
+        <span class="kw">let </span>instruction = Instruction::InvalidateTableIdCache(table_id);
 
         <span class="kw">let </span>msg = <span class="kw-2">&amp;</span>MailboxMessage::json_message(
             <span class="string">&quot;Invalidate Table Cache&quot;</span>,
@@ -203,12 +203,12 @@
         ctx: <span class="kw-2">&amp;</span>RegionFailoverContext,
         failed_region: <span class="kw-2">&amp;</span>RegionIdent,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>State&gt;&gt; {
-        <span class="kw">let </span>table_ident = TableIdent::from(failed_region.clone());
+        <span class="kw">let </span>table_id = failed_region.table_id;
         <span class="macro">info!</span>(
             <span class="string">&quot;Broadcast invalidate table({}) cache message to frontend&quot;</span>,
-            table_ident
+            table_id
         );
-        <span class="self">self</span>.broadcast_invalidate_table_cache_messages(ctx, <span class="kw-2">&amp;</span>table_ident)
+        <span class="self">self</span>.broadcast_invalidate_table_cache_messages(ctx, table_id)
             .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(Box::new(RegionFailoverEnd))
@@ -237,6 +237,7 @@
             <span class="kw-2">mut </span>heartbeat_receivers,
             context,
             pushers,
+            ..
         } = env;
 
         <span class="kw">for </span>frontend_id <span class="kw">in </span><span class="number">4</span>..=<span class="number">7 </span>{
@@ -249,7 +250,7 @@
             <span class="kw">let _ </span>= heartbeat_receivers.insert(frontend_id, rx);
         }
 
-        <span class="kw">let </span>table_ident: TableIdent = failed_region.clone().into();
+        <span class="kw">let </span>table_id = failed_region.table_id;
 
         <span class="comment">// lexicographical order
         // frontend-4,5,6,7
@@ -273,8 +274,7 @@
             <span class="macro">assert_eq!</span>(
                 received.payload,
                 <span class="prelude-val">Some</span>(Payload::Json(
-                    serde_json::to_string(<span class="kw-2">&amp;</span>Instruction::InvalidateTableCache(table_ident.clone()))
-                        .unwrap(),
+                    serde_json::to_string(<span class="kw-2">&amp;</span>Instruction::InvalidateTableIdCache(table_id)).unwrap(),
                 ))
             );
         }

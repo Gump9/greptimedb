@@ -215,6 +215,15 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -231,6 +240,7 @@
 
 </span><span class="kw">use </span>common_error::ext::ErrorExt;
 <span class="kw">use </span>common_error::status_code::StatusCode;
+<span class="kw">use </span>common_macro::stack_trace_debug;
 <span class="kw">use </span>console::{style, Style};
 <span class="kw">use </span>datafusion::error::DataFusionError;
 <span class="kw">use </span>datatypes::arrow::error::ArrowError;
@@ -248,31 +258,34 @@
     OtherSnafu { reason }
 }
 
-<span class="attr">#[derive(Debug, Snafu)]
+<span class="attr">#[derive(Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>(<span class="kw">crate</span>)))]
+#[stack_trace_debug]
 </span><span class="kw">pub enum </span>Error {
-    <span class="attr">#[snafu(display(<span class="string">&quot;Datatype error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Datatype error&quot;</span>))]
     </span>TypeCast {
         location: SnafuLocation,
         source: DataTypeError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to query, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to query&quot;</span>))]
     </span>DatabaseQuery {
         location: SnafuLocation,
         source: QueryError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse script, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to parse script&quot;</span>))]
     </span>PyParse {
         location: SnafuLocation,
-        source: ParseError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ParseError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to compile script, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to compile script&quot;</span>))]
     </span>PyCompile {
         location: SnafuLocation,
-        source: CodegenError,
+        <span class="attr">#[snafu(source)]
+        </span>error: CodegenError,
     },
 
     <span class="doccomment">/// rustpython problem, using python virtual machines&#39; backtrace instead
@@ -282,16 +295,18 @@
         location: SnafuLocation,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Arrow error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Arrow error&quot;</span>))]
     </span>Arrow {
         location: SnafuLocation,
-        source: ArrowError,
+        <span class="attr">#[snafu(source)]
+        </span>error: ArrowError,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;DataFusion error: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;DataFusion error&quot;</span>))]
     </span>DataFusion {
         location: SnafuLocation,
-        source: DataFusionError,
+        <span class="attr">#[snafu(source)]
+        </span>error: DataFusionError,
     },
 
     <span class="doccomment">/// errors in coprocessors&#39; parse check for types and etc.
@@ -321,19 +336,22 @@
         location: SnafuLocation,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to retrieve record batches, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to retrieve record batches&quot;</span>))]
     </span>RecordBatch {
         location: SnafuLocation,
         source: common_recordbatch::error::Error,
     },
 
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create record batch, source: {}&quot;</span>, source))]
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create record batch&quot;</span>))]
     </span>NewRecordBatch {
         location: SnafuLocation,
         source: common_recordbatch::error::Error,
     },
-    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create tokio task, source: {}&quot;</span>, source))]
-    </span>TokioJoin { source: tokio::task::JoinError },
+    <span class="attr">#[snafu(display(<span class="string">&quot;Failed to create tokio task&quot;</span>))]
+    </span>TokioJoin {
+        <span class="attr">#[snafu(source)]
+        </span>error: tokio::task::JoinError,
+    },
 }
 
 <span class="kw">impl </span>ErrorExt <span class="kw">for </span>Error {
@@ -427,8 +445,8 @@
         Error::CoprParse { reason, loc, .. } =&gt; (reason.clone(), <span class="kw-2">*</span>loc),
         Error::Other { reason, .. } =&gt; (reason.clone(), <span class="prelude-val">None</span>),
         Error::PyRuntime { msg, .. } =&gt; (msg.clone(), <span class="prelude-val">None</span>),
-        Error::PyParse { source, .. } =&gt; (source.error.to_string(), <span class="prelude-val">Some</span>(source.location)),
-        Error::PyCompile { source, .. } =&gt; (source.error.to_string(), <span class="prelude-val">Some</span>(source.location)),
+        Error::PyParse { error, .. } =&gt; (error.error.to_string(), <span class="prelude-val">Some</span>(error.location)),
+        Error::PyCompile { error, .. } =&gt; (error.error.to_string(), <span class="prelude-val">Some</span>(error.location)),
         <span class="kw">_ </span>=&gt; (<span class="macro">format!</span>(<span class="string">&quot;Unknown error: {err:?}&quot;</span>), <span class="prelude-val">None</span>),
     }
 }

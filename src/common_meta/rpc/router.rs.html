@@ -631,6 +631,30 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -710,16 +734,10 @@
 <span class="kw">pub fn </span>region_distribution(region_routes: <span class="kw-2">&amp;</span>[RegionRoute]) -&gt; <span class="prelude-ty">Result</span>&lt;RegionDistribution&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>regions_id_map = RegionDistribution::new();
     <span class="kw">for </span>route <span class="kw">in </span>region_routes.iter() {
-        <span class="kw">let </span>node_id = route
-            .leader_peer
-            .as_ref()
-            .context(error::UnexpectedSnafu {
-                err_msg: <span class="string">&quot;leader not found&quot;</span>,
-            })<span class="question-mark">?
-            </span>.id;
-
-        <span class="kw">let </span>region_id = route.region.id.region_number();
-        regions_id_map.entry(node_id).or_default().push(region_id);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = route.leader_peer.as_ref() {
+            <span class="kw">let </span>region_id = route.region.id.region_number();
+            regions_id_map.entry(peer.id).or_default().push(region_id);
+        }
     }
     <span class="kw">for </span>(<span class="kw">_</span>, regions) <span class="kw">in </span>regions_id_map.iter_mut() {
         <span class="comment">// id asc
@@ -741,6 +759,24 @@
         .flat_map(|x| <span class="kw-2">&amp;</span>x.leader_peer)
         .cloned()
         .collect()
+}
+
+<span class="kw">pub fn </span>convert_to_region_map(region_routes: <span class="kw-2">&amp;</span>[RegionRoute]) -&gt; HashMap&lt;u32, <span class="kw-2">&amp;</span>Peer&gt; {
+    region_routes
+        .iter()
+        .filter_map(|x| {
+            x.leader_peer
+                .as_ref()
+                .map(|leader| (x.region.id.region_number(), leader))
+        })
+        .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
+}
+
+<span class="kw">pub fn </span>find_region_leader(region_routes: <span class="kw-2">&amp;</span>[RegionRoute], region_number: u32) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Peer&gt; {
+    region_routes
+        .iter()
+        .find(|x| x.region.id.region_number() == region_number)
+        .and_then(|r| r.leader_peer.as_ref())
 }
 
 <span class="kw">pub fn </span>find_leader_regions(region_routes: <span class="kw-2">&amp;</span>[RegionRoute], datanode: <span class="kw-2">&amp;</span>Peer) -&gt; Vec&lt;RegionNumber&gt; {
@@ -964,6 +1000,18 @@
     <span class="kw">pub </span>region: Region,
     <span class="kw">pub </span>leader_peer: <span class="prelude-ty">Option</span>&lt;Peer&gt;,
     <span class="kw">pub </span>follower_peers: Vec&lt;Peer&gt;,
+}
+
+<span class="kw">pub struct </span>RegionRoutes(<span class="kw">pub </span>Vec&lt;RegionRoute&gt;);
+
+<span class="kw">impl </span>RegionRoutes {
+    <span class="kw">pub fn </span>region_map(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;u32, <span class="kw-2">&amp;</span>Peer&gt; {
+        convert_to_region_map(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
+    }
+
+    <span class="kw">pub fn </span>find_region_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, region_number: u32) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Peer&gt; {
+        <span class="self">self</span>.region_map().get(<span class="kw-2">&amp;</span>region_number).copied()
+    }
 }
 
 <span class="attr">#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]

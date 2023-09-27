@@ -668,12 +668,6 @@
 <a href="#668" id="668">668</a>
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -994,9 +988,8 @@
 
         <span class="kw">let </span>do_txn = |txn_op| <span class="kw">match </span>txn_op {
             TxnOp::Put(key, value) =&gt; {
-                <span class="kw">let </span>prev_value = kvs.insert(key.clone(), value);
-                <span class="kw">let </span>prev_kv = prev_value.map(|value| KeyValue { key, value });
-                TxnOpResponse::ResponsePut(PutResponse { prev_kv })
+                kvs.insert(key.clone(), value);
+                TxnOpResponse::ResponsePut(PutResponse { prev_kv: <span class="prelude-val">None </span>})
             }
 
             TxnOp::Get(key) =&gt; {
@@ -1013,16 +1006,11 @@
 
             TxnOp::Delete(key) =&gt; {
                 <span class="kw">let </span>prev_value = kvs.remove(<span class="kw-2">&amp;</span>key);
-                <span class="kw">let </span>deleted = prev_value.as_ref().map(|x| x.len()).unwrap_or(<span class="number">0</span>) <span class="kw">as </span>i64;
-
-                <span class="kw">let </span>prev_kvs = prev_value
-                    .into_iter()
-                    .map(|value| KeyValue {
-                        key: key.clone(),
-                        value,
-                    })
-                    .collect();
-                TxnOpResponse::ResponseDelete(DeleteRangeResponse { deleted, prev_kvs })
+                <span class="kw">let </span>deleted = <span class="kw">if </span>prev_value.is_some() { <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
+                TxnOpResponse::ResponseDelete(DeleteRangeResponse {
+                    deleted,
+                    prev_kvs: <span class="macro">vec!</span>[],
+                })
             }
         };
 

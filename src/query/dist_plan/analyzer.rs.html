@@ -443,6 +443,10 @@
 <a href="#443" id="443">443</a>
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -459,7 +463,6 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>common_telemetry::info;
 <span class="kw">use </span>datafusion::datasource::DefaultTableSource;
 <span class="kw">use </span>datafusion::error::Result <span class="kw">as </span>DfResult;
 <span class="kw">use </span>datafusion_common::config::ConfigOptions;
@@ -491,7 +494,9 @@
     ) -&gt; datafusion_common::Result&lt;LogicalPlan&gt; {
         <span class="kw">let </span>plan = plan.transform(<span class="kw-2">&amp;</span><span class="self">Self</span>::inspect_plan_with_subquery)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>rewriter = PlanRewriter::default();
-        plan.rewrite(<span class="kw-2">&amp;mut </span>rewriter)
+        <span class="kw">let </span>result = plan.rewrite(<span class="kw-2">&amp;mut </span>rewriter)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(result)
     }
 }
 
@@ -583,10 +588,6 @@
     <span class="doccomment">/// Return true if should stop and expand. The input plan is the parent node of current node
     </span><span class="kw">fn </span>should_expand(<span class="kw-2">&amp;mut </span><span class="self">self</span>, plan: <span class="kw-2">&amp;</span>LogicalPlan) -&gt; bool {
         <span class="kw">if </span>DFLogicalSubstraitConvertor.encode(plan).is_err() {
-            <span class="macro">info!</span>(
-                <span class="string">&quot;substrait error: {:?}&quot;</span>,
-                DFLogicalSubstraitConvertor.encode(plan)
-            );
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
 
@@ -692,6 +693,13 @@
     </span><span class="kw">fn </span>mutate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, node: <span class="self">Self</span>::N) -&gt; DfResult&lt;<span class="self">Self</span>::N&gt; {
         <span class="comment">// only expand once on each ascending
         </span><span class="kw">if </span><span class="self">self</span>.is_expanded() {
+            <span class="self">self</span>.pop_stack();
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(node);
+        }
+
+        <span class="comment">// only expand when the leaf is table scan
+        </span><span class="kw">if </span>node.inputs().is_empty() &amp;&amp; !<span class="macro">matches!</span>(node, LogicalPlan::TableScan(<span class="kw">_</span>)) {
+            <span class="self">self</span>.set_expanded();
             <span class="self">self</span>.pop_stack();
             <span class="kw">return </span><span class="prelude-val">Ok</span>(node);
         }

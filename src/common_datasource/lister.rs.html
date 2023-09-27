@@ -81,6 +81,14 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -110,7 +118,7 @@
 <span class="kw">pub struct </span>Lister {
     object_store: ObjectStore,
     source: Source,
-    path: String,
+    root: String,
     regex: <span class="prelude-ty">Option</span>&lt;Regex&gt;,
 }
 
@@ -118,13 +126,13 @@
     <span class="kw">pub fn </span>new(
         object_store: ObjectStore,
         source: Source,
-        path: String,
+        root: String,
         regex: <span class="prelude-ty">Option</span>&lt;Regex&gt;,
     ) -&gt; <span class="self">Self </span>{
         Lister {
             object_store,
             source,
-            path,
+            root,
             regex,
         }
     }
@@ -134,9 +142,9 @@
             Source::Dir =&gt; {
                 <span class="kw">let </span>streamer = <span class="self">self
                     </span>.object_store
-                    .list(<span class="kw-2">&amp;</span><span class="self">self</span>.path)
+                    .lister_with(<span class="string">&quot;/&quot;</span>)
                     .<span class="kw">await
-                    </span>.context(error::ListObjectsSnafu { path: <span class="kw-2">&amp;</span><span class="self">self</span>.path })<span class="question-mark">?</span>;
+                    </span>.context(error::ListObjectsSnafu { path: <span class="kw-2">&amp;</span><span class="self">self</span>.root })<span class="question-mark">?</span>;
 
                 streamer
                     .try_filter(|f| {
@@ -149,17 +157,25 @@
                     })
                     .try_collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
                     .<span class="kw">await
-                    </span>.context(error::ListObjectsSnafu { path: <span class="kw-2">&amp;</span><span class="self">self</span>.path })
+                    </span>.context(error::ListObjectsSnafu { path: <span class="kw-2">&amp;</span><span class="self">self</span>.root })
             }
             Source::Filename(filename) =&gt; {
                 <span class="comment">// make sure this file exists
-                </span><span class="kw">let </span>file_full_path = <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, <span class="self">self</span>.path, filename);
-                <span class="kw">let _ </span>= <span class="self">self</span>.object_store.stat(<span class="kw-2">&amp;</span>file_full_path).<span class="kw">await</span>.context(
+                </span><span class="kw">let _ </span>= <span class="self">self</span>.object_store.stat(filename).<span class="kw">await</span>.with_context(|<span class="kw">_</span>| {
                     error::ListObjectsSnafu {
-                        path: <span class="kw-2">&amp;</span>file_full_path,
-                    },
-                )<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[Entry::new(<span class="kw-2">&amp;</span>file_full_path)])
+                        path: <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.root, filename),
+                    }
+                })<span class="question-mark">?</span>;
+
+                <span class="prelude-val">Ok</span>(<span class="self">self
+                    </span>.object_store
+                    .list_with(<span class="string">&quot;/&quot;</span>)
+                    .<span class="kw">await
+                    </span>.context(error::ListObjectsSnafu { path: <span class="kw-2">&amp;</span><span class="self">self</span>.root })<span class="question-mark">?
+                    </span>.into_iter()
+                    .find(|f| f.name() == filename)
+                    .map(|f| <span class="macro">vec!</span>[f])
+                    .unwrap_or_default())
             }
         }
     }

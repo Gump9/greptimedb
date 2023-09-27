@@ -58,9 +58,6 @@
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Greptime Team
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -84,9 +81,6 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::error::Result;
 
-<span class="kw">pub const </span>LEASE_SECS: i64 = <span class="number">5</span>;
-<span class="comment">// In a lease, there are two opportunities for renewal.
-</span><span class="kw">pub const </span>KEEP_ALIVE_PERIOD_SECS: u64 = LEASE_SECS <span class="kw">as </span>u64 / <span class="number">2</span>;
 <span class="kw">pub const </span>ELECTION_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__meta_srv_election&quot;</span>;
 
 <span class="attr">#[derive(Debug, Clone)]
